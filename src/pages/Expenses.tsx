@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
 import { cn } from "@/lib/utils";
 import { usePrivacy } from "@/lib/privacy";
+import { DateField } from "@/components/DateField";
 
 export default function Page() { return (<AppShell><PageTransition><ExpensesPage /></PageTransition></AppShell>); }
 

@@ -30,6 +30,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { usePrivacy } from "@/lib/privacy";
+import { DateField } from "@/components/DateField";
 
 export default function Page() {
   return (
@@ -321,7 +322,7 @@ function SupplierFormDialog({
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [notes, setNotes] = useState("");
-  const [opening, setOpening] = useState("0");
+  const [opening, setOpening] = useState("");
   const [busy, setBusy] = useState(false);
 
   // Reset on open
@@ -329,7 +330,7 @@ function SupplierFormDialog({
     setName(editing?.name ?? "");
     setContact(editing?.contact ?? "");
     setNotes(editing?.notes ?? "");
-    setOpening(String(editing?.openingBalance ?? 0));
+    setOpening(editing?.openingBalance ? String(editing.openingBalance) : "");
   });
 
   const submit = async () => {

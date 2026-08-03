@@ -1065,7 +1065,7 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
   const [products, setProducts] = useState<ProductRow[]>([
     { id: crypto.randomUUID(), name: "", cost: "", price: "", quantity: "1" },
   ]);
-  const [down, setDown] = useState("0");
+  const [down, setDown] = useState("");
   const [monthly, setMonthly] = useState("");
   const [count, setCount] = useState("");
   const [date, setDate] = useState<Date | undefined>(undefined);

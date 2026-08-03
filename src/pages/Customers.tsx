@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
 import { usePrivacy } from "@/lib/privacy";
+import { DateField } from "@/components/DateField";
 
 const EG_PHONE_RE = /^01[0125]\d{8}$/;
 
@@ -1073,7 +1074,7 @@ function QuickAddInvoice({ customerId, blocked }: { customerId: string; blocked:
   const [productName, setProductName] = useState("");
   const [cost, setCost] = useState("");
   const [total, setTotal] = useState("");
-  const [down, setDown] = useState("0");
+  const [down, setDown] = useState("");
   const [monthly, setMonthly] = useState("");
   const [dateInput, setDateInput] = useState("");
   const [notes, setNotes] = useState("");
@@ -1375,8 +1376,8 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
   const [frozen, setFrozen] = useState(customer?.frozen ?? false);
   const [address, setAddress] = useState(customer?.address ?? "");
   const [joiningDate, setJoiningDate] = useState(customer?.joiningDate ?? today);
-  const [creditLimit, setCreditLimit] = useState<string>(String(customer?.creditLimit ?? 0));
-  const [openingBalance, setOpeningBalance] = useState<string>(String(customer?.openingBalance ?? 0));
+  const [creditLimit, setCreditLimit] = useState<string>(customer?.creditLimit ? String(customer.creditLimit) : "");
+  const [openingBalance, setOpeningBalance] = useState<string>(customer?.openingBalance ? String(customer.openingBalance) : "");
   const [dueDay, setDueDay] = useState<number>(customer?.dueDay ?? 1);
   const [joiningDateInput, setJoiningDateInput] = useState<string>(isoToDDMMYYYY(customer?.joiningDate ?? today));
   const [pressed, setPressed] = useState(false);
@@ -1468,7 +1469,7 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
                     type="button"
                     onClick={() => {
                       setCustomerType(opt.key);
-                      if (opt.key === "cash") { setCreditLimit("0"); setDueDay(1); }
+                      if (opt.key === "cash") { setCreditLimit(""); setDueDay(1); }
                     }}
                     aria-pressed={active}
                     className={cn(

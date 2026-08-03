@@ -492,9 +492,9 @@ function AdjustDialog({ item, onClose }: { item: StockItem | null; onClose: () =
 
 function EditDialog({ item, onClose }: { item: StockItem | null; onClose: () => void }) {
   const [name, setName] = useState("");
-  const [qty, setQty] = useState("0");
-  const [cost, setCost] = useState("0");
-  const [price, setPrice] = useState("0");
+  const [qty, setQty] = useState("");
+  const [cost, setCost] = useState("");
+  const [price, setPrice] = useState("");
   const [barcode, setBarcode] = useState("");
   const [reason, setReason] = useState<string>("correction");
   const [reasonNotes, setReasonNotes] = useState("");
@@ -757,9 +757,9 @@ function AddProductDialog({ open, onOpenChange, prefillBarcode, existingBarcodes
   existingBarcodes: Array<string | null>;
 }) {
   const [name, setName] = useState("");
-  const [qty, setQty] = useState("0");
-  const [cost, setCost] = useState("0");
-  const [price, setPrice] = useState("0");
+  const [qty, setQty] = useState("");
+  const [cost, setCost] = useState("");
+  const [price, setPrice] = useState("");
   const [category, setCategory] = useState("other");
   const [barcode, setBarcode] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
