@@ -65,7 +65,7 @@ export function useMyRole() {
     const { data } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
     const roles = (data ?? []).map((r) => r.role as AppRole);
     roles.sort((a, b) => ROLE_RANK[b] - ROLE_RANK[a]);
-    let best = roles[0] ?? null;
+    let best: AppRole | null = roles[0] ?? null;
     if (!best) {
       // No role row yet (fresh signup / invited account) — bootstrap it server-side.
       const { data: bootstrapped } = await supabase.rpc("bootstrap_my_role");
