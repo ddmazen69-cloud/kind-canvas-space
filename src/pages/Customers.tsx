@@ -1379,7 +1379,6 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
   const [creditLimit, setCreditLimit] = useState<string>(customer?.creditLimit ? String(customer.creditLimit) : "");
   const [openingBalance, setOpeningBalance] = useState<string>(customer?.openingBalance ? String(customer.openingBalance) : "");
   const [dueDay, setDueDay] = useState<number>(customer?.dueDay ?? 1);
-  const [joiningDateInput, setJoiningDateInput] = useState<string>(isoToDDMMYYYY(customer?.joiningDate ?? today));
   const [pressed, setPressed] = useState(false);
 
   const phoneValid = EG_PHONE_RE.test(phone);
@@ -1388,8 +1387,8 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
   const submit = () => {
     if (!name.trim()) return toast.error("الاسم مطلوب");
     if (!phoneValid) return toast.error("رقم الهاتف يجب أن يبدأ بـ 010 أو 011 أو 012 أو 015 ويتكون من 11 رقم");
-    const iso = ddmmyyyyToIso(joiningDateInput);
-    if (!iso) return toast.error("تاريخ الانضمام غير صحيح. الصيغة: يوم/شهر/سنة");
+    const iso = joiningDate;
+    if (!iso) return toast.error("اختر تاريخ الانضمام");
     const payload = {
       name, phone, rating: rating as any, status, customerType,
       notes, frozen,
