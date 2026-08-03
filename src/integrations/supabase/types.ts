@@ -499,6 +499,7 @@ export type Database = {
           contact: string
           created_at: string
           id: string
+          joining_date: string
           name: string
           notes: string | null
           opening_balance: number
@@ -508,6 +509,7 @@ export type Database = {
           contact?: string
           created_at?: string
           id?: string
+          joining_date?: string
           name: string
           notes?: string | null
           opening_balance?: number
@@ -517,6 +519,7 @@ export type Database = {
           contact?: string
           created_at?: string
           id?: string
+          joining_date?: string
           name?: string
           notes?: string | null
           opening_balance?: number
