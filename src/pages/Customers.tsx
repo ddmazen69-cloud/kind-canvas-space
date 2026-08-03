@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
 import { usePrivacy } from "@/lib/privacy";
+import { DateField } from "@/components/DateField";
 
 const EG_PHONE_RE = /^01[0125]\d{8}$/;
 
@@ -1073,7 +1074,7 @@ function QuickAddInvoice({ customerId, blocked }: { customerId: string; blocked:
   const [productName, setProductName] = useState("");
   const [cost, setCost] = useState("");
   const [total, setTotal] = useState("");
-  const [down, setDown] = useState("0");
+  const [down, setDown] = useState("");
   const [monthly, setMonthly] = useState("");
   const [dateInput, setDateInput] = useState("");
   const [notes, setNotes] = useState("");
@@ -1096,7 +1097,7 @@ function QuickAddInvoice({ customerId, blocked }: { customerId: string; blocked:
     db.addInvoice({ customerId, total: t, downPayment: d, monthlyInstallment: mo, firstDueDate: iso, notes: productNotes });
     toast.success("تمت إضافة الفاتورة");
     setOpen(false);
-    setProductName(""); setCost(""); setTotal(""); setDown("0"); setMonthly(""); setDateInput(""); setNotes("");
+    setProductName(""); setCost(""); setTotal(""); setDown(""); setMonthly(""); setDateInput(""); setNotes("");
   };
 
   return (
@@ -1375,10 +1376,9 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
   const [frozen, setFrozen] = useState(customer?.frozen ?? false);
   const [address, setAddress] = useState(customer?.address ?? "");
   const [joiningDate, setJoiningDate] = useState(customer?.joiningDate ?? today);
-  const [creditLimit, setCreditLimit] = useState<string>(String(customer?.creditLimit ?? 0));
-  const [openingBalance, setOpeningBalance] = useState<string>(String(customer?.openingBalance ?? 0));
+  const [creditLimit, setCreditLimit] = useState<string>(customer?.creditLimit ? String(customer.creditLimit) : "");
+  const [openingBalance, setOpeningBalance] = useState<string>(customer?.openingBalance ? String(customer.openingBalance) : "");
   const [dueDay, setDueDay] = useState<number>(customer?.dueDay ?? 1);
-  const [joiningDateInput, setJoiningDateInput] = useState<string>(isoToDDMMYYYY(customer?.joiningDate ?? today));
   const [pressed, setPressed] = useState(false);
 
   const phoneValid = EG_PHONE_RE.test(phone);
@@ -1387,8 +1387,8 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
   const submit = () => {
     if (!name.trim()) return toast.error("الاسم مطلوب");
     if (!phoneValid) return toast.error("رقم الهاتف يجب أن يبدأ بـ 010 أو 011 أو 012 أو 015 ويتكون من 11 رقم");
-    const iso = ddmmyyyyToIso(joiningDateInput);
-    if (!iso) return toast.error("تاريخ الانضمام غير صحيح. الصيغة: يوم/شهر/سنة");
+    const iso = joiningDate;
+    if (!iso) return toast.error("اختر تاريخ الانضمام");
     const payload = {
       name, phone, rating: rating as any, status, customerType,
       notes, frozen,
@@ -1468,7 +1468,7 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
                     type="button"
                     onClick={() => {
                       setCustomerType(opt.key);
-                      if (opt.key === "cash") { setCreditLimit("0"); setDueDay(1); }
+                      if (opt.key === "cash") { setCreditLimit(""); setDueDay(1); }
                     }}
                     aria-pressed={active}
                     className={cn(
@@ -1488,25 +1488,16 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
             </div>
           </div>
 
-          {/* Joining date */}
+          {/* Joining date — نفس تصميم «تاريخ أول قسط» */}
           <div>
             <Label>تاريخ الانضمام</Label>
-            <Input
-              type="text"
-              inputMode="numeric"
-              value={joiningDateInput}
-              onChange={(e) => {
-                let v = e.target.value.replace(/[^\d/]/g, "").slice(0, 10);
-                // Auto-insert slashes
-                const digits = v.replace(/\//g, "");
-                if (digits.length >= 5) v = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`;
-                else if (digits.length >= 3) v = `${digits.slice(0, 2)}/${digits.slice(2)}`;
-                else v = digits;
-                setJoiningDateInput(v);
-              }}
-              placeholder="يوم/شهر/سنة"
-              dir="ltr"
-              maxLength={10}
+            <DateField
+              value={joiningDate}
+              onChange={setJoiningDate}
+              quickActions={[
+                { label: "النهارده", date: () => new Date() },
+                { label: "أول الشهر", date: () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); } },
+              ]}
             />
           </div>
 

@@ -1065,7 +1065,7 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
   const [products, setProducts] = useState<ProductRow[]>([
     { id: crypto.randomUUID(), name: "", cost: "", price: "", quantity: "1" },
   ]);
-  const [down, setDown] = useState("0");
+  const [down, setDown] = useState("");
   const [monthly, setMonthly] = useState("");
   const [count, setCount] = useState("");
   const [date, setDate] = useState<Date | undefined>(undefined);
@@ -1200,7 +1200,7 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
 
   const reset = () => {
     setCustomerId(""); setProducts([{ id: crypto.randomUUID(), name: "", cost: "", price: "", quantity: "1" }]);
-    setDown("0"); setMonthly("");
+    setDown(""); setMonthly("");
     setCount(String(Math.max(1, shop.defaultInstallmentMonths || 6)));
     setDate(defaultFirstDue());
     setNotes("");
@@ -1285,7 +1285,7 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
                 const c = data.customers.find((x) => x.id === v);
                 if (c?.customerType === "cash") {
                   setSaleType("cash");
-                  setDown("0");
+                  setDown("");
                   setMonthly(""); setCount("");
                 } else if (c) {
                   setSaleType("installments");
@@ -1354,7 +1354,7 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
                         }
                         setSaleType(opt.key);
                         if (opt.key === "installments" && !date) setDate(addMonths(new Date(), 1));
-                        if (opt.key === "cash") setDown("0");
+                        if (opt.key === "cash") setDown("");
                       }}
                       aria-pressed={active}
                       className={cn(
