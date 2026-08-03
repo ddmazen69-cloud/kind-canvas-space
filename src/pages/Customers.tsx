@@ -152,18 +152,16 @@ function CustomersPage() {
 
   const debtStats = useMemo(() => {
     const totalDebt = enriched.reduce((s, x) => s + Math.max(0, x.m.balance), 0);
-    const now = Date.now();
-    const week = 7 * 86400000;
-    let thisWeek = 0, prevWeek = 0;
-    for (const p of data.payments) {
-      const t = new Date(p.paidAt).getTime();
-      if (now - t <= week) thisWeek += p.amount;
-      else if (now - t <= 2 * week) prevWeek += p.amount;
-    }
+    const now = new Date();
     const debtors = enriched.filter((x) => x.m.balance > 0).length;
-    const trendPct = prevWeek > 0 ? Math.round(((thisWeek - prevWeek) / prevWeek) * 100) : (thisWeek > 0 ? 100 : 0);
-    return { totalDebt, thisWeek, trendPct, debtors };
-  }, [enriched, data.payments]);
+    const newThisMonth = data.customers.filter((c) => {
+      if (!c.joiningDate) return false;
+      const d = new Date(c.joiningDate);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    }).length;
+    return { totalDebt, debtors, newThisMonth };
+  }, [enriched, data.customers]);
+
 
   const list = useMemo(() => {
     const filtered = enriched
