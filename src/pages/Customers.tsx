@@ -152,18 +152,16 @@ function CustomersPage() {
 
   const debtStats = useMemo(() => {
     const totalDebt = enriched.reduce((s, x) => s + Math.max(0, x.m.balance), 0);
-    const now = Date.now();
-    const week = 7 * 86400000;
-    let thisWeek = 0, prevWeek = 0;
-    for (const p of data.payments) {
-      const t = new Date(p.paidAt).getTime();
-      if (now - t <= week) thisWeek += p.amount;
-      else if (now - t <= 2 * week) prevWeek += p.amount;
-    }
+    const now = new Date();
     const debtors = enriched.filter((x) => x.m.balance > 0).length;
-    const trendPct = prevWeek > 0 ? Math.round(((thisWeek - prevWeek) / prevWeek) * 100) : (thisWeek > 0 ? 100 : 0);
-    return { totalDebt, thisWeek, trendPct, debtors };
-  }, [enriched, data.payments]);
+    const newThisMonth = data.customers.filter((c) => {
+      if (!c.joiningDate) return false;
+      const d = new Date(c.joiningDate);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    }).length;
+    return { totalDebt, debtors, newThisMonth };
+  }, [enriched, data.customers]);
+
 
   const list = useMemo(() => {
     const filtered = enriched
@@ -285,64 +283,104 @@ function CustomersPage() {
         }
       />
 
-      {/* ===== Bento: KPI + بحث + فلاتر ===== */}
+      {/* ===== Bento: KPI عملاء (كل كارت بيفلتر القائمة) ===== */}
       <Reveal className="mb-10 grid grid-cols-1 gap-4 md:grid-cols-12">
-        {/* البطاقة الكبيرة */}
-        <div className="bezel-shell bezel-lift md:col-span-7">
+        {/* البطاقة الكبيرة: إجمالي العملاء */}
+        <button
+          type="button"
+          onClick={() => setFilter("all")}
+          aria-pressed={filter === "all"}
+          className={cn(
+            "bezel-shell bezel-lift text-right transition-transform duration-300 hover:-translate-y-0.5 md:col-span-7",
+            filter === "all" && "ring-2 ring-primary/40",
+          )}
+        >
           <div className="bezel-core flex h-full flex-col justify-between gap-6 p-6 md:p-7">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
               <div className="min-w-0">
-                <span className="eyebrow">Outstanding</span>
-                <div className="mt-3 text-xs font-medium text-muted-foreground">إجمالي الديون بالخارج</div>
-                <div className={cn("text-numeric mt-1.5 text-4xl font-extrabold leading-none text-primary md:text-5xl", privacy && "privacy-blur")}>
-                  {fmt(debtStats.totalDebt)}
-                  <span className="ms-2 align-middle text-base font-bold text-muted-foreground">ج.م</span>
+                <span className="eyebrow">Customers</span>
+                <div className="mt-3 text-xs font-medium text-muted-foreground">إجمالي العملاء</div>
+                <div className="text-numeric mt-1.5 text-4xl font-extrabold leading-none text-primary md:text-5xl">
+                  {counts.all}
+                  <span className="ms-2 align-middle text-base font-bold text-muted-foreground">عميل</span>
                 </div>
               </div>
-              <div
-                className={cn(
-                  "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold",
-                  debtStats.trendPct >= 0
-                    ? "bg-success/12 text-success ring-1 ring-success/25"
-                    : "bg-danger/12 text-danger ring-1 ring-danger/25",
-                )}
-              >
-                {debtStats.trendPct >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                {debtStats.trendPct >= 0 ? "تحصيل" : "تراجع"} {Math.abs(debtStats.trendPct)}٪
+              <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-success/12 px-3 py-1.5 text-[11px] font-bold text-success ring-1 ring-success/25">
+                <ArrowUp className="h-3 w-3" />
+                {debtStats.newThisMonth} جديد الشهر ده
               </div>
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-primary/70" />
-              موزعة على {debtStats.debtors} عميل من إجمالي {counts.all}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                {counts.installment} عميل أقساط
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-success/70" />
+                {counts.cash} عميل فوري
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-warning/70" />
+                {debtStats.debtors} عليهم مديونية
+              </span>
             </div>
           </div>
-        </div>
+        </button>
 
         {/* عمود مصغّر */}
         <div className="grid gap-4 md:col-span-5">
-          <div className="bezel-shell bezel-lift">
+          <button
+            type="button"
+            onClick={() => setFilter("installment")}
+            aria-pressed={filter === "installment"}
+            className={cn(
+              "bezel-shell bezel-lift text-right transition-transform duration-300 hover:-translate-y-0.5",
+              filter === "installment" && "ring-2 ring-primary/40",
+            )}
+          >
             <div className="bezel-core p-6">
-              <div className="text-xs font-medium text-muted-foreground">محصّل هذا الأسبوع</div>
-              <div className={cn("text-numeric mt-1.5 text-3xl font-extrabold leading-none text-success", privacy && "privacy-blur")}>
-                {fmt(debtStats.thisWeek)}
-                <span className="ms-2 align-middle text-sm font-bold text-muted-foreground">ج.م</span>
+              <div className="text-xs font-medium text-muted-foreground">عملاء عليهم مديونية</div>
+              <div className="text-numeric mt-1.5 text-3xl font-extrabold leading-none text-primary">
+                {debtStats.debtors}
+                <span className="ms-2 align-middle text-sm font-bold text-muted-foreground">
+                  من {counts.all} عميل
+                </span>
               </div>
             </div>
-          </div>
-          <div className="bezel-shell bezel-lift">
-            <div className="bezel-core grid grid-cols-2 gap-4 p-6">
-              <div>
+          </button>
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => setFilter("overdue")}
+              aria-pressed={filter === "overdue"}
+              className={cn(
+                "bezel-shell bezel-lift text-right transition-transform duration-300 hover:-translate-y-0.5",
+                filter === "overdue" && "ring-2 ring-warning/40",
+              )}
+            >
+              <div className="bezel-core p-6">
                 <div className="text-xs font-medium text-muted-foreground">متأخرون</div>
                 <div className="text-numeric mt-1 text-2xl font-extrabold leading-none text-warning">{counts.overdue}</div>
               </div>
-              <div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("settled")}
+              aria-pressed={filter === "settled"}
+              className={cn(
+                "bezel-shell bezel-lift text-right transition-transform duration-300 hover:-translate-y-0.5",
+                filter === "settled" && "ring-2 ring-success/40",
+              )}
+            >
+              <div className="bezel-core p-6">
                 <div className="text-xs font-medium text-muted-foreground">خالصون</div>
                 <div className="text-numeric mt-1 text-2xl font-extrabold leading-none text-success">{counts.settled}</div>
               </div>
-            </div>
+            </button>
           </div>
         </div>
       </Reveal>
+
 
       {/* شريط التحكّم: فلاتر + بحث */}
       <Reveal delay={80} className="mb-8">
