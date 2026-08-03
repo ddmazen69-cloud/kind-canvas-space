@@ -18,17 +18,18 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import {
   useProfile, useShopSettings, saveShopSettings, fmt,
   type ShopSettings, type ThemeMode, type PrintPaper,
 } from "@/lib/store";
 import { applyTheme } from "@/lib/theme";
-import { downloadExcelBackup, downloadJsonBackup, dataCounts, wipeAllData } from "@/lib/backup";
+import { DATA_TABLES, dataCounts, dataMeta, downloadExcelBackup, downloadJsonBackup, getActivity, importBackup, logActivity, readImportFile, wipeAllData, type ActivityEntry, type BackupPayload } from "@/lib/backup";
 import {
   Settings as SettingsIcon, Store, KeyRound, Save, LogOut, Receipt, Bell,
   Palette, Database, Upload, Trash2, FileJson, FileSpreadsheet, RotateCcw, ShieldAlert, Mail,
-  UserRound, ShieldCheck, Users, Link2, Copy, Check,
+  UserRound, ShieldCheck, Users, Link2, Copy, Check, ArchiveRestore, CalendarDays, CheckCircle2, Clock3, Download, FileUp, HardDrive, History, AlertTriangle,
 } from "lucide-react";
 import { UserAvatar } from "@/components/UserChip";
 import { useMyRole, useTeam, ROLE_LABEL, ROLE_HINT, ABILITIES, relativeTime, type AppRole } from "@/lib/roles";
@@ -760,14 +761,22 @@ function pwStrength(pw: string) {
 /* ------------------------------ البيانات ------------------------------ */
 function DataTab() {
   const [counts, setCounts] = useState<Record<string, number> | null>(null);
+  const [meta, setMeta] = useState<{ bytes: number; latest: string | null } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
+  const [selected, setSelected] = useState<string[]>([...DATA_TABLES]);
+  const [from, setFrom] = useState(""); const [to, setTo] = useState("");
+  const [file, setFile] = useState<File | null>(null); const [backup, setBackup] = useState<BackupPayload | null>(null);
+  const [importSelected, setImportSelected] = useState<string[]>([]); const [importOpen, setImportOpen] = useState(false);
+  const [importError, setImportError] = useState(""); const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(() => {
-    dataCounts().then(setCounts).catch(() => setCounts({}));
+  const load = useCallback(async () => {
+    try { const [nextCounts, nextMeta, nextActivity] = await Promise.all([dataCounts(), dataMeta(), getActivity()]); setCounts(nextCounts); setMeta(nextMeta); setActivity(nextActivity); }
+    catch { setCounts({}); }
   }, []);
-  useEffect(load, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   const run = async (key: string, fn: () => Promise<unknown>, ok: string) => {
     setBusy(key);
@@ -775,51 +784,37 @@ function DataTab() {
     catch (e: unknown) { toast.error(e instanceof Error ? e.message : "حصلت مشكلة"); }
     finally { setBusy(null); }
   };
+  const flip = (table: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => setter((all) => all.includes(table) ? all.filter((item) => item !== table) : [...all, table]);
+  const exportData = async (format: "json" | "xlsx") => {
+    if (!selected.length) { toast.error("اختَر قسم بيانات واحدًا على الأقل"); return; }
+    await run(format, async () => { const options = { tables: selected, from: from || undefined, to: to || undefined }; const exported = format === "json" ? await downloadJsonBackup(options) : await downloadExcelBackup(options); await logActivity(format === "json" ? "backup" : "export", `تصدير ${Object.values(exported.tables).reduce((sum, rows) => sum + rows.length, 0)} سجل بصيغة ${format === "json" ? "JSON" : "Excel"}`); setActivity(await getActivity()); }, format === "json" ? "تم تنزيل النسخة الاحتياطية" : "تم تنزيل ملف Excel");
+  };
+  const inspect = async (nextFile: File | undefined) => { setFile(nextFile ?? null); setBackup(null); setImportSelected([]); setImportError(""); if (!nextFile) return; setBusy("inspect"); try { const parsed = await readImportFile(nextFile); const tables = Object.keys(parsed.tables).filter((table) => (parsed.tables[table] ?? []).length); setBackup(parsed); setImportSelected(tables); if (!tables.length) setImportError("الملف صالح، لكنه لا يحتوي على سجلات."); } catch (error) { setImportError(error instanceof Error ? error.message : "تعذر قراءة الملف"); } finally { setBusy(null); } };
+  const confirmImport = async () => { if (!backup || !importSelected.length) return; await run("import", async () => { const total = await importBackup(backup, importSelected); await logActivity("import", `استيراد ${total} سجل من ${file?.name ?? "ملف"}`); setActivity(await getActivity()); setImportOpen(false); await load(); }, "تم استيراد البيانات ودمجها"); };
+  const total = counts ? Object.values(counts).reduce((sum, value) => sum + value, 0) : 0;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <Section icon={<Database className="w-5 h-5" />} title="ملخص بياناتك" hint="عدد السجلات المخزّنة على حسابك.">
-        <div className="grid grid-cols-2 gap-2">
-          {Object.entries(TABLE_LABELS).map(([key, label]) => (
-            <div key={key} className="rounded-2xl bg-foreground/[0.04] p-3 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">{label}</span>
-              <span className="text-sm font-bold tabular-nums">{counts ? fmt(counts[key] ?? 0) : "…"}</span>
-            </div>
-          ))}
-        </div>
-        <Button variant="ghost" size="sm" className="mt-3 gap-1.5" onClick={load}>
-          <RotateCcw className="w-4 h-4" /> تحديث
-        </Button>
+    <div className="grid gap-6">
+      <Section icon={<Database className="w-5 h-5" />} title="ملخص بياناتك" hint="إجمالي البيانات وحجمها وآخر تحديث لها.">
+        <div className="grid gap-3 sm:grid-cols-3 mb-5"><Metric icon={<Database className="w-4 h-4" />} label="إجمالي السجلات" value={counts ? fmt(total) : "…"} /><Metric icon={<HardDrive className="w-4 h-4" />} label="الحجم التقريبي" value={meta ? bytes(meta.bytes) : "…"} /><Metric icon={<CalendarDays className="w-4 h-4" />} label="آخر تحديث" value={meta?.latest ? new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium" }).format(new Date(meta.latest)) : "لا توجد بيانات"} /></div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">{Object.entries(TABLE_LABELS).map(([key, label]) => <CountCard key={key} label={label} value={counts ? counts[key] ?? 0 : null} />)}</div>
+        <Button variant="ghost" size="sm" className="mt-3 gap-1.5" onClick={load}><RotateCcw className="w-4 h-4" /> تحديث الملخص</Button>
       </Section>
-
-      <div className="grid gap-6 h-fit">
-        <Section icon={<FileJson className="w-5 h-5" />} title="نسخة احتياطية" hint="نزّل كل بياناتك على جهازك في ملف واحد.">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="secondary" className="gap-1.5" disabled={busy !== null}
-              onClick={() => run("json", downloadJsonBackup, "تم تنزيل النسخة الاحتياطية (JSON)")}
-            >
-              <FileJson className="w-4 h-4" /> تنزيل JSON
-            </Button>
-            <Button
-              variant="secondary" className="gap-1.5" disabled={busy !== null}
-              onClick={() => run("xlsx", downloadExcelBackup, "تم تنزيل ملف Excel")}
-            >
-              <FileSpreadsheet className="w-4 h-4" /> تنزيل Excel
-            </Button>
-          </div>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Section icon={<ArchiveRestore className="w-5 h-5" />} title="نسخ احتياطي وتصدير" hint="اختر الأقسام والفترة الزمنية قبل التنزيل.">
+          <div className="flex justify-between mb-3"><Label>الأقسام المضمنة</Label><Button variant="ghost" size="sm" onClick={() => setSelected(selected.length === DATA_TABLES.length ? [] : [...DATA_TABLES])}>{selected.length === DATA_TABLES.length ? "إلغاء الكل" : "اختيار الكل"}</Button></div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{DATA_TABLES.map((table) => <label key={table} className="flex items-center gap-2 rounded-xl bg-foreground/[0.04] px-3 py-2 text-xs"><input type="checkbox" checked={selected.includes(table)} onChange={() => flip(table, setSelected)} className="accent-primary" />{TABLE_LABELS[table]}</label>)}</div>
+          <div className="grid gap-3 sm:grid-cols-2 mt-5"><Field label="من تاريخ"><Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></Field><Field label="إلى تاريخ"><Input type="date" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} /></Field></div>
+          <div className="mt-5 rounded-2xl bg-primary/8 p-4 flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-bold">إنشاء نسخة احتياطية الآن</p><p className="text-xs text-muted-foreground">تشمل الاختيارات أعلاه فقط.</p></div><div className="flex gap-2"><Button disabled={busy !== null} onClick={() => exportData("json")} className="gap-1.5"><FileJson className="w-4 h-4" /> JSON</Button><Button disabled={busy !== null} onClick={() => exportData("xlsx")} variant="secondary" className="gap-1.5"><FileSpreadsheet className="w-4 h-4" /> Excel</Button></div></div>
         </Section>
-
-        <Section icon={<ShieldAlert className="w-5 h-5" />} title="منطقة الخطر" hint="حذف كل العملاء والفواتير والمخزن والمصروفات نهائياً. بيانات المحل بتفضل زي ما هي.">
-          <Button
-            variant="outline"
-            className="gap-1.5 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
-            onClick={() => { setConfirmText(""); setConfirmOpen(true); }}
-          >
-            <Trash2 className="w-4 h-4" /> حذف كل البيانات
-          </Button>
+        <Section icon={<FileUp className="w-5 h-5" />} title="استيراد واستعادة البيانات" hint="ستراجع الملف قبل الدمج، ولن يتم الحفظ تلقائياً.">
+          <input ref={fileRef} type="file" accept=".json,.xlsx,.xls" className="hidden" onChange={(event) => inspect(event.target.files?.[0])} />
+          <div className="rounded-2xl border border-dashed border-border p-5 text-center"><Upload className="w-6 h-6 text-primary mx-auto mb-2" /><p className="text-sm font-bold">استيراد JSON أو Excel</p><p className="text-xs text-muted-foreground mt-1">السجلات بنفس المعرف سيتم تحديثها فقط.</p><Button variant="secondary" className="mt-4 gap-1.5" onClick={() => fileRef.current?.click()} disabled={busy !== null}><FileUp className="w-4 h-4" /> اختيار ملف</Button></div>
+          {importError ? <p className="mt-3 text-xs text-destructive">{importError}</p> : null}
+          {backup ? <div className="mt-4 rounded-2xl bg-success/10 p-4"><p className="text-sm font-bold flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-success" />الملف جاهز للمراجعة</p><p className="text-xs text-muted-foreground mt-1">{file?.name} يحتوي على {fmt(Object.values(backup.tables).reduce((sum, rows) => sum + rows.length, 0))} سجل.</p><Button size="sm" className="mt-3 gap-1.5" onClick={() => setImportOpen(true)}><Download className="w-4 h-4" /> مراجعة واستيراد</Button></div> : null}
         </Section>
       </div>
+      <div className="grid gap-6 xl:grid-cols-[1.3fr_.7fr]"><Section icon={<History className="w-5 h-5" />} title="سجل عمليات البيانات" hint="العمليات وتوقيتها ومنفذها.">{activity.length ? <div className="grid gap-2">{activity.slice(0, 8).map((entry) => <Activity key={entry.id} entry={entry} />)}</div> : <p className="rounded-2xl bg-foreground/[0.04] p-4 text-sm text-muted-foreground">لا توجد عمليات مسجلة بعد.</p>}</Section><Section className="border border-destructive/25" icon={<AlertTriangle className="w-5 h-5 text-destructive" />} title="منطقة الخطر" hint={`سيتم حذف ${fmt(total)} سجل، مع بقاء بيانات المحل.`}><div className="rounded-xl bg-destructive/8 p-3 text-xs leading-6 text-muted-foreground">العملية نهائية. نزّل نسخة احتياطية قبل المتابعة.</div><Button variant="outline" className="mt-4 gap-1.5 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive" onClick={() => { setConfirmText(""); setConfirmOpen(true); }}><Trash2 className="w-4 h-4" /> حذف كل البيانات</Button></Section></div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent dir="rtl">
@@ -837,7 +832,7 @@ function DataTab() {
               disabled={confirmText.trim() !== "حذف" || busy !== null}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={async () => {
-                await run("wipe", wipeAllData, "تم حذف كل البيانات");
+                await run("wipe", async () => { const deleted = await wipeAllData(); await logActivity("delete", `حذف نهائي لـ ${deleted} سجل`); setActivity(await getActivity()); }, "تم حذف كل البيانات");
                 setConfirmOpen(false);
                 load();
               }}
@@ -847,9 +842,14 @@ function DataTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog open={importOpen} onOpenChange={setImportOpen}><DialogContent dir="rtl" className="sm:max-w-xl"><DialogHeader><DialogTitle className="text-right">مراجعة الاستيراد</DialogTitle><DialogDescription className="text-right">اختر الأقسام المراد دمجها، ثم أكّد العملية.</DialogDescription></DialogHeader>{backup ? <div className="grid gap-2">{Object.entries(backup.tables).filter(([, rows]) => rows.length).map(([table, rows]) => <label key={table} className="flex items-center justify-between rounded-xl bg-foreground/[0.04] px-3 py-3"><span className="flex gap-2 text-sm"><input type="checkbox" checked={importSelected.includes(table)} onChange={() => flip(table, setImportSelected)} className="accent-primary" />{TABLE_LABELS[table] ?? table}</span><Badge variant="secondary">{fmt(rows.length)} سجل</Badge></label>)}</div> : null}<DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setImportOpen(false)}>إلغاء</Button><Button disabled={busy !== null || !importSelected.length} onClick={confirmImport} className="gap-1.5"><CheckCircle2 className="w-4 h-4" /> {busy === "import" ? "جاري الاستيراد..." : "استيراد ودمج"}</Button></DialogFooter></DialogContent></Dialog>
     </div>
   );
 }
+function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) { return <div className="rounded-2xl bg-foreground/[0.04] p-3"><div className="flex gap-1.5 text-xs text-muted-foreground">{icon}{label}</div><div className="mt-2 text-lg font-bold">{value}</div></div>; }
+function CountCard({ label, value }: { label: string; value: number | null }) { return <div className="rounded-xl bg-foreground/[0.04] px-3 py-2.5 flex justify-between"><span className="text-xs text-muted-foreground">{label}</span><span className="text-sm font-bold">{value === null ? "…" : fmt(value)}</span></div>; }
+function bytes(value: number) { return value < 1024 * 1024 ? `${Math.max(1, Math.round(value / 1024))} ك.ب` : `${(value / 1024 / 1024).toFixed(1)} م.ب`; }
+function Activity({ entry }: { entry: ActivityEntry }) { const labels = { backup: "نسخة احتياطية", export: "تصدير Excel", import: "استيراد", delete: "حذف بيانات" }; return <div className="flex items-center justify-between gap-3 rounded-xl bg-foreground/[0.04] p-3"><div><Badge variant="secondary">{labels[entry.type]}</Badge><p className="text-xs text-muted-foreground mt-1">{entry.details} بواسطة {entry.actor}</p></div><span className="flex items-center gap-1 text-[11px] text-muted-foreground"><Clock3 className="w-3 h-3" />{new Intl.DateTimeFormat("ar-EG", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.at))}</span></div>; }
 
 /* ------------------------------ helpers ------------------------------ */
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
