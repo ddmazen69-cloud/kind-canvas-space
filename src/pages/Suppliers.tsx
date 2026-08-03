@@ -323,6 +323,7 @@ function SupplierFormDialog({
   const [contact, setContact] = useState("");
   const [notes, setNotes] = useState("");
   const [opening, setOpening] = useState("");
+  const [joiningDate, setJoiningDate] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
 
   // Reset on open
@@ -331,6 +332,7 @@ function SupplierFormDialog({
     setContact(editing?.contact ?? "");
     setNotes(editing?.notes ?? "");
     setOpening(editing?.openingBalance ? String(editing.openingBalance) : "");
+    setJoiningDate(editing?.joiningDate ?? new Date().toISOString().slice(0, 10));
   });
 
   const submit = async () => {
@@ -341,12 +343,14 @@ function SupplierFormDialog({
         await db.updateSupplier(editing.id, {
           name: name.trim(), contact: contact.trim(),
           notes: notes.trim() || null, openingBalance: Number(opening) || 0,
+          joiningDate,
         });
         toast.success("تم تحديث المورد");
       } else {
         await db.addSupplier({
           name: name.trim(), contact: contact.trim(),
           notes: notes.trim() || null, openingBalance: Number(opening) || 0,
+          joiningDate,
         });
         toast.success("تمت إضافة المورد");
       }
@@ -365,6 +369,17 @@ function SupplierFormDialog({
         <div className="space-y-3 text-right">
           <div><Label>الاسم</Label><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={100} /></div>
           <div><Label>رقم الهاتف</Label><Input value={contact} onChange={(e) => setContact(e.target.value)} dir="ltr" maxLength={30} /></div>
+          <div>
+            <Label>تاريخ انضمام المورد</Label>
+            <DateField
+              value={joiningDate}
+              onChange={setJoiningDate}
+              quickActions={[
+                { label: "النهارده", date: () => new Date() },
+                { label: "أول الشهر", date: () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); } },
+              ]}
+            />
+          </div>
           <div>
             <Label>مديونية افتتاحية (ج.م)</Label>
             <Input type="number" value={opening} onChange={(e) => setOpening(e.target.value)} />
