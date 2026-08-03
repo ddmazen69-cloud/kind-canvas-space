@@ -767,7 +767,7 @@ function AddProductDialog({ open, onOpenChange, prefillBarcode, existingBarcodes
 
   useEffect(() => {
     if (open) {
-      setName(""); setQty("0"); setCost("0"); setPrice("0"); setCategory("other");
+      setName(""); setQty(""); setCost(""); setPrice(""); setCategory("other");
       setBarcode(prefillBarcode ?? "");
     }
   }, [open, prefillBarcode]);
