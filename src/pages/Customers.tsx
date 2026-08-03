@@ -1489,25 +1489,16 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
             </div>
           </div>
 
-          {/* Joining date */}
+          {/* Joining date — نفس تصميم «تاريخ أول قسط» */}
           <div>
             <Label>تاريخ الانضمام</Label>
-            <Input
-              type="text"
-              inputMode="numeric"
-              value={joiningDateInput}
-              onChange={(e) => {
-                let v = e.target.value.replace(/[^\d/]/g, "").slice(0, 10);
-                // Auto-insert slashes
-                const digits = v.replace(/\//g, "");
-                if (digits.length >= 5) v = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`;
-                else if (digits.length >= 3) v = `${digits.slice(0, 2)}/${digits.slice(2)}`;
-                else v = digits;
-                setJoiningDateInput(v);
-              }}
-              placeholder="يوم/شهر/سنة"
-              dir="ltr"
-              maxLength={10}
+            <DateField
+              value={joiningDate}
+              onChange={setJoiningDate}
+              quickActions={[
+                { label: "النهارده", date: () => new Date() },
+                { label: "أول الشهر", date: () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); } },
+              ]}
             />
           </div>
 
