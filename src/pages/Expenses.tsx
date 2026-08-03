@@ -479,7 +479,14 @@ export function ExpenseFormDialog({
           </div>
           <div>
             <Label>التاريخ</Label>
-            <Input type="date" value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} />
+            <DateField
+              value={expenseDate}
+              onChange={setExpenseDate}
+              quickActions={[
+                { label: "النهارده", date: () => new Date() },
+                { label: "امبارح", date: () => { const d = new Date(); d.setDate(d.getDate() - 1); return d; } },
+              ]}
+            />
           </div>
           <div>
             <Label>ملاحظات</Label>
