@@ -599,6 +599,10 @@ export type Database = {
         Args: { _token: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      bootstrap_my_role: {
+        Args: never
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
