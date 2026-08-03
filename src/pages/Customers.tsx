@@ -1097,7 +1097,7 @@ function QuickAddInvoice({ customerId, blocked }: { customerId: string; blocked:
     db.addInvoice({ customerId, total: t, downPayment: d, monthlyInstallment: mo, firstDueDate: iso, notes: productNotes });
     toast.success("تمت إضافة الفاتورة");
     setOpen(false);
-    setProductName(""); setCost(""); setTotal(""); setDown("0"); setMonthly(""); setDateInput(""); setNotes("");
+    setProductName(""); setCost(""); setTotal(""); setDown(""); setMonthly(""); setDateInput(""); setNotes("");
   };
 
   return (
