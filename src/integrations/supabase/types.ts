@@ -401,6 +401,7 @@ export type Database = {
           address: string
           alerts_enabled: boolean
           created_at: string
+          color_theme: string
           currency: string
           default_due_day: number
           default_installment_months: number
@@ -426,6 +427,7 @@ export type Database = {
           address?: string
           alerts_enabled?: boolean
           created_at?: string
+          color_theme?: string
           currency?: string
           default_due_day?: number
           default_installment_months?: number
@@ -451,6 +453,7 @@ export type Database = {
           address?: string
           alerts_enabled?: boolean
           created_at?: string
+          color_theme?: string
           currency?: string
           default_due_day?: number
           default_installment_months?: number

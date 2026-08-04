@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { useDB, lowStockCount, useShopSettings, isDueSoonOrOverdue } from "@/lib/store";
 import { UserChip } from "@/components/UserChip";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { applyTheme } from "@/lib/theme";
+import { applyTheme, storeColorTheme } from "@/lib/theme";
 import { useEffect } from "react";
 import { PENDING_INVITE_KEY } from "@/pages/Join";
 
@@ -37,7 +37,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { invoices, stockItems } = useDB();
   const { settings } = useShopSettings();
-  useEffect(() => { applyTheme(settings.theme); }, [settings.theme]);
+  useEffect(() => {
+    applyTheme(settings.theme, settings.colorTheme);
+    storeColorTheme(settings.colorTheme);
+  }, [settings.theme, settings.colorTheme]);
   // لو المستخدم فتح رابط دعوة قبل ما يسجّل دخول، نكمّل الدعوة بعد الدخول.
   useEffect(() => {
     let token: string | null = null;

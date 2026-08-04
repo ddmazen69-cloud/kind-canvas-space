@@ -17,7 +17,7 @@ export function ThemeToggle({ className }: { className?: string }) {
   const toggle = async () => {
     const next = mode === "dark" ? "light" : "dark";
     setMode(next);
-    applyTheme(next);
+    applyTheme(next, settings.colorTheme);
     storeTheme(next);
     try { await saveShopSettings({ ...settings, theme: next }); } catch { /* زائر — يكفي الحفظ محلياً */ }
   };

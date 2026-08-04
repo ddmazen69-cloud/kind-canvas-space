@@ -125,6 +125,61 @@
   --sidebar-ring: 162 62% 34%;
 }
 
+/* Colour palettes — every palette supplies a calibrated dark and light surface. */
+:root[data-color-theme] {
+  --background: var(--palette-background);
+  --foreground: var(--palette-foreground);
+  --card: var(--palette-card);
+  --card-foreground: var(--palette-foreground);
+  --popover: var(--palette-popover);
+  --popover-foreground: var(--palette-foreground);
+  --primary: var(--palette-primary);
+  --primary-foreground: var(--palette-primary-foreground);
+  --secondary: var(--palette-secondary);
+  --secondary-foreground: var(--palette-foreground);
+  --muted: var(--palette-muted);
+  --muted-foreground: var(--palette-muted-foreground);
+  --accent: var(--palette-accent);
+  --accent-foreground: var(--palette-foreground);
+  --success: var(--palette-primary);
+  --success-foreground: var(--palette-primary-foreground);
+  --border: var(--palette-border);
+  --input: var(--palette-input);
+  --ring: var(--palette-primary);
+  --sidebar-background: var(--palette-popover);
+  --sidebar-foreground: var(--palette-foreground);
+  --sidebar-primary: var(--palette-primary);
+  --sidebar-primary-foreground: var(--palette-primary-foreground);
+  --sidebar-accent: var(--palette-secondary);
+  --sidebar-accent-foreground: var(--palette-foreground);
+  --sidebar-border: var(--palette-border);
+  --sidebar-ring: var(--palette-primary);
+  --theme-hue: var(--palette-hue);
+  --theme-secondary-hue: var(--palette-secondary-hue);
+}
+
+:root[data-color-theme="emerald"] { --palette-hue:160; --palette-secondary-hue:186; --palette-background:165 22% 3%; --palette-foreground:160 12% 96%; --palette-card:166 20% 7%; --palette-popover:166 22% 6%; --palette-primary:160 84% 39%; --palette-primary-foreground:165 40% 4%; --palette-secondary:165 14% 12%; --palette-muted:165 12% 11%; --palette-muted-foreground:158 8% 66%; --palette-accent:165 14% 14%; --palette-border:165 12% 17%; --palette-input:165 14% 13%; }
+:root[data-color-theme="ocean"] { --palette-hue:192; --palette-secondary-hue:216; --palette-background:213 34% 4%; --palette-foreground:195 22% 97%; --palette-card:211 29% 8%; --palette-popover:212 32% 6%; --palette-primary:192 88% 43%; --palette-primary-foreground:210 45% 5%; --palette-secondary:212 21% 13%; --palette-muted:212 18% 12%; --palette-muted-foreground:199 13% 67%; --palette-accent:211 22% 15%; --palette-border:211 19% 18%; --palette-input:211 20% 14%; }
+:root[data-color-theme="sapphire"] { --palette-hue:220; --palette-secondary-hue:240; --palette-background:228 31% 5%; --palette-foreground:222 27% 97%; --palette-card:226 27% 9%; --palette-popover:226 31% 7%; --palette-primary:220 88% 64%; --palette-primary-foreground:229 42% 7%; --palette-secondary:226 20% 14%; --palette-muted:226 18% 13%; --palette-muted-foreground:222 13% 68%; --palette-accent:226 21% 16%; --palette-border:226 18% 19%; --palette-input:226 19% 15%; }
+:root[data-color-theme="violet"] { --palette-hue:262; --palette-secondary-hue:292; --palette-background:266 29% 5%; --palette-foreground:264 22% 97%; --palette-card:265 25% 9%; --palette-popover:266 29% 7%; --palette-primary:262 83% 67%; --palette-primary-foreground:267 38% 7%; --palette-secondary:265 18% 14%; --palette-muted:265 16% 13%; --palette-muted-foreground:264 12% 68%; --palette-accent:265 19% 16%; --palette-border:265 16% 19%; --palette-input:265 17% 15%; }
+:root[data-color-theme="orchid"] { --palette-hue:306; --palette-secondary-hue:276; --palette-background:311 30% 5%; --palette-foreground:310 20% 97%; --palette-card:310 26% 9%; --palette-popover:311 30% 7%; --palette-primary:306 80% 60%; --palette-primary-foreground:312 42% 7%; --palette-secondary:310 19% 14%; --palette-muted:310 17% 13%; --palette-muted-foreground:310 11% 68%; --palette-accent:310 20% 16%; --palette-border:310 17% 19%; --palette-input:310 18% 15%; }
+:root[data-color-theme="rose"] { --palette-hue:348; --palette-secondary-hue:18; --palette-background:347 31% 5%; --palette-foreground:350 19% 97%; --palette-card:347 27% 9%; --palette-popover:347 31% 7%; --palette-primary:348 84% 61%; --palette-primary-foreground:349 44% 7%; --palette-secondary:347 20% 14%; --palette-muted:347 17% 13%; --palette-muted-foreground:348 11% 68%; --palette-accent:347 21% 16%; --palette-border:347 17% 19%; --palette-input:347 18% 15%; }
+:root[data-color-theme="amber"] { --palette-hue:40; --palette-secondary-hue:20; --palette-background:39 34% 5%; --palette-foreground:44 26% 97%; --palette-card:38 28% 9%; --palette-popover:39 32% 7%; --palette-primary:40 92% 55%; --palette-primary-foreground:39 48% 7%; --palette-secondary:39 21% 14%; --palette-muted:39 18% 13%; --palette-muted-foreground:42 12% 70%; --palette-accent:39 22% 16%; --palette-border:39 18% 19%; --palette-input:39 19% 15%; }
+:root[data-color-theme="copper"] { --palette-hue:25; --palette-secondary-hue:8; --palette-background:20 34% 5%; --palette-foreground:24 23% 97%; --palette-card:20 28% 9%; --palette-popover:20 32% 7%; --palette-primary:25 78% 54%; --palette-primary-foreground:20 48% 7%; --palette-secondary:20 21% 14%; --palette-muted:20 18% 13%; --palette-muted-foreground:23 12% 69%; --palette-accent:20 22% 16%; --palette-border:20 18% 19%; --palette-input:20 19% 15%; }
+:root[data-color-theme="lime"] { --palette-hue:82; --palette-secondary-hue:132; --palette-background:87 30% 5%; --palette-foreground:86 23% 97%; --palette-card:86 25% 9%; --palette-popover:87 29% 7%; --palette-primary:82 77% 48%; --palette-primary-foreground:87 43% 7%; --palette-secondary:86 18% 14%; --palette-muted:86 16% 13%; --palette-muted-foreground:85 11% 69%; --palette-accent:86 19% 16%; --palette-border:86 16% 19%; --palette-input:86 17% 15%; }
+:root[data-color-theme="graphite"] { --palette-hue:215; --palette-secondary-hue:215; --palette-background:220 13% 5%; --palette-foreground:210 15% 97%; --palette-card:220 12% 9%; --palette-popover:220 14% 7%; --palette-primary:215 20% 62%; --palette-primary-foreground:220 18% 8%; --palette-secondary:220 10% 14%; --palette-muted:220 9% 13%; --palette-muted-foreground:215 8% 68%; --palette-accent:220 10% 16%; --palette-border:220 9% 19%; --palette-input:220 10% 15%; }
+
+.theme-light[data-color-theme="emerald"] { --palette-hue:162; --palette-secondary-hue:186; --palette-background:150 25% 98%; --palette-foreground:240 12% 14%; --palette-card:0 0% 100%; --palette-popover:0 0% 100%; --palette-primary:162 62% 34%; --palette-primary-foreground:0 0% 100%; --palette-secondary:150 18% 94%; --palette-muted:150 16% 94%; --palette-muted-foreground:240 6% 42%; --palette-accent:150 20% 92%; --palette-border:150 12% 86%; --palette-input:150 12% 90%; }
+.theme-light[data-color-theme="ocean"] { --palette-hue:192; --palette-secondary-hue:216; --palette-background:198 58% 98%; --palette-foreground:215 24% 15%; --palette-card:0 0% 100%; --palette-popover:0 0% 100%; --palette-primary:192 78% 34%; --palette-primary-foreground:0 0% 100%; --palette-secondary:196 42% 94%; --palette-muted:196 35% 94%; --palette-muted-foreground:214 10% 42%; --palette-accent:196 43% 91%; --palette-border:196 24% 85%; --palette-input:196 25% 90%; }
+.theme-light[data-color-theme="sapphire"] { --palette-hue:220; --palette-secondary-hue:240; --palette-background:225 60% 98%; --palette-foreground:228 24% 16%; --palette-card:0 0% 100%; --palette-popover:0 0% 100%; --palette-primary:220 72% 48%; --palette-primary-foreground:0 0% 100%; --palette-secondary:225 40% 94%; --palette-muted:225 33% 94%; --palette-muted-foreground:226 10% 43%; --palette-accent:225 43% 91%; --palette-border:225 23% 85%; --palette-input:225 25% 90%; }
+.theme-light[data-color-theme="violet"] { --palette-hue:262; --palette-secondary-hue:292; --palette-background:264 52% 98%; --palette-foreground:265 24% 16%; --palette-card:0 0% 100%; --palette-popover:0 0% 100%; --palette-primary:262 62% 48%; --palette-primary-foreground:0 0% 100%; --palette-secondary:264 34% 94%; --palette-muted:264 30% 94%; --palette-muted-foreground:265 10% 43%; --palette-accent:264 36% 91%; --palette-border:264 21% 85%; --palette-input:264 22% 90%; }
+.theme-light[data-color-theme="orchid"] { --palette-hue:306; --palette-secondary-hue:276; --palette-background:310 55% 98%; --palette-foreground:310 24% 16%; --palette-card:0 0% 100%; --palette-popover:0 0% 100%; --palette-primary:306 62% 47%; --palette-primary-foreground:0 0% 100%; --palette-secondary:310 37% 94%; --palette-muted:310 31% 94%; --palette-muted-foreground:310 10% 43%; --palette-accent:310 39% 91%; --palette-border:310 22% 85%; --palette-input:310 24% 90%; }
+.theme-light[data-color-theme="rose"] { --palette-hue:348; --palette-secondary-hue:18; --palette-background:350 58% 98%; --palette-foreground:347 24% 16%; --palette-card:0 0% 100%; --palette-popover:0 0% 100%; --palette-primary:348 68% 47%; --palette-primary-foreground:0 0% 100%; --palette-secondary:349 40% 94%; --palette-muted:349 34% 94%; --palette-muted-foreground:347 10% 43%; --palette-accent:349 42% 91%; --palette-border:349 23% 85%; --palette-input:349 25% 90%; }
+.theme-light[data-color-theme="amber"] { --palette-hue:40; --palette-secondary-hue:20; --palette-background:43 70% 98%; --palette-foreground:35 24% 16%; --palette-card:0 0% 100%; --palette-popover:0 0% 100%; --palette-primary:38 78% 39%; --palette-primary-foreground:0 0% 100%; --palette-secondary:43 45% 94%; --palette-muted:43 38% 94%; --palette-muted-foreground:35 10% 42%; --palette-accent:43 48% 90%; --palette-border:43 25% 84%; --palette-input:43 26% 89%; }
+.theme-light[data-color-theme="copper"] { --palette-hue:25; --palette-secondary-hue:8; --palette-background:26 66% 98%; --palette-foreground:20 24% 16%; --palette-card:0 0% 100%; --palette-popover:0 0% 100%; --palette-primary:24 70% 40%; --palette-primary-foreground:0 0% 100%; --palette-secondary:27 42% 94%; --palette-muted:27 36% 94%; --palette-muted-foreground:20 10% 42%; --palette-accent:27 44% 90%; --palette-border:27 24% 84%; --palette-input:27 25% 89%; }
+.theme-light[data-color-theme="lime"] { --palette-hue:82; --palette-secondary-hue:132; --palette-background:83 62% 98%; --palette-foreground:88 24% 15%; --palette-card:0 0% 100%; --palette-popover:0 0% 100%; --palette-primary:82 70% 33%; --palette-primary-foreground:0 0% 100%; --palette-secondary:84 42% 94%; --palette-muted:84 35% 94%; --palette-muted-foreground:87 10% 42%; --palette-accent:84 44% 90%; --palette-border:84 24% 84%; --palette-input:84 25% 89%; }
+.theme-light[data-color-theme="graphite"] { --palette-hue:215; --palette-secondary-hue:215; --palette-background:220 14% 98%; --palette-foreground:220 15% 16%; --palette-card:0 0% 100%; --palette-popover:0 0% 100%; --palette-primary:215 18% 38%; --palette-primary-foreground:0 0% 100%; --palette-secondary:220 12% 94%; --palette-muted:220 10% 94%; --palette-muted-foreground:220 7% 42%; --palette-accent:220 13% 91%; --palette-border:220 10% 85%; --palette-input:220 11% 90%; }
+
 
 @layer base {
   * { border-color: hsl(var(--border)); }
@@ -216,6 +271,8 @@
 }
 
 :root {
+  --theme-hue: 160;
+  --theme-secondary-hue: 186;
   --ease-fluid: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --bezel-outer-radius: 1.75rem;
@@ -234,9 +291,9 @@
   --shadow-soft: 0 2px 4px -2px hsl(165 40% 1% / 0.5), 0 12px 32px -18px hsl(165 40% 1% / 0.65);
   --shadow-glow: 0 0 0 1px hsl(var(--primary) / 0.2), 0 20px 50px -22px hsl(var(--primary) / 0.4);
   --gradient-mesh:
-    radial-gradient(58rem 38rem at 86% -12%, hsl(160 84% 42% / 0.26), transparent 62%),
-    radial-gradient(44rem 34rem at 4% 12%, hsl(186 78% 46% / 0.14), transparent 62%),
-    radial-gradient(52rem 40rem at 48% 112%, hsl(160 70% 38% / 0.18), transparent 66%);
+    radial-gradient(58rem 38rem at 86% -12%, hsl(var(--theme-hue) 84% 42% / 0.26), transparent 62%),
+    radial-gradient(44rem 34rem at 4% 12%, hsl(var(--theme-secondary-hue) 78% 46% / 0.14), transparent 62%),
+    radial-gradient(52rem 40rem at 48% 112%, hsl(var(--theme-hue) 70% 38% / 0.18), transparent 66%);
 }
 
 

@@ -1003,6 +1003,7 @@ export function useProfile() {
 
 // ---------- Shop settings (بيانات المحل) ----------
 export type ThemeMode = "dark" | "light" | "system";
+export type ColorTheme = "emerald" | "ocean" | "sapphire" | "violet" | "orchid" | "rose" | "amber" | "copper" | "lime" | "graphite";
 export type PrintPaper = "a4" | "thermal";
 
 export interface ShopSettings {
@@ -1022,6 +1023,7 @@ export interface ShopSettings {
   printShowLogo: boolean;
   printShowTaxNumber: boolean;
   printShowFooterNote: boolean;
+  colorTheme: ColorTheme;
   theme: ThemeMode;
   reminderDaysBefore: number;
   alertsEnabled: boolean;
@@ -1044,6 +1046,7 @@ export const EMPTY_SHOP_SETTINGS: ShopSettings = {
   printShowLogo: true,
   printShowTaxNumber: true,
   printShowFooterNote: true,
+  colorTheme: "emerald",
   theme: "dark",
   reminderDaysBefore: 3,
   alertsEnabled: true,
@@ -1099,6 +1102,7 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
         printShowLogo: (row.print_show_logo as boolean) ?? true,
         printShowTaxNumber: (row.print_show_tax_number as boolean) ?? true,
         printShowFooterNote: (row.print_show_footer_note as boolean) ?? true,
+        colorTheme: (row.color_theme as ColorTheme) ?? "emerald",
         theme: ((row.theme as ThemeMode) ?? "dark"),
         reminderDaysBefore: num(row.reminder_days_before, 3),
         alertsEnabled: (row.alerts_enabled as boolean) ?? true,
@@ -1129,6 +1133,7 @@ export async function saveShopSettings(patch: ShopSettings) {
       print_show_logo: patch.printShowLogo,
       print_show_tax_number: patch.printShowTaxNumber,
       print_show_footer_note: patch.printShowFooterNote,
+      color_theme: patch.colorTheme,
       theme: patch.theme,
       reminder_days_before: Math.min(30, Math.max(0, Math.round(patch.reminderDaysBefore))),
       alerts_enabled: patch.alertsEnabled,

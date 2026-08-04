@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { supabase } from "@/integrations/supabase/client";
 import {
   useProfile, useShopSettings, saveShopSettings, fmt,
-  type ShopSettings, type ThemeMode, type PrintPaper,
+  type ShopSettings, type ThemeMode, type PrintPaper, type ColorTheme,
 } from "@/lib/store";
 import { applyTheme } from "@/lib/theme";
 import { DATA_TABLES, dataCounts, dataMeta, downloadExcelBackup, downloadJsonBackup, getActivity, importBackup, logActivity, readImportFile, wipeAllData, type ActivityEntry, type BackupPayload } from "@/lib/backup";
@@ -67,6 +67,7 @@ const shopSchema = z.object({
   printShowLogo: z.boolean(),
   printShowTaxNumber: z.boolean(),
   printShowFooterNote: z.boolean(),
+  colorTheme: z.enum(["emerald", "ocean", "sapphire", "violet", "orchid", "rose", "amber", "copper", "lime", "graphite"]),
   theme: z.enum(["dark", "light", "system"]),
   alertsEnabled: z.boolean(),
 });
@@ -92,7 +93,7 @@ function SettingsPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { setForm(settings); }, [settings]);
-  useEffect(() => { applyTheme(form.theme); }, [form.theme]);
+  useEffect(() => { applyTheme(form.theme, form.colorTheme); }, [form.theme, form.colorTheme]);
 
   const dirty = useMemo(
     () => JSON.stringify(form) !== JSON.stringify(settings),
@@ -499,25 +500,68 @@ const THEMES: Array<{ value: ThemeMode; label: string; desc: string }> = [
   { value: "system", label: "تلقائي", desc: "حسب إعدادات جهازك" },
 ];
 
+const COLOR_THEMES: Array<{ value: ColorTheme; label: string; desc: string; dark: string; light: string; accent: string }> = [
+  { value: "emerald", label: "زمردي", desc: "الأصل الهادئ", dark: "#06231d", light: "#f2fbf6", accent: "#10b981" },
+  { value: "ocean", label: "محيطي", desc: "أزرق منعش", dark: "#071d2b", light: "#f3faff", accent: "#06b6d4" },
+  { value: "sapphire", label: "ياقوتي", desc: "أزرق عميق", dark: "#111a38", light: "#f5f7ff", accent: "#4f7cff" },
+  { value: "violet", label: "بنفسجي", desc: "تباين ناعم", dark: "#1b1230", light: "#fbf8ff", accent: "#8b5cf6" },
+  { value: "orchid", label: "أوركيد", desc: "بنفسجي وردي", dark: "#2a1026", light: "#fff8fd", accent: "#d946ef" },
+  { value: "rose", label: "وردي", desc: "دفء عصري", dark: "#2b1018", light: "#fff8fa", accent: "#f43f5e" },
+  { value: "amber", label: "عنبري", desc: "إضاءة دافئة", dark: "#281b09", light: "#fffaf0", accent: "#f59e0b" },
+  { value: "copper", label: "نحاسي", desc: "طابع راقٍ", dark: "#28130d", light: "#fff8f3", accent: "#d97706" },
+  { value: "lime", label: "ليموني", desc: "حيوية متزنة", dark: "#182409", light: "#f9fff1", accent: "#84cc16" },
+  { value: "graphite", label: "فحمي", desc: "محايد ودقيق", dark: "#15171b", light: "#fafafa", accent: "#64748b" },
+];
+
 function AppearanceTab({ form, set }: TabProps) {
   return (
-    <Section icon={<Palette className="w-5 h-5" />} title="مظهر التطبيق" hint="التغيير بيظهر فوراً، واضغط حفظ علشان يفضل على كل الأجهزة.">
-      <div className="grid sm:grid-cols-3 gap-3">
-        {THEMES.map((t) => (
+    <div className="grid gap-6">
+      <Section icon={<Palette className="w-5 h-5" />} title="وضع العرض" hint="اختر وضع النهار أو الليل، ثم اختر لوحة الألوان التي تناسبك.">
+        <div className="grid sm:grid-cols-3 gap-3">
+          {THEMES.map((t) => (
           <button
             key={t.value}
             type="button"
             onClick={() => set("theme", t.value)}
-            className={`text-right rounded-xl border p-4 transition ${
-              form.theme === t.value ? "border-primary bg-primary/10" : "border-border hover:bg-foreground/[0.05]"
+            className={`text-right rounded-2xl border p-4 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+              form.theme === t.value ? "border-primary bg-primary/10 shadow-[0_14px_32px_-22px_hsl(var(--primary)/0.72)]" : "border-border/70 hover:-translate-y-0.5 hover:bg-foreground/[0.05]"
             }`}
           >
             <div className="text-sm font-bold mb-1">{t.label}</div>
             <div className="text-xs text-muted-foreground">{t.desc}</div>
           </button>
-        ))}
+          ))}
+        </div>
+      </Section>
+
+      <Section icon={<Palette className="w-5 h-5" />} title="ألوان الثيم" hint="10 لوحات ألوان، وكل لوحة مُهيأة لتظل واضحة في الوضعين الليلي والنهاري.">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+          {COLOR_THEMES.map((theme) => {
+            const active = form.colorTheme === theme.value;
+            return (
+              <button
+                key={theme.value}
+                type="button"
+                onClick={() => set("colorTheme", theme.value)}
+                aria-pressed={active}
+                className={`group relative overflow-hidden rounded-[1.35rem] p-1 text-right transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${active ? "scale-[1.015] ring-1 ring-primary/70 shadow-[0_16px_34px_-22px_hsl(var(--primary)/0.8)]" : "hover:-translate-y-1 hover:shadow-[0_16px_34px_-26px_hsl(var(--foreground)/0.4)]"}`}
+              >
+                <span className="block rounded-[1.05rem] p-3" style={{ background: `linear-gradient(135deg, ${theme.dark}, ${theme.accent})` }}>
+                  <span className="mb-5 flex h-8 items-center gap-1.5">
+                    <span className="h-5 w-5 rounded-full border border-white/25" style={{ backgroundColor: theme.light }} />
+                    <span className="h-5 w-5 rounded-full border border-white/25" style={{ backgroundColor: theme.accent }} />
+                    <span className="h-5 w-5 rounded-full border border-white/25" style={{ backgroundColor: theme.dark }} />
+                  </span>
+                  <span className="block text-sm font-bold text-white">{theme.label}</span>
+                  <span className="mt-1 block text-[11px] text-white/70">{theme.desc}</span>
+                </span>
+                {active ? <span className="absolute left-3 top-3 grid h-6 w-6 place-items-center rounded-full bg-white text-[10px] font-bold text-foreground">✓</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      </Section>
       </div>
-    </Section>
   );
 }
 
