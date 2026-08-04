@@ -148,16 +148,24 @@ function SettingsPage() {
       {/* Sticky save bar — every tab writes into the same settings row */}
       <div className="sticky bottom-4 mt-6 z-20">
         <div className="bg-card/95 backdrop-blur plate p-3 flex items-center justify-between gap-3">
-          <span className="text-xs text-muted-foreground">
-            {dirty ? "فيه تعديلات لسه متحفظتش" : "كل التعديلات محفوظة"}
+          <span
+            aria-live="polite"
+            className={`inline-flex items-center gap-2 text-xs font-medium ${dirty ? "text-amber-500" : "text-emerald-500"}`}
+          >
+            {dirty ? <Clock3 className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+            {dirty ? "لديك تعديلات غير محفوظة" : "كل التعديلات محفوظة"}
           </span>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="gap-1.5" disabled={!dirty} onClick={() => setForm(settings)}>
-              <RotateCcw className="w-4 h-4" /> تراجع
-            </Button>
-            <Button onClick={save} disabled={busy || loading || !dirty} className="gap-1.5">
-              <Save className="w-4 h-4" /> {busy ? "جاري الحفظ..." : "حفظ الإعدادات"}
-            </Button>
+            {dirty && (
+              <Button variant="ghost" size="sm" className="gap-1.5" disabled={busy} onClick={() => setForm(settings)}>
+                <RotateCcw className="w-4 h-4" /> تراجع
+              </Button>
+            )}
+            {(dirty || busy) && (
+              <Button onClick={save} disabled={busy || loading || !dirty} className="gap-1.5">
+                <Save className="w-4 h-4" /> {busy ? "جاري الحفظ..." : "حفظ الإعدادات"}
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -196,34 +204,44 @@ function ShopTab({ form, set }: TabProps) {
     try {
       const dataUrl = await resizeImage(file, 256);
       set("logoUrl", dataUrl);
-      toast.success("تم تحميل اللوجو — اضغط حفظ");
+      toast.success("تم تجهيز الشعار — احفظ التعديلات لتطبيقه");
     } catch {
       toast.error("تعذر قراءة الصورة");
     }
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <Section icon={<Store className="w-5 h-5" />} title="هوية المحل" hint="الاسم والتليفون والعنوان بيتطبعوا في رأس كل فاتورة أو تقرير.">
-        <div className="grid gap-3">
-          <Field label="اسم المحل">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(21rem,0.9fr)]">
+      <Section icon={<Store className="w-5 h-5" />} title="هوية المحل" hint="المعلومات الأساسية التي تظهر في رأس كل فاتورة أو تقرير.">
+        <div className="grid gap-6">
+          <div className="grid gap-3">
+            <p className="text-xs font-semibold text-primary">بيانات المحل</p>
+            <ShopField label="اسم المحل" required>
             <Input value={form.shopName} onChange={(e) => set("shopName", e.target.value)} placeholder="محل النور للأجهزة" maxLength={80} />
-          </Field>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="رقم التليفون">
-              <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="01xxxxxxxxx" dir="ltr" maxLength={30} />
-            </Field>
-            <Field label="رقم الواتساب" hint="بيستخدم في أزرار إرسال التذكيرات">
-              <Input value={form.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} placeholder="201xxxxxxxxx" dir="ltr" maxLength={30} />
-            </Field>
+            </ShopField>
           </div>
-          <Field label="العنوان">
-            <Input value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="شارع الجمهورية — طنطا" maxLength={200} />
-          </Field>
-          <Field label="الرقم الضريبي (اختياري)">
+
+          <div className="grid gap-3 border-t border-border/60 pt-5">
+            <p className="text-xs font-semibold text-primary">بيانات التواصل</p>
+          <div className="grid sm:grid-cols-2 gap-3">
+              <ShopField label="رقم التليفون" required>
+              <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="01xxxxxxxxx" dir="ltr" maxLength={30} />
+              </ShopField>
+              <ShopField label="رقم الواتساب" optional hint="يُستخدم في أزرار إرسال التذكيرات.">
+              <Input value={form.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} placeholder="201xxxxxxxxx" dir="ltr" maxLength={30} />
+              </ShopField>
+            </div>
+            <ShopField label="العنوان" required>
+              <Input value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="شارع الجمهورية — طنطا" maxLength={200} />
+            </ShopField>
+          </div>
+
+          <div className="grid gap-3 border-t border-border/60 pt-5">
+            <p className="text-xs font-semibold text-primary">تفاصيل الفاتورة</p>
+            <ShopField label="الرقم الضريبي" optional>
             <Input value={form.taxNumber} onChange={(e) => set("taxNumber", e.target.value)} placeholder="000-000-000" dir="ltr" maxLength={40} />
-          </Field>
-          <Field label="ملاحظة أسفل الفاتورة (اختياري)">
+            </ShopField>
+            <ShopField label="ملاحظة أسفل الفاتورة" optional>
             <Textarea
               value={form.footerNote}
               onChange={(e) => set("footerNote", e.target.value)}
@@ -232,19 +250,25 @@ function ShopTab({ form, set }: TabProps) {
               rows={3}
             />
             <span className="text-[11px] text-muted-foreground">{form.footerNote.length}/300</span>
-          </Field>
+            </ShopField>
+          </div>
         </div>
       </Section>
 
-      <div className="grid gap-6 h-fit">
-        <Section icon={<Upload className="w-5 h-5" />} title="اللوجو" hint="ارفع صورة من جهازك أو حط رابط مباشر. بتتحفظ مع بيانات المحل وتظهر في الطباعة.">
-          <div className="flex items-start gap-4">
-            <div className="h-20 w-20 rounded-[1.25rem] hairline bg-foreground/[0.035] grid place-items-center overflow-hidden shrink-0">
+      <Section className="h-fit" icon={<Receipt className="w-5 h-5" />} title="الشعار ومعاينة الفاتورة" hint="اضبط الشعار وشاهد شكله مباشرةً كما سيظهر في رأس الفاتورة.">
+        <div className="grid gap-5">
+          <div className="rounded-2xl border border-border/70 bg-foreground/[0.025] p-4">
+            <div className="flex items-start gap-4">
+              <div className="h-[5.5rem] w-[5.5rem] rounded-2xl hairline bg-background grid place-items-center overflow-hidden shrink-0">
               {form.logoUrl
                 ? <img src={form.logoUrl} alt="لوجو المحل" className="h-full w-full object-contain" />
                 : <Store className="w-7 h-7 text-muted-foreground" />}
             </div>
             <div className="grid gap-2 flex-1">
+                <div>
+                  <p className="text-sm font-semibold">شعار المحل</p>
+                  <p className="mt-1 text-[11px] leading-5 text-muted-foreground">ارفع صورة واضحة مربعة أو استخدم رابطًا مباشرًا.</p>
+                </div>
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onLogo(e.target.files?.[0])} />
               <div className="flex gap-2">
                 <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={() => fileRef.current?.click()}>
@@ -252,10 +276,11 @@ function ShopTab({ form, set }: TabProps) {
                 </Button>
                 {form.logoUrl ? (
                   <Button type="button" variant="ghost" size="sm" className="gap-1.5 text-destructive" onClick={() => set("logoUrl", null)}>
-                    <Trash2 className="w-4 h-4" /> حذف
-                  </Button>
+                  <Trash2 className="w-4 h-4" /> حذف
+                </Button>
                 ) : null}
               </div>
+              <label className="mt-1 text-[11px] font-medium text-muted-foreground">أو استخدم رابط صورة</label>
               <Input
                 value={form.logoUrl?.startsWith("data:") ? "" : (form.logoUrl ?? "")}
                 onChange={(e) => set("logoUrl", e.target.value || null)}
@@ -264,15 +289,22 @@ function ShopTab({ form, set }: TabProps) {
               />
             </div>
           </div>
-        </Section>
+          </div>
 
-        <Section icon={<Receipt className="w-5 h-5" />} title="معاينة رأس الفاتورة" hint="كده هيبان الهيدر في الورق المطبوع.">
-          <div className="rounded-xl bg-background hairline p-4">
-            <div className="flex items-start justify-between gap-3 border-b-2 border-primary pb-3">
+          <div className="border-t border-border/60 pt-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold text-primary">معاينة مباشرة</p>
+              <span className="rounded-full border border-border/70 bg-background px-2.5 py-1 text-[10px] text-muted-foreground">فاتورة بيع</span>
+            </div>
+            <div className="rounded-[1.25rem] border border-border/70 bg-background p-2 shadow-[0_12px_32px_rgba(0,0,0,0.18)]">
+              <div className="rounded-[0.95rem] bg-card/55 p-4">
+                <div className="flex items-start justify-between gap-3 border-b-2 border-primary pb-3">
               <div className="flex items-center gap-2">
-                {form.logoUrl ? <img src={form.logoUrl} alt="" className="h-10 w-10 object-contain rounded" /> : null}
+                    <div className="h-10 w-10 rounded-xl bg-background/90 grid place-items-center overflow-hidden shrink-0">
+                      {form.logoUrl ? <img src={form.logoUrl} alt="" className="h-full w-full object-contain" /> : <Store className="h-4 w-4 text-primary" />}
+                    </div>
                 <div>
-                  <div className="text-lg font-extrabold">{form.shopName || "اسم المحل"}</div>
+                      <div className="text-base font-extrabold">{form.shopName || "اسم المحل"}</div>
                   <div className="text-[11px] text-muted-foreground">{form.address || "عنوان المحل"}</div>
                 </div>
               </div>
@@ -282,12 +314,32 @@ function ShopTab({ form, set }: TabProps) {
                 <Badge variant="secondary">{form.invoicePrefix || "INV"}-0001</Badge>
               </div>
             </div>
-            <div className="pt-3 text-[11px] text-muted-foreground">
-              {form.footerNote || "ملاحظة أسفل الفاتورة"}
+                <div className="grid grid-cols-2 gap-2 border-b border-dashed border-border/70 py-3 text-[10px] text-muted-foreground">
+                  <span>العميل: عميل نقدي</span>
+                  <span className="text-left">التاريخ: 04/08/2026</span>
+                </div>
+                <div className="pt-3 text-[11px] leading-5 text-muted-foreground">
+                  {form.footerNote || "ملاحظة أسفل الفاتورة"}
+                </div>
+              </div>
             </div>
           </div>
-        </Section>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+function ShopField({ label, hint, required, optional, children }: { label: string; hint?: string; required?: boolean; optional?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="grid gap-2">
+      <div className="flex items-center gap-2">
+        <Label className="text-sm font-medium">{label}</Label>
+        {required ? <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">مطلوب</span> : null}
+        {optional ? <span className="rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[10px] text-muted-foreground">اختياري</span> : null}
       </div>
+      {children}
+      {hint ? <p className="text-[11px] leading-5 text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }
