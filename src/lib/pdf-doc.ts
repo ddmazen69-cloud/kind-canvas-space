@@ -2,6 +2,7 @@
  * سِجلّي — نظام مستندات PDF الموحّد (تصميم عصري).
  * كل تصدير PDF في التطبيق يستخدم هذا الملف حتى تكون كل المستندات بنفس الهوية.
  */
+import { getShopSettings } from "@/lib/store";
 
 const EMERALD = "#059669";
 const EMERALD_SOFT = "#ecfdf5";
@@ -48,7 +49,9 @@ export const pdfCss = `
   /* ── الهيدر ───────────────────────────────── */
   .doc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding-bottom: 20px; }
   .doc-id { display: flex; align-items: center; gap: 12px; }
+  .doc-id.no-mark { gap: 0; }
   .doc-id svg { display: block; flex: none; }
+  .shop-logo { display: block; width: 44px; height: 44px; border-radius: 13px; object-fit: contain; background: #f8fafc; }
   .brand { font-family: 'Cairo', sans-serif; font-size: 25px; font-weight: 900; letter-spacing: -0.6px; line-height: 1.05; }
   .brand em { font-style: normal; color: var(--brand); }
   .brand-sub { font-size: 10.5px; color: var(--muted); margin-top: 3px; letter-spacing: .3px; }
@@ -181,10 +184,13 @@ export const thermalCss = `
   @media print { .sheet { max-width: none; } }
 `;
 
-export function pdfHeader(opts: { brandSub?: string; meta: PdfMeta[] }): string {
+export function pdfHeader(opts: { brandSub?: string; meta: PdfMeta[]; logoUrl?: string | null; showMark?: boolean }): string {
+  const mark = opts.logoUrl
+    ? `<img class="shop-logo" src="${esc(opts.logoUrl)}" alt=""/>`
+    : (opts.showMark === false ? "" : brandMarkSvg);
   return `<header class="doc-head">
-  <div class="doc-id">
-    ${brandMarkSvg}
+  <div class="doc-id${mark ? "" : " no-mark"}">
+    ${mark}
     <div>
       <div class="brand">سِجلّ<em>ي</em></div>
       <div class="brand-sub">${opts.brandSub ?? "نظام إدارة العملاء والأقساط"}</div>
@@ -217,6 +223,9 @@ export function pdfDocument(opts: {
   paper?: "a4" | "thermal";
 }): string {
   const thermal = opts.paper === "thermal";
+  const print = getShopSettings();
+  const meta = print.printShowTaxNumber ? opts.meta : opts.meta.filter((item) => item.label !== "الرقم الضريبي");
+  const footerNote = print.printShowFooterNote ? opts.footerNote : undefined;
   return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${opts.docTitle}</title>
@@ -225,14 +234,14 @@ ${pdfFontLink}
 </head><body>
 <div class="noprint"><button onclick="window.print()"><span>طباعة / حفظ PDF</span><span class="ico">🖨</span></button></div>
 <main class="sheet">
-${pdfHeader({ brandSub: opts.brandSub, meta: opts.meta })}
+${pdfHeader({ brandSub: opts.brandSub, meta, logoUrl: print.printShowLogo ? print.logoUrl : undefined, showMark: print.printShowLogo })}
 <hr class="rule"/>
 ${opts.badge ? `<div class="eyebrow">${opts.badge}</div>` : ""}
 <h1 class="doc-title">${opts.title}</h1>
 ${opts.lede ? `<p class="doc-lede">${opts.lede}</p>` : ""}
 ${opts.kpis?.length ? pdfKpis(opts.kpis) : ""}
 ${opts.body}
-${opts.footerNote ? `<div class="note">${opts.footerNote}</div>` : ""}
+${footerNote ? `<div class="note">${footerNote}</div>` : ""}
 <footer class="doc-foot"><span>تم إصدار هذا المستند آلياً من تطبيق سِجلّي</span><span>${new Date().toLocaleString("ar-EG")}</span></footer>
 </main>
 ${arabicDigitsScript}

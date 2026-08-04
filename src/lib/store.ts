@@ -1019,6 +1019,9 @@ export interface ShopSettings {
   defaultDueDay: number;
   invoicePrefix: string;
   printPaper: PrintPaper;
+  printShowLogo: boolean;
+  printShowTaxNumber: boolean;
+  printShowFooterNote: boolean;
   theme: ThemeMode;
   reminderDaysBefore: number;
   alertsEnabled: boolean;
@@ -1038,6 +1041,9 @@ export const EMPTY_SHOP_SETTINGS: ShopSettings = {
   defaultDueDay: 1,
   invoicePrefix: "",
   printPaper: "a4",
+  printShowLogo: true,
+  printShowTaxNumber: true,
+  printShowFooterNote: true,
   theme: "dark",
   reminderDaysBefore: 3,
   alertsEnabled: true,
@@ -1090,6 +1096,9 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
         defaultDueDay: num(row.default_due_day, 1),
         invoicePrefix: (row.invoice_prefix as string) ?? "",
         printPaper: ((row.print_paper as PrintPaper) ?? "a4"),
+        printShowLogo: (row.print_show_logo as boolean) ?? true,
+        printShowTaxNumber: (row.print_show_tax_number as boolean) ?? true,
+        printShowFooterNote: (row.print_show_footer_note as boolean) ?? true,
         theme: ((row.theme as ThemeMode) ?? "dark"),
         reminderDaysBefore: num(row.reminder_days_before, 3),
         alertsEnabled: (row.alerts_enabled as boolean) ?? true,
@@ -1117,6 +1126,9 @@ export async function saveShopSettings(patch: ShopSettings) {
       default_due_day: Math.min(28, Math.max(1, Math.round(patch.defaultDueDay))),
       invoice_prefix: patch.invoicePrefix.trim(),
       print_paper: patch.printPaper,
+      print_show_logo: patch.printShowLogo,
+      print_show_tax_number: patch.printShowTaxNumber,
+      print_show_footer_note: patch.printShowFooterNote,
       theme: patch.theme,
       reminder_days_before: Math.min(30, Math.max(0, Math.round(patch.reminderDaysBefore))),
       alerts_enabled: patch.alertsEnabled,

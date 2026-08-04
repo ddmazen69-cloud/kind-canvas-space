@@ -411,6 +411,9 @@ export type Database = {
           low_stock_threshold: number
           phone: string
           print_paper: string
+          print_show_footer_note: boolean
+          print_show_logo: boolean
+          print_show_tax_number: boolean
           reminder_days_before: number
           shop_name: string
           tax_number: string
@@ -433,6 +436,9 @@ export type Database = {
           low_stock_threshold?: number
           phone?: string
           print_paper?: string
+          print_show_footer_note?: boolean
+          print_show_logo?: boolean
+          print_show_tax_number?: boolean
           reminder_days_before?: number
           shop_name?: string
           tax_number?: string
@@ -455,6 +461,9 @@ export type Database = {
           low_stock_threshold?: number
           phone?: string
           print_paper?: string
+          print_show_footer_note?: boolean
+          print_show_logo?: boolean
+          print_show_tax_number?: boolean
           reminder_days_before?: number
           shop_name?: string
           tax_number?: string

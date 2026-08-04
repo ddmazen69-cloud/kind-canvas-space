@@ -64,6 +64,9 @@ const shopSchema = z.object({
   defaultDueDay: z.number().int().min(1).max(28),
   reminderDaysBefore: z.number().int().min(0).max(30),
   printPaper: z.enum(["a4", "thermal"]),
+  printShowLogo: z.boolean(),
+  printShowTaxNumber: z.boolean(),
+  printShowFooterNote: z.boolean(),
   theme: z.enum(["dark", "light", "system"]),
   alertsEnabled: z.boolean(),
 });
@@ -346,46 +349,56 @@ function ShopField({ label, hint, required, optional, children }: { label: strin
 
 /* ------------------------- الفواتير والطباعة ------------------------- */
 function BillingTab({ form, set }: TabProps) {
+  const invoiceNo = `${form.invoicePrefix || "INV"}-0001`;
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <Section icon={<Receipt className="w-5 h-5" />} title="الفواتير والأقساط" hint="القيم دي بتتحط تلقائياً وانت بتعمل فاتورة جديدة.">
-        <div className="grid gap-3">
+      <Section icon={<Receipt className="w-5 h-5" />} title="الفواتير والأقساط" hint="إعدادات الترقيم والقسط التي تُطبّق تلقائياً على الفواتير الجديدة.">
+        <div className="grid gap-5">
+          <div className="grid gap-3">
+            <p className="text-xs font-semibold text-primary">ترقيم الفاتورة</p>
           <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="رمز العملة">
+              <ShopField label="رمز العملة" hint="مثال: ج.م أو ر.س">
               <Input value={form.currency} onChange={(e) => set("currency", e.target.value)} placeholder="ج.م" maxLength={10} />
-            </Field>
-            <Field label="بادئة رقم الفاتورة" hint="مثال: INV → INV-0001">
+              </ShopField>
+              <ShopField label="بادئة رقم الفاتورة" hint={`الرقم التالي سيظهر كـ ${invoiceNo}`}>
               <Input value={form.invoicePrefix} onChange={(e) => set("invoicePrefix", e.target.value.toUpperCase())} placeholder="INV" dir="ltr" maxLength={10} />
-            </Field>
+              </ShopField>
+            </div>
           </div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="عدد الأقساط الافتراضي (شهور)">
+
+          <div className="grid gap-3 border-t border-border/60 pt-5">
+            <p className="text-xs font-semibold text-primary">إعدادات القسط الافتراضية</p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <ShopField label="عدد الأقساط" hint="من شهر إلى 60 شهرًا">
               <Input
                 type="number" min={1} max={60} inputMode="numeric"
                 value={form.defaultInstallmentMonths}
                 onChange={(e) => set("defaultInstallmentMonths", Number(e.target.value) || 1)}
               />
-            </Field>
-            <Field label="يوم الاستحقاق الافتراضي" hint="من 1 لـ 28 من كل شهر">
+              </ShopField>
+              <ShopField label="يوم الاستحقاق" hint="من 1 إلى 28 من كل شهر">
               <Input
                 type="number" min={1} max={28} inputMode="numeric"
                 value={form.defaultDueDay}
                 onChange={(e) => set("defaultDueDay", Number(e.target.value) || 1)}
               />
-            </Field>
+              </ShopField>
+            </div>
           </div>
-          <div className="rounded-2xl bg-foreground/[0.04] p-3 text-xs text-muted-foreground leading-6">
-            مثال: فاتورة بـ <strong className="text-foreground">{fmt(12000)} {form.currency}</strong> على{" "}
-            <strong className="text-foreground">{form.defaultInstallmentMonths}</strong> شهر →
-            القسط ≈ <strong className="text-foreground">{fmt(12000 / Math.max(1, form.defaultInstallmentMonths))} {form.currency}</strong>{" "}
-            يوم <strong className="text-foreground">{form.defaultDueDay}</strong> من كل شهر.
+
+          <div className="rounded-2xl bg-primary/[0.055] px-4 py-3 text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground" dir="ltr">{invoiceNo}</span>
+            <span className="mx-2 text-primary">·</span>
+            {form.defaultInstallmentMonths} أقساط
+            <span className="mx-2 text-primary">·</span>
+            استحقاق يوم {form.defaultDueDay}
           </div>
         </div>
       </Section>
 
-      <Section icon={<FileSpreadsheet className="w-5 h-5" />} title="الطباعة" hint="مقاس الورق المستخدم في طباعة الفواتير والتقارير.">
-        <div className="grid gap-3">
-          <Field label="مقاس الورق">
+      <Section icon={<FileSpreadsheet className="w-5 h-5" />} title="الطباعة" hint="تحكم في تفاصيل مظهر الفواتير والتقارير المطبوعة.">
+        <div className="grid gap-5">
+          <ShopField label="مقاس الورق" hint={form.printPaper === "a4" ? "عرض كامل مناسب للفواتير والتقارير المفصّلة." : "عرض ضيق مناسب لرول الكاشير 80 مم."}>
             <Select value={form.printPaper} onValueChange={(v) => set("printPaper", v as PrintPaper)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -393,12 +406,25 @@ function BillingTab({ form, set }: TabProps) {
                 <SelectItem value="thermal">حراري 80mm — طابعة كاشير</SelectItem>
               </SelectContent>
             </Select>
-          </Field>
-          <p className="text-xs text-muted-foreground leading-6">
-            {form.printPaper === "a4"
-              ? "الفاتورة هتتطبع بعرض كامل مع جدول أصناف مفصّل."
-              : "الفاتورة هتتطبع في عمود ضيق مناسب لرول الكاشير 80 مم."}
-          </p>
+          </ShopField>
+
+          <div className="grid gap-1 rounded-2xl bg-foreground/[0.025] p-2">
+            <PrintOption label="إظهار شعار المحل" hint="في رأس المستند المطبوع." checked={form.printShowLogo} onCheckedChange={(v) => set("printShowLogo", v)} />
+            <PrintOption label="إظهار الرقم الضريبي" hint="ضمن بيانات رأس الفاتورة." checked={form.printShowTaxNumber} onCheckedChange={(v) => set("printShowTaxNumber", v)} />
+            <PrintOption label="إظهار ملاحظة الفاتورة" hint="في أسفل الفاتورة أو التقرير." checked={form.printShowFooterNote} onCheckedChange={(v) => set("printShowFooterNote", v)} />
+          </div>
+
+          <div className={`rounded-2xl border border-border/70 bg-background p-3 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${form.printPaper === "thermal" ? "max-w-[15rem]" : ""}`}>
+            <div className="flex items-center justify-between border-b border-primary/70 pb-2 text-[10px]">
+              <span className="font-bold">{form.printShowLogo ? (form.shopName || "اسم المحل") : "فاتورة بيع"}</span>
+              <span dir="ltr">{invoiceNo}</span>
+            </div>
+            <div className="grid gap-1.5 py-2 text-[9px] text-muted-foreground">
+              {form.printShowTaxNumber && form.taxNumber ? <span dir="ltr">ض.ر: {form.taxNumber}</span> : <span>بيانات الفاتورة الأساسية</span>}
+              <span className="border-t border-dashed border-border/70 pt-1.5">الإجمالي <b className="text-foreground">12,000 {form.currency}</b></span>
+            </div>
+            {form.printShowFooterNote && <p className="border-t border-border/60 pt-2 text-[9px] text-muted-foreground">{form.footerNote || "ملاحظة أسفل الفاتورة"}</p>}
+          </div>
         </div>
       </Section>
     </div>
@@ -410,7 +436,7 @@ function AlertsTab({ form, set }: TabProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Section icon={<Bell className="w-5 h-5" />} title="تنبيهات الأقساط" hint="بتتحكم في شارة التنبيهات وصفحة التنبيهات.">
-        <div className="grid gap-5">
+        <div className="grid gap-4">
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="text-sm font-bold">تشغيل التنبيهات</div>
@@ -419,32 +445,47 @@ function AlertsTab({ form, set }: TabProps) {
             <Switch checked={form.alertsEnabled} onCheckedChange={(v) => set("alertsEnabled", v)} />
           </div>
           <Separator />
-          <div className="grid gap-2">
-            <div className="flex items-center justify-between">
-              <Label>تذكير قبل الاستحقاق بـ</Label>
-              <Badge variant="secondary">{form.reminderDaysBefore} يوم</Badge>
+          <div className={`grid gap-3 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${form.alertsEnabled ? "opacity-100" : "pointer-events-none opacity-40"}`}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <Label>تذكير قبل الاستحقاق</Label>
+                <p className="mt-1 text-[11px] text-muted-foreground">صفر = التنبيه يوم الاستحقاق نفسه.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input className="h-8 w-16 text-center" type="number" min={0} max={30} inputMode="numeric" value={form.reminderDaysBefore} onChange={(e) => set("reminderDaysBefore", Math.min(30, Math.max(0, Number(e.target.value) || 0)))} disabled={!form.alertsEnabled} />
+                <span className="text-xs text-muted-foreground">يوم</span>
+              </div>
             </div>
             <Slider
               value={[form.reminderDaysBefore]} min={0} max={30} step={1}
               onValueChange={([v]) => set("reminderDaysBefore", v)}
               disabled={!form.alertsEnabled}
             />
-            <p className="text-xs text-muted-foreground">صفر = التنبيه يوم الاستحقاق نفسه.</p>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
+            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">القناة: داخل التطبيق</span>
+            <Button type="button" variant="secondary" size="sm" disabled={!form.alertsEnabled} onClick={() => toast.success("تم عرض تنبيه تجريبي داخل التطبيق")}>إرسال تنبيه تجريبي</Button>
           </div>
         </div>
       </Section>
 
       <Section icon={<ShieldAlert className="w-5 h-5" />} title="تنبيه المخزون" hint="الصنف اللي كميته أقل من الحد ده هيظهر في التنبيهات.">
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between">
-            <Label>حد المخزون المنخفض</Label>
-            <Badge variant="secondary">{form.lowStockThreshold} وحدة</Badge>
+        <div className="grid gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <Label>حد المخزون المنخفض</Label>
+              <p className="mt-1 text-[11px] text-muted-foreground">سيظهر الصنف عندما تصبح كميته أقل من هذا الحد.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input className="h-8 w-16 text-center" type="number" min={0} max={999} inputMode="numeric" value={form.lowStockThreshold} onChange={(e) => set("lowStockThreshold", Math.min(999, Math.max(0, Number(e.target.value) || 0)))} />
+              <span className="text-xs text-muted-foreground">وحدة</span>
+            </div>
           </div>
           <Slider
             value={[form.lowStockThreshold]} min={0} max={50} step={1}
             onValueChange={([v]) => set("lowStockThreshold", v)}
           />
-          <p className="text-xs text-muted-foreground">القيمة الافتراضية 5 وحدات.</p>
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground"><span>القيمة الافتراضية: 5 وحدات</span><Badge variant="secondary">{form.lowStockThreshold} وحدة</Badge></div>
         </div>
       </Section>
     </div>
@@ -513,6 +554,15 @@ function AccountTab({ onSignOut, onSignOutEverywhere }: { onSignOut: () => void;
       <Section className="border border-destructive/25" icon={<LogOut className="w-5 h-5 text-destructive" />} title="تسجيل الخروج" hint="اخرج من هذا الجهاز فقط. استخدم تبويب الجلسات إذا كنت تريد إنهاء كل الجلسات.">
         <Button variant="outline" onClick={onSignOut} className="gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"><LogOut className="w-4 h-4" /> تسجيل الخروج من هذا الجهاز</Button>
       </Section>
+    </div>
+  );
+}
+
+function PrintOption({ label, hint, checked, onCheckedChange }: { label: string; hint: string; checked: boolean; onCheckedChange: (checked: boolean) => void }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl px-3 py-2.5 transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-foreground/[0.035]">
+      <div><p className="text-sm font-medium">{label}</p><p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p></div>
+      <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   );
 }
