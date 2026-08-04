@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { archiveBeforeDelete } from "@/lib/archive";
 
 export type CustomerStatus = "committed" | "neutral" | "defaulter";
 export type CustomerType = "installment" | "cash";
@@ -345,6 +346,7 @@ export const db = {
     await fetchAll();
   },
   async removeCustomer(id: string) {
+    await archiveBeforeDelete("customer", id);
     const { error } = await supabase.from("customers").delete().eq("id", id);
     if (error) throw error;
     await fetchAll();
@@ -392,6 +394,7 @@ export const db = {
   },
   async removeInvoice(id: string) {
     // Return the sold units back to stock before deleting (items cascade-delete with the invoice).
+    await archiveBeforeDelete("invoice", id);
     const { data: items } = await supabase
       .from("invoice_items").select("name").eq("invoice_id", id);
     const { error } = await supabase.from("invoices").delete().eq("id", id);
@@ -463,6 +466,7 @@ export const db = {
     await fetchAll();
   },
   async removeExpense(id: string) {
+    await archiveBeforeDelete("expense", id);
     const { error } = await supabase.from("expenses").delete().eq("id", id);
     if (error) throw error;
     await fetchAll();
@@ -490,6 +494,7 @@ export const db = {
     await fetchAll();
   },
   async removeSupplier(id: string) {
+    await archiveBeforeDelete("supplier", id);
     const { error } = await supabase.from("suppliers").delete().eq("id", id);
     if (error) throw error;
     await fetchAll();
@@ -661,6 +666,7 @@ export const db = {
     await fetchAll();
   },
   async removeStockItem(id: string) {
+    await archiveBeforeDelete("stock_item", id);
     const { error } = await supabase.from("stock_items").delete().eq("id", id);
     if (error) throw error;
     await fetchAll();
