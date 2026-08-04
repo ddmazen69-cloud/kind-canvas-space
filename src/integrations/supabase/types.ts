@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      archived_records: {
+        Row: {
+          amount: number
+          created_at: string
+          deleted_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          label: string
+          payload: Json
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          deleted_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          label?: string
+          payload: Json
+          summary?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          deleted_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          label?: string
+          payload?: Json
+          summary?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null
