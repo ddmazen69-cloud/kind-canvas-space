@@ -16,11 +16,12 @@ import {
 } from "recharts";
 import {
   BarChart3, Download, FileSpreadsheet, FileText, TrendingUp, TrendingDown,
-  Wallet, Receipt, Users, Package, Eye, EyeOff,
+  Wallet, Receipt, Users, Package, Eye, EyeOff, Archive, ArrowUpRight,
 } from "lucide-react";
 import { useDB, useShopSettings, fmt, expenseCategoryLabel, type ExpenseCategory } from "@/lib/store";
 import { usePrivacy } from "@/lib/privacy";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
+import { Link } from "@/lib/router-compat";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -233,6 +234,23 @@ ${topItems.map((i) => `<tr><td>${escapeHtml(i.name)}</td><td class="num">${fmt(i
 
   return (
     <>
+      <Link
+        to="/archive"
+        className="group mb-6 flex items-center gap-4 rounded-[2rem] border border-border/60 bg-muted/30 p-1.5 transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5"
+      >
+        <div className="flex w-full items-center gap-4 rounded-[calc(2rem-0.375rem)] border border-border/50 bg-card p-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-muted/70 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105">
+            <Archive className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">الأرشيف</p>
+            <p className="truncate text-xs text-muted-foreground">كل المحذوف من عملاء وفواتير وموردين وأصناف ومصروفات — مع الاسترجاع.</p>
+          </div>
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:-translate-y-[1px] group-hover:translate-x-1 group-hover:scale-105">
+            <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+          </span>
+        </div>
+      </Link>
       <PageHeader
         title="التقارير"
         subtitle="أرباحك وتحصيلاتك ومصروفاتك شهرًا بشهر، وأفضل عملائك وأكثر أصنافك مبيعًا."

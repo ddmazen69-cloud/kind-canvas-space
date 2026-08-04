@@ -14,10 +14,43 @@ export type Database = {
   }
   public: {
     Tables: {
-      data_activity: {
-        Row: { action: string; actor: string; created_at: string; details: string; id: string; user_id: string }
-        Insert: { action: string; actor: string; created_at?: string; details: string; id?: string; user_id: string }
-        Update: { action?: string; actor?: string; created_at?: string; details?: string; id?: string; user_id?: string }
+      archived_records: {
+        Row: {
+          amount: number
+          created_at: string
+          deleted_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          label: string
+          payload: Json
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          deleted_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          label?: string
+          payload: Json
+          summary?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          deleted_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          label?: string
+          payload?: Json
+          summary?: string
+          user_id?: string
+        }
         Relationships: []
       }
       customers: {
@@ -70,6 +103,33 @@ export type Database = {
           phone?: string
           rating?: number
           status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      data_activity: {
+        Row: {
+          action: string
+          actor: string
+          created_at: string
+          details: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          actor?: string
+          created_at?: string
+          details?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          actor?: string
+          created_at?: string
+          details?: string
+          id?: string
           user_id?: string
         }
         Relationships: []
