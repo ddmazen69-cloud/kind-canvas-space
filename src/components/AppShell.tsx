@@ -9,8 +9,9 @@ import { useDB, lowStockCount, useShopSettings, isDueSoonOrOverdue } from "@/lib
 import { UserChip } from "@/components/UserChip";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { applyTheme, storeColorTheme } from "@/lib/theme";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { PENDING_INVITE_KEY } from "@/pages/Join";
+import { useRoleAbilities } from "@/lib/roles";
 
 const nav = [
   { to: "/", label: "لوحة التحكم", icon: LayoutGrid },
@@ -32,11 +33,24 @@ function dueOrOverdueCount(
   return invoices.filter((inv) => isDueSoonOrOverdue(inv, daysBefore)).length;
 }
 
+function routeAllowed(pathname: string, allowed: Set<string>) {
+  if (allowed.has(pathname)) return true;
+  for (const route of allowed) {
+    if (route !== "/" && pathname.startsWith(route)) return true;
+  }
+  return false;
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { invoices, stockItems } = useDB();
   const { settings, loading: settingsLoading } = useShopSettings();
+  const { allowedRoutes, loading: abilitiesLoading } = useRoleAbilities();
+  const visibleNav = useMemo(
+    () => nav.filter((item) => routeAllowed(item.to, allowedRoutes)),
+    [allowedRoutes],
+  );
   useEffect(() => {
     applyTheme(settings.theme, settings.colorTheme);
     // Don't overwrite a saved local palette with EMPTY_SHOP_SETTINGS while
@@ -51,6 +65,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     try { localStorage.removeItem(PENDING_INVITE_KEY); } catch { /* ignore */ }
     navigate(`/join/${token}`, { replace: true });
   }, [navigate]);
+  useEffect(() => {
+    if (abilitiesLoading) return;
+    if (!routeAllowed(location.pathname, allowedRoutes)) {
+      const fallback = visibleNav[0]?.to ?? "/settings";
+      navigate(fallback, { replace: true });
+    }
+  }, [abilitiesLoading, allowedRoutes, location.pathname, navigate, visibleNav]);
   const overdueCount = settings.alertsEnabled
     ? dueOrOverdueCount(invoices, settings.reminderDaysBefore) +
       lowStockCount(stockItems, settings.lowStockThreshold)
@@ -74,7 +95,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
         <nav className="stagger no-scrollbar -mx-1 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-1">
-          {nav.map((n) => {
+          {visibleNav.map((n) => {
             const active = n.to === "/" ? location.pathname === "/" : location.pathname.startsWith(n.to);
             const Icon = n.icon;
             const showBadge = n.alertKey && overdueCount > 0;
@@ -121,7 +142,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Mobile top nav */}
       <div className="glass no-scrollbar fixed inset-x-3 bottom-3 z-40 flex overflow-x-auto rounded-[1.5rem] md:hidden">
-        {nav.map((n) => {
+        {visibleNav.map((n) => {
           const active = n.to === "/" ? location.pathname === "/" : location.pathname.startsWith(n.to);
           const Icon = n.icon;
           const showBadge = n.alertKey && overdueCount > 0;

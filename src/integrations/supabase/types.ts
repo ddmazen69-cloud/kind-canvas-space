@@ -611,6 +611,27 @@ export type Database = {
         }
         Relationships: []
       }
+      role_abilities: {
+        Row: {
+          ability_key: string
+          allowed: boolean
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          ability_key: string
+          allowed?: boolean
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          ability_key?: string
+          allowed?: boolean
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       team_invites: {
         Row: {
           accepted_at: string | null
@@ -699,6 +720,7 @@ export type Database = {
         Returns: {
           avatar_url: string
           display_name: string
+          email: string
           last_seen_at: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string

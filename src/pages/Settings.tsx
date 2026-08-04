@@ -32,7 +32,10 @@ import {
   UserRound, ShieldCheck, Users, Link2, Copy, Check, ArchiveRestore, CalendarDays, CheckCircle2, Clock3, Download, FileUp, HardDrive, History, AlertTriangle, Laptop, MonitorSmartphone, Shield, Search, Wifi, Cloud,
 } from "lucide-react";
 import { UserAvatar } from "@/components/UserChip";
-import { useMyRole, useTeam, ROLE_LABEL, ROLE_HINT, ABILITIES, relativeTime, type AppRole } from "@/lib/roles";
+import {
+  useMyRole, useTeam, useRoleAbilities, ROLE_LABEL, ROLE_HINT, ALL_ROLES, EDITABLE_ROLES,
+  relativeTime, type AppRole, type AbilityKey,
+} from "@/lib/roles";
 import { inviteTeamMember } from "@/lib/team.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -121,15 +124,23 @@ function HealthItem({ icon, label, value, tone = "text-foreground" }: { icon: Re
 
 function SettingsPage() {
   const { settings, loading } = useShopSettings();
+  const { allowedSettingsTabs, loading: abilitiesLoading } = useRoleAbilities();
   const navigate = useNavigate();
   const [form, setForm] = useState<ShopSettings>(settings);
   const [busy, setBusy] = useState(false);
-  const [activeTab, setActiveTab] = useState("shop");
+  const [activeTab, setActiveTab] = useState("account");
   const [query, setQuery] = useState("");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   useEffect(() => { setForm(settings); }, [settings]);
   useEffect(() => { applyTheme(form.theme, form.colorTheme); }, [form.theme, form.colorTheme]);
+  useEffect(() => {
+    if (abilitiesLoading) return;
+    if (!allowedSettingsTabs.has(activeTab)) {
+      const fallback = ["shop", "billing", "alerts", "appearance", "account", "team", "data"].find((tab) => allowedSettingsTabs.has(tab));
+      if (fallback) setActiveTab(fallback);
+    }
+  }, [abilitiesLoading, allowedSettingsTabs, activeTab]);
 
   const dirty = useMemo(
     () => JSON.stringify(form) !== JSON.stringify(settings),
@@ -198,27 +209,27 @@ function SettingsPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} dir="rtl" className="w-full text-right">
         <TabsList dir="rtl" className="mb-5 flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto overscroll-x-contain p-1 [scrollbar-width:none]">
-          <SettingsTab value="shop" icon={<Store className="w-4 h-4" />} dirty={tabDirty(["shopName", "phone", "whatsapp", "address", "taxNumber", "logoUrl", "footerNote"])}>المحل</SettingsTab>
-          <SettingsTab value="billing" icon={<Receipt className="w-4 h-4" />} dirty={tabDirty(["currency", "invoicePrefix", "defaultInstallmentMonths", "defaultDueDay", "printPaper", "printShowLogo", "printShowTaxNumber", "printShowFooterNote"])}>الفواتير والطباعة</SettingsTab>
-          <SettingsTab value="alerts" icon={<Bell className="w-4 h-4" />} dirty={tabDirty(["lowStockThreshold", "reminderDaysBefore", "alertsEnabled"])}>التنبيهات</SettingsTab>
-          <SettingsTab value="appearance" icon={<Palette className="w-4 h-4" />} dirty={tabDirty(["theme", "colorTheme"])}>المظهر</SettingsTab>
+          {allowedSettingsTabs.has("shop") && <SettingsTab value="shop" icon={<Store className="w-4 h-4" />} dirty={tabDirty(["shopName", "phone", "whatsapp", "address", "taxNumber", "logoUrl", "footerNote"])}>المحل</SettingsTab>}
+          {allowedSettingsTabs.has("billing") && <SettingsTab value="billing" icon={<Receipt className="w-4 h-4" />} dirty={tabDirty(["currency", "invoicePrefix", "defaultInstallmentMonths", "defaultDueDay", "printPaper", "printShowLogo", "printShowTaxNumber", "printShowFooterNote"])}>الفواتير والطباعة</SettingsTab>}
+          {allowedSettingsTabs.has("alerts") && <SettingsTab value="alerts" icon={<Bell className="w-4 h-4" />} dirty={tabDirty(["lowStockThreshold", "reminderDaysBefore", "alertsEnabled"])}>التنبيهات</SettingsTab>}
+          {allowedSettingsTabs.has("appearance") && <SettingsTab value="appearance" icon={<Palette className="w-4 h-4" />} dirty={tabDirty(["theme", "colorTheme"])}>المظهر</SettingsTab>}
           <TabsTrigger value="account" className="gap-1.5"><KeyRound className="w-4 h-4" /> الحساب</TabsTrigger>
-          <TabsTrigger value="team" className="gap-1.5"><Users className="w-4 h-4" /> الفريق والصلاحيات</TabsTrigger>
-          <TabsTrigger value="data" className="gap-1.5"><Database className="w-4 h-4" /> البيانات</TabsTrigger>
+          {allowedSettingsTabs.has("team") && <TabsTrigger value="team" className="gap-1.5"><Users className="w-4 h-4" /> الفريق والصلاحيات</TabsTrigger>}
+          {allowedSettingsTabs.has("data") && <TabsTrigger value="data" className="gap-1.5"><Database className="w-4 h-4" /> البيانات</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="shop"><ShopTab form={form} set={set} /></TabsContent>
-        <TabsContent value="billing"><BillingTab form={form} set={set} /></TabsContent>
-        <TabsContent value="alerts"><AlertsTab form={form} set={set} /></TabsContent>
-        <TabsContent value="appearance"><AppearanceTab form={form} set={set} onSave={setAppearance} /></TabsContent>
+        {allowedSettingsTabs.has("shop") && <TabsContent value="shop"><ShopTab form={form} set={set} /></TabsContent>}
+        {allowedSettingsTabs.has("billing") && <TabsContent value="billing"><BillingTab form={form} set={set} /></TabsContent>}
+        {allowedSettingsTabs.has("alerts") && <TabsContent value="alerts"><AlertsTab form={form} set={set} /></TabsContent>}
+        {allowedSettingsTabs.has("appearance") && <TabsContent value="appearance"><AppearanceTab form={form} set={set} onSave={setAppearance} /></TabsContent>}
         <TabsContent value="account">
           <AccountTab
             onSignOut={async () => { await supabase.auth.signOut(); navigate("/landing"); }}
             onSignOutEverywhere={async () => { await supabase.auth.signOut({ scope: "global" }); navigate("/landing"); }}
           />
         </TabsContent>
-        <TabsContent value="team"><TeamTab /></TabsContent>
-        <TabsContent value="data"><DataTab /></TabsContent>
+        {allowedSettingsTabs.has("team") && <TabsContent value="team"><TeamTab /></TabsContent>}
+        {allowedSettingsTabs.has("data") && <TabsContent value="data"><DataTab /></TabsContent>}
       </Tabs>
 
 
@@ -1135,7 +1146,6 @@ function resizeImage(file: File, max: number): Promise<string> {
 }
 
 /* --------------------------- الفريق والصلاحيات --------------------------- */
-const ALL_ROLES: AppRole[] = ["owner", "manager", "seller"];
 
 function RoleBadge({ role, big = false }: { role: AppRole; big?: boolean }) {
   const tone: Record<AppRole, string> = {
@@ -1158,6 +1168,7 @@ function RoleBadge({ role, big = false }: { role: AppRole; big?: boolean }) {
 function TeamTab() {
   const { role: myRole, isOwner, loading: roleLoading, reload: reloadRole } = useMyRole();
   const { members, invites, loading, setRole, removeMember, revokeInvite, createInviteLink, reload } = useTeam();
+  const { abilities, setAbility, saving: savingAbility, loading: abilitiesLoading } = useRoleAbilities();
   const [removing, setRemoving] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -1168,6 +1179,15 @@ function TeamTab() {
   const [copied, setCopied] = useState(false);
   const sendInvite = useServerFn(inviteTeamMember);
   const pending = invites.filter((i) => i.status === "pending");
+
+  const toggleAbility = async (ability: AbilityKey, role: AppRole, allowed: boolean) => {
+    try {
+      await setAbility(ability, role, allowed);
+      toast.success(allowed ? `تم تفعيل الصلاحية لـ${ROLE_LABEL[role]}` : `تم إيقاف الصلاحية عن ${ROLE_LABEL[role]}`);
+    } catch (e: any) {
+      toast.error(e?.message || "تعذّر حفظ الصلاحية");
+    }
+  };
 
   const copy = async (value: string) => {
     try {
@@ -1220,9 +1240,11 @@ function TeamTab() {
       <Section
         icon={<ShieldCheck className="w-5 h-5" />}
         title="صلاحيتك"
-        hint="الصلاحيات محفوظة في قاعدة البيانات وبتتفحص على السيرفر — مش من المتصفح."
+        hint={isOwner
+          ? "حدّد للمدير والبايع إيه اللي يشوفوه. صلاحية المالك ثابتة ومش قابلة للتعديل."
+          : "الصلاحيات محفوظة في قاعدة البيانات وبتتفحص على السيرفر — مش من المتصفح."}
       >
-        {roleLoading ? (
+        {roleLoading || abilitiesLoading ? (
           <div className="h-24 rounded-2xl bg-muted animate-pulse" />
         ) : (
           <div className="space-y-5">
@@ -1249,14 +1271,26 @@ function TeamTab() {
                     </tr>
                   </thead>
                   <tbody>
-                    {ABILITIES.map((a) => (
-                      <tr key={a.label} className="border-b border-border/40 last:border-0">
+                    {abilities.map((a) => (
+                      <tr key={a.key} className="border-b border-border/40 last:border-0">
                         <td className="py-2.5 px-4 text-right">{a.label}</td>
                         {ALL_ROLES.map((r) => {
                           const ok = a.roles.includes(r);
+                          const editable = isOwner && EDITABLE_ROLES.includes(r);
                           return (
                             <td key={r} className={`py-2.5 px-3 text-center ${myRole === r ? "bg-primary/[0.04]" : ""}`}>
-                              <span className={ok ? "text-success" : "text-muted-foreground/40"}>{ok ? "✓" : "✗"}</span>
+                              {editable ? (
+                                <div className="inline-flex items-center justify-center">
+                                  <Switch
+                                    checked={ok}
+                                    disabled={savingAbility}
+                                    onCheckedChange={(checked) => void toggleAbility(a.key, r, checked)}
+                                    aria-label={`${a.label} — ${ROLE_LABEL[r]}`}
+                                  />
+                                </div>
+                              ) : (
+                                <span className={ok ? "text-success" : "text-muted-foreground/40"}>{ok ? "✓" : "✗"}</span>
+                              )}
                             </td>
                           );
                         })}
@@ -1266,6 +1300,11 @@ function TeamTab() {
                 </table>
               </div>
             </div>
+            {isOwner && (
+              <p className="text-[11px] text-muted-foreground">
+                التغييرات تتحفظ فورًا وتتحكم في القوائم وتبويبات الإعدادات اللي يشوفها المدير والبايع.
+              </p>
+            )}
           </div>
         )}
       </Section>
@@ -1274,7 +1313,7 @@ function TeamTab() {
       <Section
         icon={<Users className="w-5 h-5" />}
         title="أعضاء الفريق"
-        hint={isOwner ? "المالك بس اللي يقدر يدعو أعضاء ويغيّر الصلاحيات." : "المالك بس اللي يقدر يعدّل الصلاحيات."}
+        hint={isOwner ? "المالك بس اللي يقدر يدعو أعضاء ويغيّر الصلاحيات. الاسم والصورة من حساب كل عضو." : "المالك بس اللي يقدر يعدّل الصلاحيات."}
       >
         {isOwner && (
           <div className="mb-4 flex justify-start">
@@ -1314,7 +1353,7 @@ function TeamTab() {
                 <div className="rounded-[calc(1.5rem-0.375rem)] bg-card p-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     {m.avatarUrl ? (
-                      <img src={m.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover ring-1 ring-border" />
+                      <img src={m.avatarUrl} alt={m.displayName} className="w-10 h-10 rounded-full object-cover ring-1 ring-border" />
                     ) : (
                       <span className="w-10 h-10 rounded-full bg-primary/10 text-primary grid place-items-center font-bold">
                         {m.displayName.slice(0, 1)}
@@ -1323,6 +1362,9 @@ function TeamTab() {
                     <div className="min-w-0">
                       <div className="font-semibold truncate">
                         {m.displayName}{m.isMe ? " (أنا)" : ""}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground truncate" dir="ltr">
+                        {m.email || "بدون بريد ظاهر"}
                       </div>
                       <div className="text-[11px] text-muted-foreground">آخر نشاط: {relativeTime(m.lastSeenAt)}</div>
                     </div>

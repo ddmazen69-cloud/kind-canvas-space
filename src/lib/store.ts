@@ -971,11 +971,21 @@ export function useProfile() {
       .select("display_name, avatar_url, phone")
       .eq("id", user.id)
       .maybeSingle();
-    setProfile(
-      data
-        ? { displayName: data.display_name ?? "", avatarUrl: data.avatar_url ?? null, phone: data.phone ?? "" }
-        : { displayName: user.metaName ?? "", avatarUrl: user.metaAvatar ?? null, phone: "" },
-    );
+    const displayName = (data?.display_name ?? "").trim() || user.metaName || user.email?.split("@")[0] || "";
+    const avatarUrl = data?.avatar_url || user.metaAvatar || null;
+    const phone = data?.phone ?? "";
+    setProfile({ displayName, avatarUrl, phone });
+    // Keep profiles in sync with the account identity so the team list shows real names/photos.
+    const needsName = !(data?.display_name ?? "").trim() && !!displayName;
+    const needsAvatar = !data?.avatar_url && !!user.metaAvatar;
+    if (needsName || needsAvatar || !data) {
+      void supabase.from("profiles").upsert({
+        id: user.id,
+        display_name: displayName,
+        avatar_url: avatarUrl,
+        phone,
+      });
+    }
     setLoading(false);
   }, [user]);
 
