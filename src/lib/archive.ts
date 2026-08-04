@@ -13,6 +13,23 @@ export type ArchivedRecord = {
   payload: any;
   deletedAt: string;
 };
+
+export type ArchiveAccess = {
+  role: string;
+  canView: boolean;
+  canRestore: boolean;
+  canPurge: boolean;
+  isOwner: boolean;
+};
+
+export type ArchiveAuditEntry = {
+  id: string;
+  action: string;
+  details: string;
+  actor: string;
+  createdAt: string;
+};
+
 export type ArchiveRetentionDays = 0 | 30 | 90 | 180;
 
 export const ENTITY_LABELS: Record<ArchiveEntity, string> = {
@@ -66,10 +83,19 @@ async function currentUserId() {
   return user.id;
 }
 
-async function logArchiveActivity(details: string) {
+async function currentActorName() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return "المستخدم الحالي";
+  const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle();
+  return profile?.display_name || user.email || "المستخدم الحالي";
+}
+
+async function logArchiveActivity(action: "restore" | "purge" | "bulk_restore" | "archive", details: string, reason?: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-  await supabase.from("data_activity").insert({ user_id: user.id, action: "archive", details, actor: user.email ?? "المستخدم الحالي" });
+  const actor = await currentActorName();
+  const finalDetails = reason ? `${details} | السبب: ${reason}` : details;
+  await supabase.from("data_activity").insert({ user_id: user.id, action, details: finalDetails, actor });
 }
 
 /** Snapshot an entity (and its children) before deletion. A failed snapshot blocks deletion. */
@@ -93,7 +119,28 @@ export async function archiveBeforeDelete(entity: ArchiveEntity, id: string) {
   if (error) throw error;
 }
 
-export async function restoreArchived(rec: ArchivedRecord) {
+export async function getArchiveAccess(): Promise<ArchiveAccess> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { role: "guest", canView: false, canRestore: false, canPurge: false, isOwner: false };
+  }
+
+  const [{ data: userRoleData }, { data: abilityData }] = await Promise.all([
+    supabase.from("user_roles").select("role").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1),
+    supabase.from("role_abilities").select("ability_key, allowed").eq("role", "owner"),
+  ]);
+
+  const role = userRoleData?.[0]?.role ?? "owner";
+  const isOwner = role === "owner";
+  const ownerAbilities = abilityData ?? [];
+  const canView = isOwner || ownerAbilities.some((item) => item.ability_key === "archive.view" && item.allowed);
+  const canRestore = isOwner || ownerAbilities.some((item) => item.ability_key === "archive.restore" && item.allowed);
+  const canPurge = isOwner || ownerAbilities.some((item) => item.ability_key === "archive.purge" && item.allowed);
+
+  return { role, canView, canRestore, canPurge, isOwner };
+}
+
+export async function restoreArchived(rec: ArchivedRecord, reason?: string) {
   const table = TABLE[rec.entityType];
   const { row, invoice_items, payments } = rec.payload ?? {};
   if (!row) throw new Error("لا توجد بيانات محفوظة لهذا العنصر");
@@ -111,29 +158,32 @@ export async function restoreArchived(rec: ArchivedRecord) {
     if (payments?.length) await supabase.from("payments").insert(payments as any);
   }
   await supabase.from("archived_records").delete().eq("id", rec.id);
-  await logArchiveActivity(`استرجاع ${ENTITY_LABELS[rec.entityType]}: ${rec.label}`);
+  await logArchiveActivity("restore", `استرجاع ${ENTITY_LABELS[rec.entityType]}: ${rec.label}`, reason);
 }
 
-export async function restoreMany(records: ArchivedRecord[]) {
+export async function restoreMany(records: ArchivedRecord[], reason?: string) {
   let restored = 0;
   const failed: string[] = [];
   for (const record of records) {
-    try { await restoreArchived(record); restored++; }
+    try { await restoreArchived(record, reason); restored++; }
     catch { failed.push(record.label); }
   }
+  if (restored > 0) await logArchiveActivity("bulk_restore", `استرجاع جماعي لـ ${restored} سجل`, reason);
   return { restored, failed };
 }
 
-export async function purgeArchived(id: string) {
+export async function purgeArchived(id: string, reason?: string) {
   const { error } = await supabase.from("archived_records").delete().eq("id", id);
   if (error) throw error;
+  await logArchiveActivity("purge", "مسح نهائي للسجل المؤرشف", reason);
 }
 
-export async function purgeAllArchived(entity?: ArchiveEntity) {
+export async function purgeAllArchived(entity?: ArchiveEntity, reason?: string) {
   let q = supabase.from("archived_records").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   if (entity) q = q.eq("entity_type", entity);
   const { error } = await q;
   if (error) throw error;
+  await logArchiveActivity("purge", `مسح نهائي جماعي${entity ? ` لـ ${ENTITY_LABELS[entity]}` : " للأرشيف"}`, reason);
 }
 
 export async function getArchiveRetention() {
@@ -157,6 +207,22 @@ export async function applyArchiveRetention(days: ArchiveRetentionDays) {
   if (error) throw error;
   if (count) await logArchiveActivity(`تطبيق سياسة الاحتفاظ وحذف ${count} سجل مؤرشف تجاوز ${days} يومًا`);
   return count ?? 0;
+}
+
+export async function getArchiveAuditLog() {
+  const { data, error } = await supabase
+    .from("data_activity")
+    .select("id, action, details, actor, created_at")
+    .order("created_at", { ascending: false })
+    .limit(40);
+  if (error) throw error;
+  return (data ?? []).map((item: any) => ({
+    id: item.id,
+    action: item.action,
+    details: item.details,
+    actor: item.actor,
+    createdAt: item.created_at,
+  })) as ArchiveAuditEntry[];
 }
 
 export function useArchive() {

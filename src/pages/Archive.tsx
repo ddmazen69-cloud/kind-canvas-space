@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   useArchive, restoreArchived, restoreMany, purgeArchived, purgeAllArchived, getArchiveRetention, saveArchiveRetention,
-  type ArchiveRetentionDays,
+  getArchiveAccess, getArchiveAuditLog,
+  type ArchiveRetentionDays, type ArchiveAccess, type ArchiveAuditEntry,
   ENTITY_LABELS, type ArchiveEntity, type ArchivedRecord,
 } from "@/lib/archive";
 import { useDB } from "@/lib/store";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { PageTransition } from "@/components/PageTransition";
-import { Users, FileText, Truck, Package, Receipt, RotateCcw, Trash2, Search, Archive as ArchiveIcon, ArrowUpRight, CalendarDays, Database, Eye, ShieldAlert, SlidersHorizontal, CheckSquare } from "lucide-react";
+import { Users, FileText, Truck, Package, Receipt, RotateCcw, Trash2, Search, Archive as ArchiveIcon, ArrowUpRight, CalendarDays, Database, Eye, ShieldAlert, SlidersHorizontal, CheckSquare, FileDown, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -19,6 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
 
 const ICONS: Record<ArchiveEntity, typeof Users> = {
   customer: Users,
@@ -78,8 +80,14 @@ export default function Archive() {
   const [sort, setSort] = useState<"newest" | "oldest" | "value">("newest");
   const [retention, setRetention] = useState<ArchiveRetentionDays>(0);
   const [retentionBusy, setRetentionBusy] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"csv" | "pdf">("csv");
+  const [access, setAccess] = useState<ArchiveAccess | null>(null);
+  const [auditEntries, setAuditEntries] = useState<ArchiveAuditEntry[]>([]);
+  const [batchRestoreConfirm, setBatchRestoreConfirm] = useState<{ records: ArchivedRecord[]; reason: string } | null>(null);
 
   useEffect(() => { getArchiveRetention().then(setRetention).catch(() => undefined); }, []);
+  useEffect(() => { getArchiveAccess().then(setAccess).catch(() => setAccess(null)); }, []);
+  useEffect(() => { getArchiveAuditLog().then(setAuditEntries).catch(() => setAuditEntries([])); }, []);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: records.length };
@@ -98,10 +106,14 @@ export default function Archive() {
     ).sort((a, b) => sort === "oldest" ? new Date(a.deletedAt).getTime() - new Date(b.deletedAt).getTime() : sort === "value" ? b.amount - a.amount : new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime());
   }, [records, tab, q, period, sort]);
 
-  async function onRestore(rec: ArchivedRecord) {
+  async function onRestore(rec: ArchivedRecord, reason?: string) {
+    if (!access?.canRestore) {
+      toast.error("ليس لديك صلاحية لاسترجاع السجلات المؤرشفة");
+      return;
+    }
     setBusy(rec.id);
     try {
-      await restoreArchived(rec);
+      await restoreArchived(rec, reason);
       await Promise.all([refresh(), refreshDB()]);
       toast.success(`تم استرجاع ${ENTITY_LABELS[rec.entityType]}: ${rec.label}`);
     } catch (e: any) {
@@ -111,14 +123,18 @@ export default function Archive() {
     }
   }
 
-  async function onPurge() {
+  async function onPurge(reason?: string) {
     if (!confirm) return;
+    if (!access?.canPurge) {
+      toast.error("ليس لديك صلاحية للحذف النهائي من الأرشيف");
+      return;
+    }
     try {
       if (confirm.kind === "one") {
-        await purgeArchived(confirm.rec.id);
+        await purgeArchived(confirm.rec.id, reason);
         toast.success("تم المسح النهائي");
       } else {
-        await purgeAllArchived(tab === "all" ? undefined : tab);
+        await purgeAllArchived(tab === "all" ? undefined : tab, reason);
         toast.success("تم إفراغ الأرشيف");
       }
       await refresh();
@@ -133,13 +149,60 @@ export default function Archive() {
   const selectedRecords = filtered.filter((record) => selectedIds.includes(record.id));
   const restoreSelected = async () => {
     if (!selectedRecords.length) return;
-    setBusy("batch");
-    const { restored, failed } = await restoreMany(selectedRecords);
-    await Promise.all([refresh(), refreshDB()]); setSelectedIds([]); setBusy(null);
-    if (restored) toast.success(`تم استرجاع ${restored} سجل`);
-    if (failed.length) toast.error(`تعذر استرجاع: ${failed.slice(0, 2).join("، ")}`);
+    if (!access?.canRestore) {
+      toast.error("ليس لديك صلاحية لاسترجاع السجلات المؤرشفة");
+      return;
+    }
+    setBatchRestoreConfirm({ records: selectedRecords, reason: "استرجاع جماعي من الأرشيف" });
   };
   const updateRetention = async (value: string) => { const days = Number(value) as ArchiveRetentionDays; setRetention(days); setRetentionBusy(true); try { await saveArchiveRetention(days); toast.success(days ? `سيتم الاحتفاظ بالسجلات لمدة ${days} يومًا` : "تم الاحتفاظ بالسجلات حتى الحذف اليدوي"); } catch { toast.error("تعذر حفظ سياسة الاحتفاظ"); } finally { setRetentionBusy(false); } };
+
+  const exportArchive = async () => {
+    const rows = filtered.map((record) => ({
+      النوع: ENTITY_LABELS[record.entityType],
+      الاسم: record.label,
+      الملخص: record.summary,
+      المبلغ: String(record.amount),
+      تاريخ_الحذف: record.deletedAt,
+    }));
+
+    if (exportFormat === "csv") {
+      const headers = ["النوع", "الاسم", "الملخص", "المبلغ", "تاريخ_الحذف"];
+      const csv = [headers.join(","), ...rows.map((row) => headers.map((header) => `"${String((row as any)[header] ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `archive-export-${Date.now()}.csv`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success("تم تصدير بيانات الأرشيف بصيغة CSV");
+      return;
+    }
+
+    const html = pdfDocument({
+      docTitle: "أرشيف السجلات",
+      badge: "Archive Export",
+      title: "تصدير الأرشيف",
+      lede: `نوع التصدير: ${exportFormat.toUpperCase()} · البحث الحالي: ${q || "الكل"} · الفترة: ${period === "all" ? "الكل" : `${period} يوم`}`,
+      meta: [
+        { label: "النوع", value: tab === "all" ? "الكل" : ENTITY_LABELS[tab] },
+        { label: "عدد السجلات", value: String(rows.length) },
+        { label: "التاريخ", value: new Date().toLocaleDateString("ar-EG") },
+      ],
+      kpis: [
+        { label: "عدد السجلات", value: String(rows.length), tone: "brand" },
+        { label: "إجمالي القيمة", value: money(filtered.reduce((sum, item) => sum + item.amount, 0)) },
+      ],
+      body: `<div class="t-wrap"><table><thead><tr><th>النوع</th><th>الاسم</th><th>الملخص</th><th>المبلغ</th><th>تاريخ الحذف</th></tr></thead><tbody>${filtered.map((record) => `<tr><td>${ENTITY_LABELS[record.entityType]}</td><td>${record.label}</td><td>${record.summary}</td><td class="num">${money(record.amount)}</td><td>${new Date(record.deletedAt).toLocaleDateString("ar-EG")}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">لا توجد بيانات</td></tr>`}</tbody></table></div>`,
+      page: "A4 landscape",
+    });
+    if (!openPdfDocument(html, { autoPrint: false, features: "width=980,height=760" })) {
+      toast.error("يحتاج المتصفح إلى فتح نافذة منبثقة لتصدير PDF");
+      return;
+    }
+    toast.success("تم تجهيز ملف PDF الخاص بالأرشيف");
+  };
 
   const activeCount = counts[tab] ?? 0;
   const totalValue = useMemo(() => records.reduce((sum, record) => sum + record.amount, 0), [records]);
@@ -153,7 +216,7 @@ export default function Archive() {
           <ArchiveMetric icon={<ArchiveIcon className="w-4 h-4" />} label="إجمالي العناصر" value={money(records.length)} />
           <ArchiveMetric icon={<Database className="w-4 h-4" />} label="القيمة المؤرشفة" value={money(totalValue)} />
           <ArchiveMetric icon={<CalendarDays className="w-4 h-4" />} label="آخر حذف" value={records[0] ? when(records[0].deletedAt) : "لا توجد سجلات"} />
-          <ArchiveMetric icon={<ShieldAlert className="w-4 h-4" />} label="حالة الاحتفاظ" value="محفوظ حتى الحذف النهائي" />
+          <ArchiveMetric icon={<ShieldAlert className="w-4 h-4" />} label="الصلاحية الحالية" value={access?.isOwner ? "مالك" : access?.role ?? "غير محدد"} />
         </div>
 
         {/* Filters */}
@@ -182,14 +245,26 @@ export default function Archive() {
                 );
               })}
             </div>
-            <div className="relative w-full md:w-64">
-              <Search className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.5} />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="ابحث في الأرشيف…"
-                className="w-full rounded-full border border-border/60 bg-background py-2.5 pe-10 ps-4 text-sm outline-none transition-all duration-500 focus:border-primary/40"
-              />
+            <div className="flex w-full flex-col gap-2 md:w-96">
+              <div className="relative">
+                <Search className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.5} />
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="ابحث في الأرشيف…"
+                  className="w-full rounded-full border border-border/60 bg-background py-2.5 pe-10 ps-4 text-sm outline-none transition-all duration-500 focus:border-primary/40"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as "csv" | "pdf")}>
+                  <SelectTrigger className="h-9 w-28"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="csv">CSV</SelectItem>
+                    <SelectItem value="pdf">PDF</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="sm" className="gap-2" onClick={exportArchive}><Download className="w-4 h-4" /> تصدير</Button>
+              </div>
             </div>
             </div>
             <div className="flex flex-col gap-3 border-t border-[var(--hairline)] pt-3 lg:flex-row lg:items-center lg:justify-between">
@@ -203,7 +278,7 @@ export default function Archive() {
           </div>
         </Bezel>
 
-        {selectedRecords.length ? <div className="mb-5 flex flex-col gap-3 rounded-2xl bg-primary/8 p-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-2 text-sm"><CheckSquare className="w-4 h-4 text-primary" /> تم اختيار {selectedRecords.length} سجل للاسترجاع</div><div className="flex gap-2"><Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>إلغاء التحديد</Button><Button size="sm" disabled={busy !== null} className="gap-2" onClick={restoreSelected}><RotateCcw className="w-4 h-4" /> استرجاع المحدد</Button></div></div> : null}
+        {selectedRecords.length ? <div className="mb-5 flex flex-col gap-3 rounded-2xl bg-primary/8 p-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-2 text-sm"><CheckSquare className="w-4 h-4 text-primary" /> تم اختيار {selectedRecords.length} سجل للاسترجاع</div><div className="flex gap-2"><Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>إلغاء التحديد</Button><Button size="sm" disabled={busy !== null || !access?.canRestore} className="gap-2" onClick={restoreSelected}><RotateCcw className="w-4 h-4" /> استرجاع المحدد</Button></div></div> : null}
 
         {/* List */}
         {loading ? (
@@ -252,8 +327,8 @@ export default function Archive() {
                     <div className="mt-auto flex items-center gap-2">
                       <button onClick={() => setPreview(r)} aria-label="عرض التفاصيل" className="grid h-10 w-10 place-items-center rounded-full bg-muted/60 text-muted-foreground transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-primary/10 hover:text-primary active:scale-[0.98]"><Eye className="h-4 w-4" strokeWidth={1.5} /></button>
                       <button
-                        onClick={() => onRestore(r)}
-                        disabled={busy === r.id}
+                        onClick={() => onRestore(r, "استرجاع فردي من الأرشيف")}
+                        disabled={busy === r.id || !access?.canRestore}
                         className="group/btn inline-flex flex-1 items-center justify-between gap-3 rounded-full bg-primary py-2 pe-2 ps-5 text-sm font-medium text-primary-foreground transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.98] disabled:opacity-50"
                       >
                         استرجاع
@@ -263,8 +338,9 @@ export default function Archive() {
                       </button>
                       <button
                         onClick={() => setConfirm({ kind: "one", rec: r })}
+                        disabled={!access?.canPurge}
                         aria-label="مسح نهائي"
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 text-muted-foreground transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-destructive/40 hover:text-destructive active:scale-[0.98]"
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 text-muted-foreground transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-destructive/40 hover:text-destructive active:scale-[0.98] disabled:opacity-50"
                       >
                         <Trash2 className="h-4 w-4" strokeWidth={1.5} />
                       </button>
@@ -287,16 +363,75 @@ export default function Archive() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           {confirm?.kind === "all" ? <div className="grid gap-2"><label className="text-xs text-muted-foreground">اكتب <strong className="text-foreground">حذف</strong> لتأكيد إفراغ الأرشيف</label><Input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} placeholder="حذف" /></div> : null}
+          <div className="rounded-2xl bg-foreground/[0.04] p-3 text-sm text-muted-foreground">السبب (اختياري): <span className="text-xs">سيُسجل في Audit Log مع اسم المستخدم والتاريخ</span></div>
           <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction disabled={confirm?.kind === "all" && confirmText.trim() !== "حذف"} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={onPurge}>مسح نهائي</AlertDialogAction>
+            <AlertDialogAction disabled={confirm?.kind === "all" && confirmText.trim() !== "حذف"} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => onPurge("مسح نهائي من الأرشيف")}>مسح نهائي</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       <Dialog open={!!preview} onOpenChange={(open) => !open && setPreview(null)}>
-        <DialogContent dir="rtl" className="max-h-[90vh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle className="text-right">تفاصيل السجل المؤرشف</DialogTitle><DialogDescription className="text-right">راجع البيانات قبل الاسترجاع. الاسترجاع يعيد السجل كما كان وقت الحذف.</DialogDescription></DialogHeader>{preview ? <ArchiveDetails record={preview} /> : null}<DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setPreview(null)}>إغلاق</Button>{preview ? <Button disabled={busy === preview.id} className="gap-2" onClick={() => { setPreview(null); onRestore(preview); }}><RotateCcw className="w-4 h-4" /> استرجاع السجل</Button> : null}</DialogFooter></DialogContent>
+        <DialogContent dir="rtl" className="max-h-[90vh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle className="text-right">تفاصيل السجل المؤرشف</DialogTitle><DialogDescription className="text-right">راجع البيانات قبل الاسترجاع. الاسترجاع يعيد السجل كما كان وقت الحذف.</DialogDescription></DialogHeader>{preview ? <ArchiveDetails record={preview} /> : null}<DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setPreview(null)}>إغلاق</Button>{preview ? <Button disabled={busy === preview.id || !access?.canRestore} className="gap-2" onClick={() => { setPreview(null); onRestore(preview, "استرجاع من تفاصيل السجل"); }}><RotateCcw className="w-4 h-4" /> استرجاع السجل</Button> : null}</DialogFooter></DialogContent>
       </Dialog>
+
+      <Dialog open={!!batchRestoreConfirm} onOpenChange={(open) => !open && setBatchRestoreConfirm(null)}>
+        <DialogContent dir="rtl" className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-right">تأكيد الاسترجاع الجماعي</DialogTitle>
+            <DialogDescription className="text-right">سيتم استرجاع {batchRestoreConfirm?.records.length ?? 0} سجل من الأرشيف، وبعد التأكيد سيُعرض لك ملخص بالتغييرات.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="rounded-2xl bg-foreground/[0.04] p-3">
+              <div className="font-bold mb-2">ملخص التغييرات</div>
+              <ul className="space-y-1 text-muted-foreground">
+                {batchRestoreConfirm?.records.map((record) => <li key={record.id}>• {ENTITY_LABELS[record.entityType]}: {record.label}</li>)}
+              </ul>
+            </div>
+            <div className="rounded-2xl bg-foreground/[0.04] p-3">سيتم تسجيل العملية في Audit Log مع اسم المستخدم والوقت.</div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setBatchRestoreConfirm(null)}>إلغاء</Button>
+            <Button className="gap-2" onClick={async () => {
+              if (!batchRestoreConfirm) return;
+              setBusy("batch");
+              try {
+                const { restored, failed } = await restoreMany(batchRestoreConfirm.records, batchRestoreConfirm.reason);
+                await Promise.all([refresh(), refreshDB()]);
+                setSelectedIds([]);
+                toast.success(`تم استرجاع ${restored} سجل`);
+                if (failed.length) toast.error(`تعذر استرجاع: ${failed.slice(0, 2).join("، ")}`);
+              } catch (e: any) {
+                toast.error(e?.message ?? "تعذر الاسترجاع الجماعي");
+              } finally {
+                setBusy(null);
+                setBatchRestoreConfirm(null);
+              }
+            }}><RotateCcw className="w-4 h-4" /> تأكيد الاسترجاع</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Bezel className="mt-6">
+        <div className="p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-bold">Audit Log</p>
+            <span className="text-xs text-muted-foreground">آخر 40 عملية</span>
+          </div>
+          <div className="space-y-2 max-h-72 overflow-auto">
+            {auditEntries.length === 0 ? <div className="text-sm text-muted-foreground">لا توجد عمليات مسجلة بعد</div> : auditEntries.map((entry) => (
+              <div key={entry.id} className="rounded-2xl bg-foreground/[0.04] p-3 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold">{entry.action}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(entry.createdAt).toLocaleString("ar-EG")}</span>
+                </div>
+                <div className="mt-1 text-muted-foreground">{entry.details}</div>
+                <div className="mt-1 text-xs text-muted-foreground">بواسطة: {entry.actor}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Bezel>
       </div>
     </PageTransition></AppShell>
   );
