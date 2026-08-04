@@ -107,6 +107,33 @@ export type Database = {
         }
         Relationships: []
       }
+      data_activity: {
+        Row: {
+          action: string
+          actor: string
+          created_at: string
+          details: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          actor?: string
+          created_at?: string
+          details?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          actor?: string
+          created_at?: string
+          details?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       expenses: {
         Row: {
           amount: number
