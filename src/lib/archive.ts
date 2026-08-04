@@ -149,12 +149,28 @@ export async function saveArchiveRetention(days: ArchiveRetentionDays) {
   if (error) throw error;
 }
 
+export async function applyArchiveRetention(days: ArchiveRetentionDays) {
+  if (!days) return 0;
+  const userId = await currentUserId();
+  const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+  const { count, error } = await supabase.from("archived_records").delete({ count: "exact" }).eq("user_id", userId).lt("deleted_at", cutoff);
+  if (error) throw error;
+  if (count) await logArchiveActivity(`تطبيق سياسة الاحتفاظ وحذف ${count} سجل مؤرشف تجاوز ${days} يومًا`);
+  return count ?? 0;
+}
+
 export function useArchive() {
   const [records, setRecords] = useState<ArchivedRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    try {
+      const retention = await getArchiveRetention();
+      await applyArchiveRetention(retention);
+    } catch {
+      // The archive remains available even if retention preferences have not migrated yet.
+    }
     const { data } = await supabase
       .from("archived_records")
       .select("*")
