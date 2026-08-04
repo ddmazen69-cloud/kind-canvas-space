@@ -5,13 +5,18 @@ import {
 } from "@/lib/archive";
 import { useDB } from "@/lib/store";
 import { AppShell } from "@/components/AppShell";
-import { Users, FileText, Truck, Package, Receipt, RotateCcw, Trash2, Search, Archive as ArchiveIcon, ArrowUpRight } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
+import { PageTransition } from "@/components/PageTransition";
+import { Users, FileText, Truck, Package, Receipt, RotateCcw, Trash2, Search, Archive as ArchiveIcon, ArrowUpRight, CalendarDays, Database, Eye, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 const ICONS: Record<ArchiveEntity, typeof Users> = {
   customer: Users,
@@ -64,6 +69,8 @@ export default function Archive() {
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ kind: "one"; rec: ArchivedRecord } | { kind: "all" } | null>(null);
+  const [confirmText, setConfirmText] = useState("");
+  const [preview, setPreview] = useState<ArchivedRecord | null>(null);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: records.length };
@@ -111,31 +118,19 @@ export default function Archive() {
     }
   }
 
+  const activeCount = counts[tab] ?? 0;
+  const totalValue = useMemo(() => records.reduce((sum, record) => sum + record.amount, 0), [records]);
+
   return (
-    <AppShell>
-      <div className="mx-auto w-full max-w-6xl px-4 py-10 md:py-16">
-        {/* Header */}
-        <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              <ArchiveIcon className="h-3 w-3" strokeWidth={1.5} />
-              التقارير / الأرشيف
-            </span>
-            <h1 className="mt-4 text-4xl font-semibold tracking-tight md:text-5xl">سلة الأرشيف</h1>
-            <p className="mt-3 max-w-lg text-sm leading-relaxed text-muted-foreground">
-              كل ما تم حذفه من عملاء وفواتير وموردين وأصناف ومصروفات محفوظ هنا بالكامل — استرجعه بضغطة، أو امسحه نهائيًا.
-            </p>
-          </div>
-          <button
-            onClick={() => setConfirm({ kind: "all" })}
-            disabled={filtered.length === 0}
-            className="group inline-flex w-max items-center gap-3 rounded-full border border-border/60 bg-card py-2 pe-2 ps-5 text-sm font-medium transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-destructive/40 active:scale-[0.98] disabled:opacity-40"
-          >
-            إفراغ {tab === "all" ? "الأرشيف" : ENTITY_LABELS[tab]}
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105 group-hover:bg-destructive/10 group-hover:text-destructive">
-              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-            </span>
-          </button>
+    <AppShell><PageTransition>
+      <div className="mx-auto w-full max-w-7xl">
+        <PageHeader title="الأرشيف" eyebrow="إدارة السجلات المحذوفة" icon={<ArchiveIcon className="w-7 h-7" />} subtitle="احتفظ بنسخة قابلة للاسترجاع من السجلات المحذوفة، ثم راجع تفاصيلها قبل استعادتها أو مسحها نهائيًا." action={<Button variant="outline" disabled={activeCount === 0} onClick={() => { setConfirmText(""); setConfirm({ kind: "all" }); }} className="group gap-3 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"><span>إفراغ {tab === "all" ? "الأرشيف" : ENTITY_LABELS[tab]} ({activeCount})</span><span className="grid h-7 w-7 place-items-center rounded-full bg-destructive/10 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105"><Trash2 className="h-3.5 w-3.5" /></span></Button>} />
+
+        <div className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ArchiveMetric icon={<ArchiveIcon className="w-4 h-4" />} label="إجمالي العناصر" value={money(records.length)} />
+          <ArchiveMetric icon={<Database className="w-4 h-4" />} label="القيمة المؤرشفة" value={money(totalValue)} />
+          <ArchiveMetric icon={<CalendarDays className="w-4 h-4" />} label="آخر حذف" value={records[0] ? when(records[0].deletedAt) : "لا توجد سجلات"} />
+          <ArchiveMetric icon={<ShieldAlert className="w-4 h-4" />} label="حالة الاحتفاظ" value="محفوظ حتى الحذف النهائي" />
         </div>
 
         {/* Filters */}
@@ -219,6 +214,7 @@ export default function Archive() {
                     </div>
 
                     <div className="mt-auto flex items-center gap-2">
+                      <button onClick={() => setPreview(r)} aria-label="عرض التفاصيل" className="grid h-10 w-10 place-items-center rounded-full bg-muted/60 text-muted-foreground transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-primary/10 hover:text-primary active:scale-[0.98]"><Eye className="h-4 w-4" strokeWidth={1.5} /></button>
                       <button
                         onClick={() => onRestore(r)}
                         disabled={busy === r.id}
@@ -243,24 +239,32 @@ export default function Archive() {
             })}
           </div>
         )}
-      </div>
 
       <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent dir="rtl">
           <AlertDialogHeader>
-            <AlertDialogTitle>مسح نهائي بدون رجعة</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-right">مسح نهائي بدون رجعة</AlertDialogTitle>
+            <AlertDialogDescription className="text-right">
               {confirm?.kind === "one"
                 ? `هيتم مسح "${confirm.rec.label}" من الأرشيف نهائيًا ومش هينفع استرجاعه بعد كده.`
-                : "هيتم إفراغ الأرشيف نهائيًا ومش هينفع استرجاع أي عنصر بعد كده."}
+                : `هيتم إفراغ ${activeCount} عنصر نهائيًا من ${tab === "all" ? "الأرشيف" : ENTITY_LABELS[tab]}، ومش هينفع استرجاع أي عنصر بعد كده.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {confirm?.kind === "all" ? <div className="grid gap-2"><label className="text-xs text-muted-foreground">اكتب <strong className="text-foreground">حذف</strong> لتأكيد إفراغ الأرشيف</label><Input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} placeholder="حذف" /></div> : null}
           <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction onClick={onPurge}>مسح نهائي</AlertDialogAction>
+            <AlertDialogAction disabled={confirm?.kind === "all" && confirmText.trim() !== "حذف"} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={onPurge}>مسح نهائي</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </AppShell>
+
+      <Dialog open={!!preview} onOpenChange={(open) => !open && setPreview(null)}>
+        <DialogContent dir="rtl" className="max-h-[90vh] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle className="text-right">تفاصيل السجل المؤرشف</DialogTitle><DialogDescription className="text-right">راجع البيانات قبل الاسترجاع. الاسترجاع يعيد السجل كما كان وقت الحذف.</DialogDescription></DialogHeader>{preview ? <ArchiveDetails record={preview} /> : null}<DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setPreview(null)}>إغلاق</Button>{preview ? <Button disabled={busy === preview.id} className="gap-2" onClick={() => { setPreview(null); onRestore(preview); }}><RotateCcw className="w-4 h-4" /> استرجاع السجل</Button> : null}</DialogFooter></DialogContent>
+      </Dialog>
+      </div>
+    </PageTransition></AppShell>
   );
 }
+
+function ArchiveMetric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) { return <div className="plate p-4"><div className="flex items-center gap-1.5 text-xs text-muted-foreground">{icon}{label}</div><div className="mt-2 text-lg font-bold tabular-nums">{value}</div></div>; }
+function ArchiveDetails({ record }: { record: ArchivedRecord }) { const row = record.payload?.row ?? {}; const children = record.entityType === "invoice" ? `بنود: ${record.payload?.invoice_items?.length ?? 0}، دفعات: ${record.payload?.payments?.length ?? 0}` : null; return <div className="grid gap-3"><div className="rounded-2xl bg-foreground/[0.04] p-4"><div className="flex items-center justify-between"><span className="text-xs text-muted-foreground">النوع</span><span className="text-sm font-bold">{ENTITY_LABELS[record.entityType]}</span></div><div className="mt-3 flex items-center justify-between"><span className="text-xs text-muted-foreground">تاريخ الحذف</span><span className="text-sm">{new Intl.DateTimeFormat("ar-EG", { dateStyle: "long", timeStyle: "short" }).format(new Date(record.deletedAt))}</span></div></div><div className="rounded-2xl bg-foreground/[0.04] p-4"><p className="text-sm font-bold">{record.label}</p><p className="mt-1 text-xs text-muted-foreground">{record.summary || "لا توجد ملاحظات إضافية"}</p>{children ? <p className="mt-3 text-xs text-muted-foreground">{children}</p> : null}</div><div className="rounded-2xl bg-foreground/[0.04] p-4 text-xs leading-6 text-muted-foreground">{Object.entries(row).filter(([key]) => !["id", "user_id", "created_at", "updated_at"].includes(key)).slice(0, 8).map(([key, value]) => <p key={key}><span className="text-foreground/70">{key}:</span> {String(value ?? "-")}</p>)}</div></div>; }
