@@ -29,7 +29,7 @@ import { DATA_TABLES, dataCounts, dataMeta, downloadExcelBackup, downloadJsonBac
 import {
   Settings as SettingsIcon, Store, KeyRound, Save, LogOut, Receipt, Bell,
   Palette, Database, Upload, Trash2, FileJson, FileSpreadsheet, RotateCcw, ShieldAlert, Mail,
-  UserRound, ShieldCheck, Users, Link2, Copy, Check, ArchiveRestore, CalendarDays, CheckCircle2, Clock3, Download, FileUp, HardDrive, History, AlertTriangle,
+  UserRound, ShieldCheck, Users, Link2, Copy, Check, ArchiveRestore, CalendarDays, CheckCircle2, Clock3, Download, FileUp, HardDrive, History, AlertTriangle, Laptop, MonitorSmartphone, Shield,
 } from "lucide-react";
 import { UserAvatar } from "@/components/UserChip";
 import { useMyRole, useTeam, ROLE_LABEL, ROLE_HINT, ABILITIES, relativeTime, type AppRole } from "@/lib/roles";
@@ -135,7 +135,10 @@ function SettingsPage() {
         <TabsContent value="alerts"><AlertsTab form={form} set={set} /></TabsContent>
         <TabsContent value="appearance"><AppearanceTab form={form} set={set} /></TabsContent>
         <TabsContent value="account">
-          <AccountTab onSignOut={async () => { await supabase.auth.signOut(); navigate("/landing"); }} />
+          <AccountTab
+            onSignOut={async () => { await supabase.auth.signOut(); navigate("/landing"); }}
+            onSignOutEverywhere={async () => { await supabase.auth.signOut({ scope: "global" }); navigate("/landing"); }}
+          />
         </TabsContent>
         <TabsContent value="team"><TeamTab /></TabsContent>
         <TabsContent value="data"><DataTab /></TabsContent>
@@ -431,34 +434,53 @@ const dateFmt = new Intl.DateTimeFormat("ar-EG", {
 });
 const fmtDate = (iso: string | null) => (iso ? dateFmt.format(new Date(iso)) : "غير معروف");
 
-function AccountTab({ onSignOut }: { onSignOut: () => void }) {
+function AccountTab({ onSignOut, onSignOutEverywhere }: { onSignOut: () => void; onSignOutEverywhere: () => void }) {
   const { user, authReady, hasPassword } = useAccount();
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <IdentityCard onSignOut={onSignOut} />
-      <div className="grid gap-6">
-        <Section
-          icon={<KeyRound className="w-5 h-5" />}
-          title={hasPassword ? "كلمة السر" : "إضافة كلمة سر"}
-          hint={
-            !authReady
-              ? undefined
-              : hasPassword
-                ? "غيّر كلمة السر بشكل دوري للحفاظ على أمان حسابك."
-                : "أنت داخل بحساب جوجل، ومفيش كلمة سر للحساب. تقدر تضيف واحدة وتدخل بالبريد كذلك."
-          }
-        >
-          {authReady ? <ChangePassword mode={hasPassword ? "change" : "add"} /> : <LineSkeleton rows={3} />}
-        </Section>
+    <div className="grid gap-6">
+      <AccountSummary user={user} />
+      <Tabs defaultValue="profile" dir="rtl" className="w-full">
+        <TabsList className="grid h-auto w-full grid-cols-3 gap-1 p-1 sm:w-fit sm:min-w-[30rem]">
+          <TabsTrigger value="profile" className="gap-1.5"><UserRound className="w-4 h-4" /> البيانات الشخصية</TabsTrigger>
+          <TabsTrigger value="security" className="gap-1.5"><Shield className="w-4 h-4" /> كلمة المرور</TabsTrigger>
+          <TabsTrigger value="sessions" className="gap-1.5"><MonitorSmartphone className="w-4 h-4" /> الجلسات</TabsTrigger>
+        </TabsList>
 
-        {user?.provider === "google" ? null : (
-          <Section icon={<Mail className="w-5 h-5" />} title="تغيير البريد الإلكتروني">
-            <ChangeEmail />
-          </Section>
-        )}
-      </div>
+        <TabsContent value="profile" className="mt-6"><IdentityCard /></TabsContent>
+        <TabsContent value="security" className="mt-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Section icon={<KeyRound className="w-5 h-5" />} title={hasPassword ? "تغيير كلمة المرور" : "إضافة كلمة مرور"} hint={authReady ? (hasPassword ? "استخدم كلمة قوية ومختلفة عن كلمة بريدك." : "أضف كلمة مرور لتستطيع الدخول بالبريد أيضاً.") : undefined}>
+              {authReady ? <ChangePassword mode={hasPassword ? "change" : "add"} /> : <LineSkeleton rows={4} />}
+            </Section>
+            {user?.provider === "google" ? <SecurityInfo /> : <Section icon={<Mail className="w-5 h-5" />} title="تغيير البريد الإلكتروني" hint="ستصلك رسالة تأكيد قبل اعتماد البريد الجديد."><ChangeEmail /></Section>}
+          </div>
+        </TabsContent>
+        <TabsContent value="sessions" className="mt-6"><SessionPanel user={user} onSignOutEverywhere={onSignOutEverywhere} /></TabsContent>
+      </Tabs>
+
+      <Section className="border border-destructive/25" icon={<LogOut className="w-5 h-5 text-destructive" />} title="تسجيل الخروج" hint="اخرج من هذا الجهاز فقط. استخدم تبويب الجلسات إذا كنت تريد إنهاء كل الجلسات.">
+        <Button variant="outline" onClick={onSignOut} className="gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"><LogOut className="w-4 h-4" /> تسجيل الخروج من هذا الجهاز</Button>
+      </Section>
     </div>
   );
+}
+
+function AccountSummary({ user }: { user: ReturnType<typeof useAccount>["user"] }) {
+  const { label, loading } = useProfile();
+  if (loading) return <LineSkeleton rows={2} />;
+  return <div className="plate flex flex-col gap-4 bg-card p-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex min-w-0 items-center gap-4"><UserAvatar size={56} /><div className="min-w-0"><p className="truncate text-lg font-bold">{label || "بدون اسم"}</p><p dir="ltr" className="truncate text-xs text-muted-foreground">{user?.email ?? "غير متاح"}</p></div></div><div className="grid grid-cols-2 gap-2 text-xs"><InfoTile label="آخر دخول" value={fmtDate(user?.lastSignInAt ?? null)} /><InfoTile label="حالة البريد" value={user?.emailConfirmed ? "مؤكد" : "بانتظار التأكيد"} /></div></div>;
+}
+
+function InfoTile({ label, value }: { label: string; value: string }) { return <div className="min-w-36 rounded-xl bg-foreground/[0.04] px-3 py-2"><p className="text-[11px] text-muted-foreground">{label}</p><p className="mt-1 text-xs font-medium">{value}</p></div>; }
+
+function SecurityInfo() { return <Section icon={<ShieldCheck className="w-5 h-5" />} title="الدخول بحساب جوجل" hint="بريدك مُدار من جوجل، لذلك لا يلزم تغيير البريد من هنا."><div className="rounded-2xl bg-foreground/[0.04] p-4 text-sm leading-7 text-muted-foreground">يمكنك إضافة كلمة مرور من البطاقة المقابلة إذا أردت إتاحة الدخول بالبريد وكلمة المرور أيضاً.</div></Section>; }
+
+function SessionPanel({ user, onSignOutEverywhere }: { user: ReturnType<typeof useAccount>["user"]; onSignOutEverywhere: () => void }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const device = typeof navigator === "undefined" ? "هذا الجهاز" : /mobile|android|iphone|ipad/i.test(navigator.userAgent) ? "متصفح على هاتف" : "متصفح على كمبيوتر";
+  const endEverywhere = async () => { setBusy(true); try { await onSignOutEverywhere(); } catch { toast.error("تعذر إنهاء الجلسات"); } finally { setBusy(false); } };
+  return <><Section icon={<MonitorSmartphone className="w-5 h-5" />} title="الجلسات النشطة" hint="يعرض النظام الجلسة الحالية. إنهاء كل الجلسات سيطلب تسجيل الدخول من جديد على كل الأجهزة."><div className="rounded-2xl bg-foreground/[0.04] p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><Laptop className="w-5 h-5" /></div><div><p className="text-sm font-bold">{device}</p><p className="text-xs text-muted-foreground">آخر نشاط: {fmtDate(user?.lastSignInAt ?? null)}</p></div></div><Badge variant="secondary" className="w-fit text-success">الجلسة الحالية</Badge></div><Button variant="outline" className="mt-4 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setConfirmOpen(true)}><LogOut className="w-4 h-4" /> تسجيل الخروج من كل الأجهزة</Button></Section><AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}><AlertDialogContent dir="rtl"><AlertDialogHeader><AlertDialogTitle className="text-right">إنهاء كل الجلسات؟</AlertDialogTitle><AlertDialogDescription className="text-right">سيتم تسجيل خروج حسابك من هذا الجهاز ومن أي أجهزة أخرى. ستحتاج لتسجيل الدخول مرة أخرى.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter className="gap-2"><AlertDialogCancel>إلغاء</AlertDialogCancel><AlertDialogAction disabled={busy} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={endEverywhere}>{busy ? "جاري الإنهاء..." : "إنهاء كل الجلسات"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></>;
 }
 
 function useAccount() {
@@ -501,7 +523,7 @@ async function shrinkImage(file: File, size = 256): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.85);
 }
 
-function IdentityCard({ onSignOut }: { onSignOut: () => void }) {
+function IdentityCard() {
   const { user, label, avatar, profile, save, loading } = useProfile();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -653,13 +675,6 @@ function IdentityCard({ onSignOut }: { onSignOut: () => void }) {
             </div>
           </dl>
 
-          <Button
-            variant="outline"
-            className="w-full gap-1.5 text-destructive transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-destructive/10 hover:text-destructive active:scale-[0.98]"
-            onClick={onSignOut}
-          >
-            <LogOut className="w-4 h-4" /> تسجيل الخروج
-          </Button>
         </div>
       )}
     </Section>
@@ -707,7 +722,7 @@ function ChangePassword({ mode = "change" }: { mode?: "change" | "add" }) {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pw.length < 6) { toast.error("كلمة السر 6 أحرف على الأقل"); return; }
+    if (pw.length < 8 || !/\d/.test(pw) || !/[^A-Za-z0-9]/.test(pw)) { toast.error("كلمة السر تحتاج 8 أحرف ورقم ورمز خاص"); return; }
     if (pw !== pw2) { toast.error("كلمتا السر غير متطابقتين"); return; }
     setBusy(true);
     try {
@@ -736,6 +751,9 @@ function ChangePassword({ mode = "change" }: { mode?: "change" | "add" }) {
           <span className="text-[11px] text-muted-foreground">{strength.label}</span>
         </div>
       ) : null}
+      <div className="rounded-xl bg-foreground/[0.04] px-3 py-2 text-[11px] leading-6 text-muted-foreground">
+        استخدم 8 أحرف على الأقل، مع رقم ورمز خاص مثل <span dir="ltr">! @ #</span>.
+      </div>
       <Field label="تأكيد كلمة السر">
         <Input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} dir="ltr" placeholder="••••••••" maxLength={72} />
       </Field>
@@ -748,8 +766,8 @@ function ChangePassword({ mode = "change" }: { mode?: "change" | "add" }) {
 
 function pwStrength(pw: string) {
   let score = 0;
-  if (pw.length >= 6) score++;
-  if (pw.length >= 10) score++;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
   if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
   if (/\d/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
