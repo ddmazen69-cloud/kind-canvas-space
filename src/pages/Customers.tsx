@@ -22,7 +22,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -34,6 +33,7 @@ import { toast } from "sonner";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
 import { usePrivacy } from "@/lib/privacy";
 import { DateField } from "@/components/DateField";
+import { useNavigate } from "@tanstack/react-router";
 
 const EG_PHONE_RE = /^01[0125]\d{8}$/;
 
@@ -125,10 +125,10 @@ function escapeHtml(s: string): string {
 
 function CustomersPage() {
   const data = useDB();
+  const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<FilterTab>("all");
   const [scriptFor, setScriptFor] = useState<Customer | null>(null);
-  const [viewFor, setViewFor] = useState<Customer | null>(null);
   const [historyFor, setHistoryFor] = useState<Customer | null>(null);
   const { privacy, toggle } = usePrivacy();
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -507,7 +507,7 @@ function CustomersPage() {
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button size="icon" variant="ghost" className="action-btn rounded-full text-muted-foreground hover:bg-muted/50" onClick={() => setViewFor(c)} aria-label="تفاصيل العميل">
+                              <Button size="icon" variant="ghost" className="action-btn rounded-full text-muted-foreground hover:bg-muted/50" onClick={() => navigate({ to: "/customers/$customerId", params: { customerId: c.id } })} aria-label="تفاصيل العميل">
                                 <Info className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
