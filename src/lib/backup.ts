@@ -8,7 +8,7 @@ const DELETE_ORDER = ["payments", "invoice_items", "invoices", "purchase_items",
 export type DataTable = (typeof BACKUP_TABLES)[number];
 export type BackupPayload = { app: "segilly"; version: 1; exportedAt: string; tables: Record<string, unknown[]> };
 export type ExportOptions = { tables?: string[]; from?: string; to?: string };
-export type ActivityEntry = { id: string; type: "backup" | "export" | "import" | "delete"; details: string; actor: string; at: string };
+export type ActivityEntry = { id: string; type: "backup" | "export" | "import" | "delete" | "setting"; details: string; actor: string; at: string };
 const stamp = () => new Date().toISOString().slice(0, 10);
 
 async function currentUser() { const { data: { user } } = await supabase.auth.getUser(); if (!user) throw new Error("مش مسجّل دخول"); return user; }

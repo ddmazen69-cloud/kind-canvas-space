@@ -29,7 +29,7 @@ import { DATA_TABLES, dataCounts, dataMeta, downloadExcelBackup, downloadJsonBac
 import {
   Settings as SettingsIcon, Store, KeyRound, Save, LogOut, Receipt, Bell,
   Palette, Database, Upload, Trash2, FileJson, FileSpreadsheet, RotateCcw, ShieldAlert, Mail,
-  UserRound, ShieldCheck, Users, Link2, Copy, Check, ArchiveRestore, CalendarDays, CheckCircle2, Clock3, Download, FileUp, HardDrive, History, AlertTriangle, Laptop, MonitorSmartphone, Shield,
+  UserRound, ShieldCheck, Users, Link2, Copy, Check, ArchiveRestore, CalendarDays, CheckCircle2, Clock3, Download, FileUp, HardDrive, History, AlertTriangle, Laptop, MonitorSmartphone, Shield, Search, Wifi, Cloud,
 } from "lucide-react";
 import { UserAvatar } from "@/components/UserChip";
 import { useMyRole, useTeam, ROLE_LABEL, ROLE_HINT, ABILITIES, relativeTime, type AppRole } from "@/lib/roles";
@@ -86,11 +86,47 @@ const TABLE_LABELS: Record<string, string> = {
   expenses: "المصروفات",
 };
 
+const SETTINGS_SEARCH: Array<{ label: string; section: string; tab: string; terms: string[] }> = [
+  { label: "رقم واتساب المحل", section: "المحل", tab: "shop", terms: ["واتساب", "whatsapp", "تواصل", "رقم"] },
+  { label: "شعار المحل", section: "المحل", tab: "shop", terms: ["شعار", "لوجو", "صورة"] },
+  { label: "مقاس الورق", section: "الفواتير والطباعة", tab: "billing", terms: ["ورق", "طباعة", "حراري", "a4"] },
+  { label: "رقم الفاتورة والأقساط", section: "الفواتير والطباعة", tab: "billing", terms: ["فاتورة", "قسط", "استحقاق", "عملة"] },
+  { label: "تنبيهات الأقساط", section: "التنبيهات", tab: "alerts", terms: ["تنبيه", "قسط", "استحقاق", "مخزون"] },
+  { label: "النهار والليل والثيمات", section: "المظهر", tab: "appearance", terms: ["ثيم", "لون", "ليل", "نهار", "مظهر"] },
+  { label: "الأمان والجلسات", section: "الحساب", tab: "account", terms: ["كلمة", "مرور", "جلسات", "أمان", "دخول"] },
+  { label: "الفريق والصلاحيات", section: "الفريق", tab: "team", terms: ["فريق", "صلاحيات", "عضو", "دعوة"] },
+  { label: "النسخ الاحتياطي والاستيراد", section: "البيانات", tab: "data", terms: ["نسخة", "احتياطي", "تصدير", "استيراد", "حذف"] },
+];
+
+function SettingsTab({ value, icon, dirty, children }: { value: string; icon: React.ReactNode; dirty?: boolean; children: React.ReactNode }) {
+  return <TabsTrigger value={value} className="relative shrink-0 gap-1.5">{icon}{children}{dirty ? <span aria-label="تعديلات غير محفوظة" className="h-1.5 w-1.5 rounded-full bg-warning" /> : null}</TabsTrigger>;
+}
+
+function SettingsHealth({ lastSavedAt, alertsEnabled }: { lastSavedAt: Date | null; alertsEnabled: boolean }) {
+  const { members } = useTeam();
+  const online = typeof navigator === "undefined" ? true : navigator.onLine;
+  return (
+    <div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <HealthItem icon={<Cloud className="h-4 w-4" />} label="قاعدة البيانات" value={online ? "متصلة" : "غير متصلة"} tone={online ? "text-success" : "text-danger"} />
+      <HealthItem icon={<Clock3 className="h-4 w-4" />} label="آخر حفظ" value={lastSavedAt ? new Intl.DateTimeFormat("ar-EG", { hour: "2-digit", minute: "2-digit" }).format(lastSavedAt) : "لم يُحفظ في هذه الجلسة"} />
+      <HealthItem icon={<Bell className="h-4 w-4" />} label="التنبيهات" value={alertsEnabled ? "مفعّلة" : "متوقفة"} tone={alertsEnabled ? "text-success" : "text-muted-foreground"} />
+      <HealthItem icon={<Users className="h-4 w-4" />} label="أعضاء الفريق" value={`${members.length || 1} عضو`} />
+    </div>
+  );
+}
+
+function HealthItem({ icon, label, value, tone = "text-foreground" }: { icon: React.ReactNode; label: string; value: string; tone?: string }) {
+  return <div className="rounded-2xl bg-card/70 p-3 ring-1 ring-border/60 shadow-[inset_0_1px_1px_hsl(var(--foreground)/0.04)]"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">{icon}{label}</div><p className={`mt-1 text-sm font-semibold ${tone}`}>{value}</p></div>;
+}
+
 function SettingsPage() {
   const { settings, loading } = useShopSettings();
   const navigate = useNavigate();
   const [form, setForm] = useState<ShopSettings>(settings);
   const [busy, setBusy] = useState(false);
+  const [activeTab, setActiveTab] = useState("shop");
+  const [query, setQuery] = useState("");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   useEffect(() => { setForm(settings); }, [settings]);
   useEffect(() => { applyTheme(form.theme, form.colorTheme); }, [form.theme, form.colorTheme]);
@@ -103,18 +139,47 @@ function SettingsPage() {
   const set = useCallback(<K extends keyof ShopSettings>(k: K, v: ShopSettings[K]) =>
     setForm((f) => ({ ...f, [k]: v })), []);
 
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!dirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
   const save = async () => {
     const parsed = shopSchema.safeParse(form);
     if (!parsed.success) { toast.error(parsed.error.issues[0].message); return; }
     setBusy(true);
     try {
       await saveShopSettings({ ...form, ...parsed.data });
+      setLastSavedAt(new Date());
       toast.success("تم حفظ الإعدادات");
     } catch (e: unknown) {
       const message = e && typeof e === "object" && "message" in e ? String(e.message) : "تعذر الحفظ";
       toast.error(message);
     } finally { setBusy(false); }
   };
+
+  const setAppearance = async <K extends "theme" | "colorTheme">(key: K, value: ShopSettings[K]) => {
+    const next = { ...form, [key]: value } as ShopSettings;
+    setForm(next);
+    const parsed = shopSchema.safeParse(next);
+    if (!parsed.success) { toast.error("احفظ الحقول الأخرى أولًا قبل تغيير المظهر"); return; }
+    setBusy(true);
+    try {
+      await saveShopSettings({ ...next, ...parsed.data });
+      setLastSavedAt(new Date());
+      toast.success(key === "colorTheme" ? "تم حفظ لون الثيم" : "تم حفظ وضع العرض");
+    } catch (e: unknown) {
+      const message = e && typeof e === "object" && "message" in e ? String(e.message) : "تعذر حفظ المظهر";
+      toast.error(message);
+    } finally { setBusy(false); }
+  };
+  const tabDirty = (keys: Array<keyof ShopSettings>) => keys.some((key) => form[key] !== settings[key]);
+  const searchMatches = SETTINGS_SEARCH.filter((item) => item.terms.some((term) => term.includes(query.trim().toLowerCase()))).slice(0, 5);
 
   return (
     <div dir="rtl" className="text-right">
@@ -124,12 +189,19 @@ function SettingsPage() {
         icon={<SettingsIcon className="w-7 h-7" />}
       />
 
-      <Tabs defaultValue="shop" dir="rtl" className="w-full text-right">
-        <TabsList dir="rtl" className="flex flex-wrap h-auto justify-start gap-1 mb-5">
-          <TabsTrigger value="shop" className="gap-1.5"><Store className="w-4 h-4" /> المحل</TabsTrigger>
-          <TabsTrigger value="billing" className="gap-1.5"><Receipt className="w-4 h-4" /> الفواتير والطباعة</TabsTrigger>
-          <TabsTrigger value="alerts" className="gap-1.5"><Bell className="w-4 h-4" /> التنبيهات</TabsTrigger>
-          <TabsTrigger value="appearance" className="gap-1.5"><Palette className="w-4 h-4" /> المظهر</TabsTrigger>
+      <SettingsHealth lastSavedAt={lastSavedAt} alertsEnabled={form.alertsEnabled} />
+      <div className="relative mb-4">
+        <Search className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input value={query} onChange={(e) => setQuery(e.target.value)} className="pr-11" placeholder="ابحث في الإعدادات: واتساب، مقاس الورق، نسخ احتياطي…" />
+        {query.trim() && <div className="absolute z-20 mt-2 w-full rounded-2xl border border-border/70 bg-popover p-1.5 shadow-[0_22px_50px_-28px_hsl(var(--foreground)/0.45)]">{searchMatches.length ? searchMatches.map((item) => <button key={item.label} type="button" onClick={() => { setActiveTab(item.tab); setQuery(""); }} className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-right text-sm transition-colors hover:bg-accent"><span>{item.label}</span><span className="text-[11px] text-muted-foreground">{item.section}</span></button>) : <p className="px-3 py-2 text-sm text-muted-foreground">لم نجد إعدادًا مطابقًا.</p>}</div>}
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} dir="rtl" className="w-full text-right">
+        <TabsList dir="rtl" className="mb-5 flex h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto overscroll-x-contain p-1 [scrollbar-width:none]">
+          <SettingsTab value="shop" icon={<Store className="w-4 h-4" />} dirty={tabDirty(["shopName", "phone", "whatsapp", "address", "taxNumber", "logoUrl", "footerNote"])}>المحل</SettingsTab>
+          <SettingsTab value="billing" icon={<Receipt className="w-4 h-4" />} dirty={tabDirty(["currency", "invoicePrefix", "defaultInstallmentMonths", "defaultDueDay", "printPaper", "printShowLogo", "printShowTaxNumber", "printShowFooterNote"])}>الفواتير والطباعة</SettingsTab>
+          <SettingsTab value="alerts" icon={<Bell className="w-4 h-4" />} dirty={tabDirty(["lowStockThreshold", "reminderDaysBefore", "alertsEnabled"])}>التنبيهات</SettingsTab>
+          <SettingsTab value="appearance" icon={<Palette className="w-4 h-4" />} dirty={tabDirty(["theme", "colorTheme"])}>المظهر</SettingsTab>
           <TabsTrigger value="account" className="gap-1.5"><KeyRound className="w-4 h-4" /> الحساب</TabsTrigger>
           <TabsTrigger value="team" className="gap-1.5"><Users className="w-4 h-4" /> الفريق والصلاحيات</TabsTrigger>
           <TabsTrigger value="data" className="gap-1.5"><Database className="w-4 h-4" /> البيانات</TabsTrigger>
@@ -138,7 +210,7 @@ function SettingsPage() {
         <TabsContent value="shop"><ShopTab form={form} set={set} /></TabsContent>
         <TabsContent value="billing"><BillingTab form={form} set={set} /></TabsContent>
         <TabsContent value="alerts"><AlertsTab form={form} set={set} /></TabsContent>
-        <TabsContent value="appearance"><AppearanceTab form={form} set={set} /></TabsContent>
+        <TabsContent value="appearance"><AppearanceTab form={form} set={set} onSave={setAppearance} /></TabsContent>
         <TabsContent value="account">
           <AccountTab
             onSignOut={async () => { await supabase.auth.signOut(); navigate("/landing"); }}
@@ -201,6 +273,8 @@ function Section({ icon, title, hint, children, className = "" }: {
 /* ------------------------------- المحل ------------------------------- */
 function ShopTab({ form, set }: TabProps) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const phoneValid = !form.phone || /^\+?[0-9\s()-]{7,30}$/.test(form.phone);
+  const whatsappValid = !form.whatsapp || /^\+?[0-9\s()-]{7,30}$/.test(form.whatsapp);
 
   const onLogo = async (file: File | undefined) => {
     if (!file) return;
@@ -229,11 +303,11 @@ function ShopTab({ form, set }: TabProps) {
           <div className="grid gap-3 border-t border-border/60 pt-5">
             <p className="text-xs font-semibold text-primary">بيانات التواصل</p>
           <div className="grid sm:grid-cols-2 gap-3">
-              <ShopField label="رقم التليفون" required>
-              <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="01xxxxxxxxx" dir="ltr" maxLength={30} />
+              <ShopField label="رقم التليفون" required hint={phoneValid ? "اكتب الرقم كما سيظهر في الفاتورة." : "راجع الرقم: استخدم أرقامًا ورمز + فقط."}>
+              <Input aria-invalid={!phoneValid} value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="01xxxxxxxxx" dir="ltr" maxLength={30} />
               </ShopField>
-              <ShopField label="رقم الواتساب" optional hint="يُستخدم في أزرار إرسال التذكيرات.">
-              <Input value={form.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} placeholder="201xxxxxxxxx" dir="ltr" maxLength={30} />
+              <ShopField label="رقم الواتساب" optional hint={whatsappValid ? "يُستخدم في أزرار إرسال التذكيرات عند ربط واتساب." : "راجع الرقم: استخدم أرقامًا ورمز + فقط."}>
+              <Input aria-invalid={!whatsappValid} value={form.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} placeholder="201xxxxxxxxx" dir="ltr" maxLength={30} />
               </ShopField>
             </div>
             <ShopField label="العنوان" required>
@@ -514,7 +588,7 @@ const COLOR_THEMES: Array<{ value: ColorTheme; label: string; desc: string; dark
   { value: "graphite", label: "فحمي", desc: "محايد ودقيق", dark: "#15171b", light: "#fafafa", accent: "#64748b" },
 ];
 
-function AppearanceTab({ form, set }: TabProps) {
+function AppearanceTab({ form, set, onSave }: TabProps & { onSave: <K extends "theme" | "colorTheme">(key: K, value: ShopSettings[K]) => Promise<void> }) {
   return (
     <div className="grid gap-6">
       <Section icon={<Palette className="w-5 h-5" />} title="وضع العرض" hint="اختر وضع النهار أو الليل، ثم اختر لوحة الألوان التي تناسبك.">
@@ -523,7 +597,7 @@ function AppearanceTab({ form, set }: TabProps) {
           <button
             key={t.value}
             type="button"
-            onClick={() => set("theme", t.value)}
+            onClick={() => void onSave("theme", t.value)}
             className={`text-right rounded-2xl border p-4 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
               form.theme === t.value ? "border-primary bg-primary/10 shadow-[0_14px_32px_-22px_hsl(var(--primary)/0.72)]" : "border-border/70 hover:-translate-y-0.5 hover:bg-foreground/[0.05]"
             }`}
@@ -543,7 +617,7 @@ function AppearanceTab({ form, set }: TabProps) {
               <button
                 key={theme.value}
                 type="button"
-                onClick={() => set("colorTheme", theme.value)}
+                onClick={() => void onSave("colorTheme", theme.value)}
                 aria-pressed={active}
                 className={`group relative overflow-hidden rounded-[1.35rem] p-1 text-right transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${active ? "scale-[1.015] ring-1 ring-primary/70 shadow-[0_16px_34px_-22px_hsl(var(--primary)/0.8)]" : "hover:-translate-y-1 hover:shadow-[0_16px_34px_-26px_hsl(var(--foreground)/0.4)]"}`}
               >
@@ -560,6 +634,10 @@ function AppearanceTab({ form, set }: TabProps) {
               </button>
             );
           })}
+        </div>
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-foreground/[0.035] p-3 text-xs text-muted-foreground">
+          <span>يُحفظ اختيارك فورًا ويظل ثابتًا بعد تسجيل الدخول والريلود.</span>
+          {(form.theme !== "dark" || form.colorTheme !== "emerald") && <Button type="button" variant="ghost" size="sm" onClick={() => { void onSave("theme", "dark"); void onSave("colorTheme", "emerald"); }}>استعادة الافتراضي</Button>}
         </div>
       </Section>
       </div>
@@ -949,6 +1027,7 @@ function DataTab() {
     catch (e: unknown) { toast.error(e instanceof Error ? e.message : "حصلت مشكلة"); }
     finally { setBusy(null); }
   };
+
   const flip = (table: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => setter((all) => all.includes(table) ? all.filter((item) => item !== table) : [...all, table]);
   const exportData = async (format: "json" | "xlsx") => {
     if (!selected.length) { toast.error("اختَر قسم بيانات واحدًا على الأقل"); return; }
@@ -1014,7 +1093,7 @@ function DataTab() {
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) { return <div className="rounded-2xl bg-foreground/[0.04] p-3"><div className="flex gap-1.5 text-xs text-muted-foreground">{icon}{label}</div><div className="mt-2 text-lg font-bold">{value}</div></div>; }
 function CountCard({ label, value }: { label: string; value: number | null }) { return <div className="rounded-xl bg-foreground/[0.04] px-3 py-2.5 flex justify-between"><span className="text-xs text-muted-foreground">{label}</span><span className="text-sm font-bold">{value === null ? "…" : fmt(value)}</span></div>; }
 function bytes(value: number) { return value < 1024 * 1024 ? `${Math.max(1, Math.round(value / 1024))} ك.ب` : `${(value / 1024 / 1024).toFixed(1)} م.ب`; }
-function Activity({ entry }: { entry: ActivityEntry }) { const labels = { backup: "نسخة احتياطية", export: "تصدير Excel", import: "استيراد", delete: "حذف بيانات" }; return <div className="flex items-center justify-between gap-3 rounded-xl bg-foreground/[0.04] p-3"><div><Badge variant="secondary">{labels[entry.type]}</Badge><p className="text-xs text-muted-foreground mt-1">{entry.details} بواسطة {entry.actor}</p></div><span className="flex items-center gap-1 text-[11px] text-muted-foreground"><Clock3 className="w-3 h-3" />{new Intl.DateTimeFormat("ar-EG", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.at))}</span></div>; }
+function Activity({ entry }: { entry: ActivityEntry }) { const labels = { backup: "نسخة احتياطية", export: "تصدير Excel", import: "استيراد", delete: "حذف بيانات", setting: "تعديل إعدادات" }; return <div className="flex items-center justify-between gap-3 rounded-xl bg-foreground/[0.04] p-3"><div><Badge variant="secondary">{labels[entry.type]}</Badge><p className="text-xs text-muted-foreground mt-1">{entry.details} بواسطة {entry.actor}</p></div><span className="flex items-center gap-1 text-[11px] text-muted-foreground"><Clock3 className="w-3 h-3" />{new Intl.DateTimeFormat("ar-EG", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.at))}</span></div>; }
 
 /* ------------------------------ helpers ------------------------------ */
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -1029,7 +1108,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-/** Reads an image file and returns a square-fit PNG data URL of at most `max` px. */
+/** Reads an image file and returns a centered square-crop PNG of at most `max` px. */
 function resizeImage(file: File, max: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1038,14 +1117,15 @@ function resizeImage(file: File, max: number): Promise<string> {
       const img = new Image();
       img.onerror = () => reject(new Error("decode"));
       img.onload = () => {
-        const scale = Math.min(1, max / Math.max(img.width, img.height));
-        const w = Math.max(1, Math.round(img.width * scale));
-        const h = Math.max(1, Math.round(img.height * scale));
+        const side = Math.min(img.width, img.height);
+        const sx = Math.round((img.width - side) / 2);
+        const sy = Math.round((img.height - side) / 2);
+        const output = Math.min(max, side);
         const canvas = document.createElement("canvas");
-        canvas.width = w; canvas.height = h;
+        canvas.width = output; canvas.height = output;
         const ctx = canvas.getContext("2d");
         if (!ctx) { reject(new Error("canvas")); return; }
-        ctx.drawImage(img, 0, 0, w, h);
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, output, output);
         resolve(canvas.toDataURL("image/png"));
       };
       img.src = reader.result as string;

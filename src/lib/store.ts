@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { logActivity } from "@/lib/backup";
 import { archiveBeforeDelete } from "@/lib/archive";
 
 export type CustomerStatus = "committed" | "neutral" | "defaulter";
@@ -1165,9 +1166,11 @@ export async function saveShopSettings(patch: ShopSettings) {
     try { localStorage.setItem("segilly:color-theme", patch.colorTheme); } catch { /* noop */ }
     shopCache = patch;
     notifyShopSettings();
+    void logActivity("setting", "تم تحديث إعدادات المحل (محفوظة محليًا لبعض خيارات العرض)").catch(() => undefined);
     return;
   }
   await fetchShopSettings();
+  void logActivity("setting", "تم تحديث إعدادات المحل").catch(() => undefined);
 }
 
 
