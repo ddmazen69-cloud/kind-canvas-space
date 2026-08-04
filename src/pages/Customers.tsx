@@ -465,79 +465,9 @@ function CustomersPage() {
                     className="group bezel-shell bezel-lift animate-[fade-in_0.5s_cubic-bezier(0.32,0.72,0,1)_both]"
                     style={{ animationDelay: `${Math.min(idx, 12) * 45}ms` }}
                   >
-                    <div className="bezel-core grid grid-cols-1 items-center gap-5 p-5 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_auto] md:gap-6">
-                      {/* الهوية */}
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span
-                          className={cn(
-                            "text-display grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-lg font-bold",
-                            c.status === "defaulter"
-                              ? "bg-danger/12 text-danger ring-1 ring-danger/25"
-                              : c.status === "committed"
-                                ? "bg-success/12 text-success ring-1 ring-success/25"
-                                : "bg-primary/12 text-primary ring-1 ring-primary/25",
-                          )}
-                        >
-                          {initial}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="truncate font-bold leading-tight">{c.name}</div>
-                          <div className="text-numeric mt-0.5 truncate text-xs text-muted-foreground" dir="ltr">{c.phone}</div>
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            {c.status === "defaulter" && c.notes ? (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="cursor-help"><StatusBadge status={c.status} /></span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs text-right">
-                                    <div className="mb-1 font-bold">ملاحظات سابقة:</div>
-                                    <div className="whitespace-pre-wrap text-xs">{c.notes}</div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            ) : (
-                              <StatusBadge status={c.status} />
-                            )}
-                            <CustomerTypeBadge type={c.customerType} />
-                            <StarRating value={c.rating} />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* المديونية */}
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <div className={cn("text-numeric text-xl font-extrabold leading-none", overdue7 ? "text-danger" : "text-foreground", privacy && "privacy-blur")}>
-                            {fmt(m.balance)} <span className="text-xs font-bold text-muted-foreground">ج.م</span>
-                          </div>
-                          {lateLabel && (
-                            <span className="rounded-full bg-danger/12 px-2 py-0.5 text-[10px] font-bold text-danger ring-1 ring-danger/25">{lateLabel}</span>
-                          )}
-                          {overLimit && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="grid h-6 w-6 shrink-0 cursor-help place-items-center rounded-full bg-danger/15 text-danger ring-1 ring-danger/40" aria-label="تجاوز سقف المديونية">
-                                    <AlertTriangle className="h-3.5 w-3.5" />
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-xs text-right">
-                                  <div className="mb-0.5 font-bold text-danger">⚠ تجاوز سقف المديونية</div>
-                                  <div className="text-xs">المديونية ({fmt(m.balance)} ج.م) وصلت لسقف الائتمان ({fmt(c.creditLimit)} ج.م). يُمنع البيع الآجل لهذا العميل.</div>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </div>
-                        <Progress value={m.paidPct} className="mt-2.5 h-1" />
-                        <div className={cn("mt-1.5 text-[11px] text-muted-foreground", privacy && "privacy-blur")}>
-                          مسدد {m.paidPct}٪ من {fmt(m.totalCharged)}
-                        </div>
-                      </div>
-
+                    <div className="bezel-core grid grid-cols-1 items-center gap-5 p-5 md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.1fr)] md:gap-6">
                       {/* الإجراءات */}
-                      <div className="flex flex-wrap items-center justify-end gap-1.5 md:opacity-70 md:transition-opacity md:duration-500 md:ease-[cubic-bezier(0.32,0.72,0,1)] md:group-hover:opacity-100 md:focus-within:opacity-100">
+                      <div className="flex flex-wrap items-center justify-start gap-1.5 md:opacity-70 md:transition-opacity md:duration-500 md:ease-[cubic-bezier(0.32,0.72,0,1)] md:group-hover:opacity-100 md:focus-within:opacity-100">
                         <button
                           type="button"
                           onClick={() => setScriptFor(c)}
@@ -603,6 +533,76 @@ function CustomersPage() {
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
+                      </div>
+
+                      {/* المديونية */}
+                      <div className="min-w-0">
+                        <div className="flex items-center justify-end gap-2">
+                          <div className={cn("text-numeric text-xl font-extrabold leading-none", overdue7 ? "text-danger" : "text-foreground", privacy && "privacy-blur")}>
+                            {fmt(m.balance)} <span className="text-xs font-bold text-muted-foreground">ج.م</span>
+                          </div>
+                          {lateLabel && (
+                            <span className="rounded-full bg-danger/12 px-2 py-0.5 text-[10px] font-bold text-danger ring-1 ring-danger/25">{lateLabel}</span>
+                          )}
+                          {overLimit && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="grid h-6 w-6 shrink-0 cursor-help place-items-center rounded-full bg-danger/15 text-danger ring-1 ring-danger-40" aria-label="تجاوز سقف المديونية">
+                                    <AlertTriangle className="h-3.5 w-3.5" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs text-right">
+                                  <div className="mb-0.5 font-bold text-danger">⚠ تجاوز سقف المديونية</div>
+                                  <div className="text-xs">المديونية ({fmt(m.balance)} ج.م) وصلت لسقف الائتمان ({fmt(c.creditLimit)} ج.م). يُمنع البيع الآجل لهذا العميل.</div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
+                        <Progress value={m.paidPct} className="mt-2.5 h-1" />
+                        <div className={cn("mt-1.5 text-[11px] text-muted-foreground", privacy && "privacy-blur")}>
+                          مسدد {m.paidPct}٪ من {fmt(m.totalCharged)}
+                        </div>
+                      </div>
+
+                      {/* الهوية */}
+                      <div className="flex min-w-0 items-center justify-end gap-3 text-right">
+                        <div className="min-w-0">
+                          <div className="truncate font-bold leading-tight">{c.name}</div>
+                          <div className="text-numeric mt-0.5 truncate text-xs text-muted-foreground" dir="ltr">{c.phone}</div>
+                          <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+                            {c.status === "defaulter" && c.notes ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-help"><StatusBadge status={c.status} /></span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs text-right">
+                                    <div className="mb-1 font-bold">ملاحظات سابقة:</div>
+                                    <div className="whitespace-pre-wrap text-xs">{c.notes}</div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <StatusBadge status={c.status} />
+                            )}
+                            <CustomerTypeBadge type={c.customerType} />
+                            <StarRating value={c.rating} />
+                          </div>
+                        </div>
+                        <span
+                          className={cn(
+                            "text-display grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-lg font-bold",
+                            c.status === "defaulter"
+                              ? "bg-danger/12 text-danger ring-1 ring-danger/25"
+                              : c.status === "committed"
+                                ? "bg-success/12 text-success ring-1 ring-success/25"
+                                : "bg-primary/12 text-primary ring-1 ring-primary/25",
+                          )}
+                        >
+                          {initial}
+                        </span>
                       </div>
                     </div>
                   </div>
