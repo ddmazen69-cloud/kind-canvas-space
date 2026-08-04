@@ -36,11 +36,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { invoices, stockItems } = useDB();
-  const { settings } = useShopSettings();
+  const { settings, loading: settingsLoading } = useShopSettings();
   useEffect(() => {
     applyTheme(settings.theme, settings.colorTheme);
-    storeColorTheme(settings.colorTheme);
-  }, [settings.theme, settings.colorTheme]);
+    // Don't overwrite a saved local palette with EMPTY_SHOP_SETTINGS while
+    // the account settings are still being fetched after a reload/sign-in.
+    if (!settingsLoading) storeColorTheme(settings.colorTheme);
+  }, [settings.theme, settings.colorTheme, settingsLoading]);
   // لو المستخدم فتح رابط دعوة قبل ما يسجّل دخول، نكمّل الدعوة بعد الدخول.
   useEffect(() => {
     let token: string | null = null;
