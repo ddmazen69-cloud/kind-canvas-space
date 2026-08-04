@@ -1075,6 +1075,16 @@ const num = (v: unknown, fallback: number) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+const COLOR_THEME_VALUES: ColorTheme[] = ["emerald", "ocean", "sapphire", "violet", "orchid", "rose", "amber", "copper", "lime", "graphite"];
+const cachedColorTheme = (): ColorTheme | null => {
+  try {
+    const value = localStorage.getItem("segilly:color-theme");
+    return COLOR_THEME_VALUES.includes(value as ColorTheme) ? value as ColorTheme : null;
+  } catch { return null; }
+};
+
+const notifyShopSettings = () => shopListeners.forEach((listener) => listener());
+
 export async function fetchShopSettings(): Promise<ShopSettings> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return EMPTY_SHOP_SETTINGS;
@@ -1102,45 +1112,61 @@ export async function fetchShopSettings(): Promise<ShopSettings> {
         printShowLogo: (row.print_show_logo as boolean) ?? true,
         printShowTaxNumber: (row.print_show_tax_number as boolean) ?? true,
         printShowFooterNote: (row.print_show_footer_note as boolean) ?? true,
-        colorTheme: (row.color_theme as ColorTheme) ?? "emerald",
+        colorTheme: (row.color_theme as ColorTheme) ?? cachedColorTheme() ?? "emerald",
         theme: ((row.theme as ThemeMode) ?? "dark"),
         reminderDaysBefore: num(row.reminder_days_before, 3),
         alertsEnabled: (row.alerts_enabled as boolean) ?? true,
       }
     : EMPTY_SHOP_SETTINGS;
-  shopListeners.forEach((l) => l());
+  notifyShopSettings();
   return shopCache;
 }
 
 export async function saveShopSettings(patch: ShopSettings) {
   const user_id = await uid();
-  const { error } = await supabase.from("shop_settings").upsert(
-    {
-      user_id,
-      shop_name: patch.shopName.trim(),
-      phone: patch.phone.trim(),
-      address: patch.address.trim(),
-      logo_url: patch.logoUrl?.trim() || null,
-      footer_note: patch.footerNote.trim(),
-      currency: patch.currency.trim() || "ج.م",
-      tax_number: patch.taxNumber.trim(),
-      whatsapp: patch.whatsapp.trim(),
-      low_stock_threshold: Math.max(0, Math.round(patch.lowStockThreshold)),
-      default_installment_months: Math.max(1, Math.round(patch.defaultInstallmentMonths)),
-      default_due_day: Math.min(28, Math.max(1, Math.round(patch.defaultDueDay))),
-      invoice_prefix: patch.invoicePrefix.trim(),
-      print_paper: patch.printPaper,
-      print_show_logo: patch.printShowLogo,
-      print_show_tax_number: patch.printShowTaxNumber,
-      print_show_footer_note: patch.printShowFooterNote,
-      color_theme: patch.colorTheme,
-      theme: patch.theme,
-      reminder_days_before: Math.min(30, Math.max(0, Math.round(patch.reminderDaysBefore))),
-      alerts_enabled: patch.alertsEnabled,
-    } as never,
-    { onConflict: "user_id" },
-  );
+  const payload = {
+    user_id,
+    shop_name: patch.shopName.trim(),
+    phone: patch.phone.trim(),
+    address: patch.address.trim(),
+    logo_url: patch.logoUrl?.trim() || null,
+    footer_note: patch.footerNote.trim(),
+    currency: patch.currency.trim() || "ج.م",
+    tax_number: patch.taxNumber.trim(),
+    whatsapp: patch.whatsapp.trim(),
+    low_stock_threshold: Math.max(0, Math.round(patch.lowStockThreshold)),
+    default_installment_months: Math.max(1, Math.round(patch.defaultInstallmentMonths)),
+    default_due_day: Math.min(28, Math.max(1, Math.round(patch.defaultDueDay))),
+    invoice_prefix: patch.invoicePrefix.trim(),
+    print_paper: patch.printPaper,
+    print_show_logo: patch.printShowLogo,
+    print_show_tax_number: patch.printShowTaxNumber,
+    print_show_footer_note: patch.printShowFooterNote,
+    color_theme: patch.colorTheme,
+    theme: patch.theme,
+    reminder_days_before: Math.min(30, Math.max(0, Math.round(patch.reminderDaysBefore))),
+    alerts_enabled: patch.alertsEnabled,
+  };
+  const write = (values: Record<string, unknown>) => supabase.from("shop_settings").upsert(values as never, { onConflict: "user_id" });
+  let { error } = await write(payload);
+  let compatibilitySave = false;
+
+  // Older Lovable/Supabase environments may not yet have the new display columns.
+  // Save all established settings instead of blocking the whole settings page.
+  if (error && (error.code === "PGRST204" || error.code === "42703")) {
+    const { color_theme, print_show_logo, print_show_tax_number, print_show_footer_note, ...legacyPayload } = payload;
+    const retry = await write(legacyPayload);
+    error = retry.error;
+    compatibilitySave = !error;
+  }
   if (error) throw error;
+
+  if (compatibilitySave) {
+    try { localStorage.setItem("segilly:color-theme", patch.colorTheme); } catch { /* noop */ }
+    shopCache = patch;
+    notifyShopSettings();
+    return;
+  }
   await fetchShopSettings();
 }
 

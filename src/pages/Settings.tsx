@@ -111,7 +111,8 @@ function SettingsPage() {
       await saveShopSettings({ ...form, ...parsed.data });
       toast.success("تم حفظ الإعدادات");
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "تعذر الحفظ");
+      const message = e && typeof e === "object" && "message" in e ? String(e.message) : "تعذر الحفظ";
+      toast.error(message);
     } finally { setBusy(false); }
   };
 
