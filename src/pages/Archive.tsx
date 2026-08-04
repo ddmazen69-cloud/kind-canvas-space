@@ -146,7 +146,7 @@ export default function Archive() {
 
   return (
     <AppShell><PageTransition>
-      <div className="mx-auto w-full max-w-7xl">
+      <div className="w-full">
         <PageHeader title="الأرشيف" eyebrow="إدارة السجلات المحذوفة" icon={<ArchiveIcon className="w-7 h-7" />} subtitle="احتفظ بنسخة قابلة للاسترجاع من السجلات المحذوفة، ثم راجع تفاصيلها قبل استعادتها أو مسحها نهائيًا." action={<Button variant="outline" disabled={activeCount === 0} onClick={() => { setConfirmText(""); setConfirm({ kind: "all" }); }} className="group gap-3 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"><span>إفراغ {tab === "all" ? "الأرشيف" : ENTITY_LABELS[tab]} ({activeCount})</span><span className="grid h-7 w-7 place-items-center rounded-full bg-destructive/10 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105"><Trash2 className="h-3.5 w-3.5" /></span></Button>} />
 
         <div className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -214,7 +214,7 @@ export default function Archive() {
           </div>
         ) : filtered.length === 0 ? (
           <Bezel>
-            <div className="flex flex-col items-center gap-3 px-6 py-24 text-center">
+            <div className="flex flex-col items-center gap-3 px-6 py-16 text-center md:py-20">
               <span className="flex h-14 w-14 items-center justify-center rounded-full bg-muted/60">
                 <ArchiveIcon className="h-6 w-6 text-muted-foreground" strokeWidth={1.25} />
               </span>
