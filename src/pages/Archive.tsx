@@ -1,13 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  useArchive, restoreArchived, purgeArchived, purgeAllArchived,
+  useArchive, restoreArchived, restoreMany, purgeArchived, purgeAllArchived, getArchiveRetention, saveArchiveRetention,
+  type ArchiveRetentionDays,
   ENTITY_LABELS, type ArchiveEntity, type ArchivedRecord,
 } from "@/lib/archive";
 import { useDB } from "@/lib/store";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { PageTransition } from "@/components/PageTransition";
-import { Users, FileText, Truck, Package, Receipt, RotateCcw, Trash2, Search, Archive as ArchiveIcon, ArrowUpRight, CalendarDays, Database, Eye, ShieldAlert } from "lucide-react";
+import { Users, FileText, Truck, Package, Receipt, RotateCcw, Trash2, Search, Archive as ArchiveIcon, ArrowUpRight, CalendarDays, Database, Eye, ShieldAlert, SlidersHorizontal, CheckSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -17,6 +18,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const ICONS: Record<ArchiveEntity, typeof Users> = {
   customer: Users,
@@ -71,6 +73,13 @@ export default function Archive() {
   const [confirm, setConfirm] = useState<{ kind: "one"; rec: ArchivedRecord } | { kind: "all" } | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const [preview, setPreview] = useState<ArchivedRecord | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [period, setPeriod] = useState<"all" | "7" | "30" | "90">("all");
+  const [sort, setSort] = useState<"newest" | "oldest" | "value">("newest");
+  const [retention, setRetention] = useState<ArchiveRetentionDays>(0);
+  const [retentionBusy, setRetentionBusy] = useState(false);
+
+  useEffect(() => { getArchiveRetention().then(setRetention).catch(() => undefined); }, []);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: records.length };
@@ -80,12 +89,14 @@ export default function Archive() {
 
   const filtered = useMemo(() => {
     const term = q.trim();
+    const after = period === "all" ? null : Date.now() - Number(period) * 86400000;
     return records.filter(
       (r) =>
         (tab === "all" || r.entityType === tab) &&
-        (!term || r.label.includes(term) || r.summary.includes(term)),
-    );
-  }, [records, tab, q]);
+        (!term || r.label.includes(term) || r.summary.includes(term)) &&
+        (!after || new Date(r.deletedAt).getTime() >= after),
+    ).sort((a, b) => sort === "oldest" ? new Date(a.deletedAt).getTime() - new Date(b.deletedAt).getTime() : sort === "value" ? b.amount - a.amount : new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime());
+  }, [records, tab, q, period, sort]);
 
   async function onRestore(rec: ArchivedRecord) {
     setBusy(rec.id);
@@ -118,6 +129,18 @@ export default function Archive() {
     }
   }
 
+  const toggleSelection = (id: string) => setSelectedIds((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id]);
+  const selectedRecords = filtered.filter((record) => selectedIds.includes(record.id));
+  const restoreSelected = async () => {
+    if (!selectedRecords.length) return;
+    setBusy("batch");
+    const { restored, failed } = await restoreMany(selectedRecords);
+    await Promise.all([refresh(), refreshDB()]); setSelectedIds([]); setBusy(null);
+    if (restored) toast.success(`تم استرجاع ${restored} سجل`);
+    if (failed.length) toast.error(`تعذر استرجاع: ${failed.slice(0, 2).join("، ")}`);
+  };
+  const updateRetention = async (value: string) => { const days = Number(value) as ArchiveRetentionDays; setRetention(days); setRetentionBusy(true); try { await saveArchiveRetention(days); toast.success(days ? `سيتم الاحتفاظ بالسجلات لمدة ${days} يومًا` : "تم الاحتفاظ بالسجلات حتى الحذف اليدوي"); } catch { toast.error("تعذر حفظ سياسة الاحتفاظ"); } finally { setRetentionBusy(false); } };
+
   const activeCount = counts[tab] ?? 0;
   const totalValue = useMemo(() => records.reduce((sum, record) => sum + record.amount, 0), [records]);
 
@@ -135,7 +158,8 @@ export default function Archive() {
 
         {/* Filters */}
         <Bezel className="mb-8">
-          <div className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-4 p-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1">
               {(["all", ...ORDER] as const).map((k) => {
                 const active = tab === k;
@@ -167,8 +191,19 @@ export default function Archive() {
                 className="w-full rounded-full border border-border/60 bg-background py-2.5 pe-10 ps-4 text-sm outline-none transition-all duration-500 focus:border-primary/40"
               />
             </div>
+            </div>
+            <div className="flex flex-col gap-3 border-t border-[var(--hairline)] pt-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2 text-xs text-muted-foreground"><SlidersHorizontal className="w-3.5 h-3.5" /> الفلاتر</span>
+                <Select value={period} onValueChange={(value) => setPeriod(value as typeof period)}><SelectTrigger className="h-9 w-36"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">كل الفترات</SelectItem><SelectItem value="7">آخر 7 أيام</SelectItem><SelectItem value="30">آخر 30 يومًا</SelectItem><SelectItem value="90">آخر 90 يومًا</SelectItem></SelectContent></Select>
+                <Select value={sort} onValueChange={(value) => setSort(value as typeof sort)}><SelectTrigger className="h-9 w-36"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="newest">الأحدث أولاً</SelectItem><SelectItem value="oldest">الأقدم أولاً</SelectItem><SelectItem value="value">الأعلى قيمة</SelectItem></SelectContent></Select>
+              </div>
+              <div className="flex flex-wrap items-center gap-2"><span className="text-xs text-muted-foreground">الاحتفاظ</span><Select value={String(retention)} onValueChange={updateRetention} disabled={retentionBusy}><SelectTrigger className="h-9 w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">حتى الحذف اليدوي</SelectItem><SelectItem value="30">30 يومًا</SelectItem><SelectItem value="90">90 يومًا</SelectItem><SelectItem value="180">180 يومًا</SelectItem></SelectContent></Select></div>
+            </div>
           </div>
         </Bezel>
+
+        {selectedRecords.length ? <div className="mb-5 flex flex-col gap-3 rounded-2xl bg-primary/8 p-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-2 text-sm"><CheckSquare className="w-4 h-4 text-primary" /> تم اختيار {selectedRecords.length} سجل للاسترجاع</div><div className="flex gap-2"><Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>إلغاء التحديد</Button><Button size="sm" disabled={busy !== null} className="gap-2" onClick={restoreSelected}><RotateCcw className="w-4 h-4" /> استرجاع المحدد</Button></div></div> : null}
 
         {/* List */}
         {loading ? (
@@ -195,6 +230,7 @@ export default function Archive() {
                 <Bezel key={r.id} className="group hover:-translate-y-0.5">
                   <div className="flex h-full flex-col gap-5 p-5" style={{ animationDelay: `${i * 40}ms` }}>
                     <div className="flex items-start gap-4">
+                      <label className="mt-1 grid h-5 w-5 shrink-0 cursor-pointer place-items-center"><input aria-label={`تحديد ${r.label}`} type="checkbox" checked={selectedIds.includes(r.id)} onChange={() => toggleSelection(r.id)} className="h-4 w-4 accent-primary" /></label>
                       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-muted/70 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105">
                         <Icon className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
                       </span>

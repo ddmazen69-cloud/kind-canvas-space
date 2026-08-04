@@ -14,6 +14,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      archive_preferences: {
+        Row: { retention_days: number; updated_at: string; user_id: string }
+        Insert: { retention_days?: number; updated_at?: string; user_id: string }
+        Update: { retention_days?: number; updated_at?: string; user_id?: string }
+        Relationships: []
+      }
       archived_records: {
         Row: {
           amount: number

@@ -13,6 +13,7 @@ export type ArchivedRecord = {
   payload: any;
   deletedAt: string;
 };
+export type ArchiveRetentionDays = 0 | 30 | 90 | 180;
 
 export const ENTITY_LABELS: Record<ArchiveEntity, string> = {
   customer: "عميل",
@@ -59,33 +60,37 @@ async function describe(entity: ArchiveEntity, row: any): Promise<{ label: strin
   }
 }
 
-/** Snapshot an entity (and its children) into the archive right before it is hard-deleted. */
+async function currentUserId() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("مش مسجّل دخول");
+  return user.id;
+}
+
+async function logArchiveActivity(details: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase.from("data_activity").insert({ user_id: user.id, action: "archive", details, actor: user.email ?? "المستخدم الحالي" });
+}
+
+/** Snapshot an entity (and its children) before deletion. A failed snapshot blocks deletion. */
 export async function archiveBeforeDelete(entity: ArchiveEntity, id: string) {
-  try {
-    const { data: row } = await supabase.from(TABLE[entity]).select("*").eq("id", id).maybeSingle();
-    if (!row) return;
-    const payload: any = { row };
-    if (entity === "invoice") {
-      const [{ data: items }, { data: pays }] = await Promise.all([
-        supabase.from("invoice_items").select("*").eq("invoice_id", id),
-        supabase.from("payments").select("*").eq("invoice_id", id),
-      ]);
-      payload.invoice_items = items ?? [];
-      payload.payments = pays ?? [];
-    }
-    const meta = await describe(entity, row);
-    await supabase.from("archived_records").insert({
-      user_id: (row as any).user_id,
-      entity_type: entity,
-      entity_id: id,
-      label: meta.label,
-      summary: meta.summary,
-      amount: meta.amount,
-      payload,
-    });
-  } catch {
-    // Archiving must never block the delete itself.
+  const { data: row, error: readError } = await supabase.from(TABLE[entity]).select("*").eq("id", id).maybeSingle();
+  if (readError) throw readError;
+  if (!row) throw new Error("السجل غير موجود أو لا تملك صلاحية أرشفته");
+  const payload: any = { row };
+  if (entity === "invoice") {
+    const [{ data: items, error: itemsError }, { data: pays, error: paysError }] = await Promise.all([
+      supabase.from("invoice_items").select("*").eq("invoice_id", id),
+      supabase.from("payments").select("*").eq("invoice_id", id),
+    ]);
+    if (itemsError) throw itemsError;
+    if (paysError) throw paysError;
+    payload.invoice_items = items ?? [];
+    payload.payments = pays ?? [];
   }
+  const meta = await describe(entity, row);
+  const { error } = await supabase.from("archived_records").insert({ user_id: (row as any).user_id, entity_type: entity, entity_id: id, label: meta.label, summary: meta.summary, amount: meta.amount, payload });
+  if (error) throw error;
 }
 
 export async function restoreArchived(rec: ArchivedRecord) {
@@ -106,6 +111,17 @@ export async function restoreArchived(rec: ArchivedRecord) {
     if (payments?.length) await supabase.from("payments").insert(payments as any);
   }
   await supabase.from("archived_records").delete().eq("id", rec.id);
+  await logArchiveActivity(`استرجاع ${ENTITY_LABELS[rec.entityType]}: ${rec.label}`);
+}
+
+export async function restoreMany(records: ArchivedRecord[]) {
+  let restored = 0;
+  const failed: string[] = [];
+  for (const record of records) {
+    try { await restoreArchived(record); restored++; }
+    catch { failed.push(record.label); }
+  }
+  return { restored, failed };
 }
 
 export async function purgeArchived(id: string) {
@@ -117,6 +133,19 @@ export async function purgeAllArchived(entity?: ArchiveEntity) {
   let q = supabase.from("archived_records").delete().neq("id", "00000000-0000-0000-0000-000000000000");
   if (entity) q = q.eq("entity_type", entity);
   const { error } = await q;
+  if (error) throw error;
+}
+
+export async function getArchiveRetention() {
+  const userId = await currentUserId();
+  const { data, error } = await supabase.from("archive_preferences").select("retention_days").eq("user_id", userId).maybeSingle();
+  if (error) throw error;
+  return (data?.retention_days ?? 0) as ArchiveRetentionDays;
+}
+
+export async function saveArchiveRetention(days: ArchiveRetentionDays) {
+  const userId = await currentUserId();
+  const { error } = await supabase.from("archive_preferences").upsert({ user_id: userId, retention_days: days, updated_at: new Date().toISOString() });
   if (error) throw error;
 }
 
