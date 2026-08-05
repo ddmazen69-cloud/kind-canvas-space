@@ -212,7 +212,7 @@ export default function Archive() {
       <div className="w-full">
         <PageHeader title="الأرشيف" eyebrow="إدارة السجلات المحذوفة" icon={<ArchiveIcon className="w-7 h-7" />} subtitle="احتفظ بنسخة قابلة للاسترجاع من السجلات المحذوفة، ثم راجع تفاصيلها قبل استعادتها أو مسحها نهائيًا." action={<Button variant="outline" disabled={activeCount === 0} onClick={() => { setConfirmText(""); setConfirm({ kind: "all" }); }} className="group gap-3 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"><span>إفراغ {tab === "all" ? "الأرشيف" : ENTITY_LABELS[tab]} ({activeCount})</span><span className="grid h-7 w-7 place-items-center rounded-full bg-destructive/10 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:scale-105"><Trash2 className="h-3.5 w-3.5" /></span></Button>} />
 
-        <div className="mb-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <ArchiveMetric icon={<ArchiveIcon className="w-4 h-4" />} label="إجمالي العناصر" value={money(records.length)} />
           <ArchiveMetric icon={<Database className="w-4 h-4" />} label="القيمة المؤرشفة" value={money(totalValue)} />
           <ArchiveMetric icon={<CalendarDays className="w-4 h-4" />} label="آخر حذف" value={records[0] ? when(records[0].deletedAt) : "لا توجد سجلات"} />

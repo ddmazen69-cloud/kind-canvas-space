@@ -289,7 +289,7 @@ ${topItems.map((i) => `<tr><td>${escapeHtml(i.name)}</td><td class="num">${fmt(i
         </TabsList>
       </Tabs>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         <SummaryBox label="المبيعات" value={totals.sales} icon={<Receipt className="w-5 h-5" />} tone="primary" blurCls={blurCls} />
         <SummaryBox label="التحصيلات" value={totals.collected} icon={<Wallet className="w-5 h-5" />} tone="success" blurCls={blurCls} />
         <SummaryBox label="المصروفات" value={totals.expenses} icon={<TrendingDown className="w-5 h-5" />} tone="danger" blurCls={blurCls} />

@@ -203,7 +203,7 @@ function InvoicesPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <StatCard icon={<TrendingUp className="w-5 h-5" />} label="إجمالي المبيعات النشطة" value={`${fmt(stats.activeSalesTotal)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
         <StatCard icon={<CalendarDays className="w-5 h-5" />} label="تحصيلات الشهر الحالي" value={`${fmt(stats.monthCollections)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
         <StatCard icon={<AlertCircle className="w-5 h-5" />} label="الفواتير المتعثرة" value={String(stats.overdueCount)} tone="danger" trend="down" valueClassName={blurCls} />
