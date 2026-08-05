@@ -49,6 +49,7 @@ export interface AbilityDef {
 
 export const ABILITY_DEFS: AbilityDef[] = [
   { key: "sales", label: "تسجيل مبيعات ودفعات", routes: ["/", "/alerts"] },
+  { key: "sales", label: "تسجيل مبيعات ودفعات", routes: ["/", "/alerts", "/daily"] },
   { key: "customers", label: "إدارة العملاء والفواتير", routes: ["/customers", "/invoices"] },
   { key: "operations", label: "المخزون والموردين والمصروفات", routes: ["/suppliers", "/inventory", "/expenses"] },
   { key: "reports", label: "التقارير والنسخ الاحتياطي", routes: ["/reports", "/archive"], settingsTabs: ["data"] },
