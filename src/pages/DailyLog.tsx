@@ -3,6 +3,7 @@ import { MetricCard } from "@/components/MetricCard";
 import { BezelCard } from "@/components/BezelCard";
 import { FileText, Wallet } from "lucide-react";
 import { useDB } from "@/lib/store";
+import { Button } from "@/components/ui/button";
 
 function fmtMoney(n: number) {
   return `${Math.round(n).toLocaleString()} ج.م`;
@@ -21,9 +22,79 @@ export default function DailyLog() {
   const totalPaid = todays.reduce((s, i) => s + Number(i.paid || 0), 0);
   const totalRemaining = todays.reduce((s, i) => s + Math.max(0, Number(i.total || 0) - Number(i.paid || 0)), 0);
 
+  function exportCSV() {
+    const rows = todays.map((inv) => {
+      const cust = customers.find((c) => c.id === inv.customerId);
+      const name = cust?.name ?? "زبون";
+      const time = (inv.createdAt || "").slice(11, 16);
+      const type = inv.monthlyInstallment && inv.monthlyInstallment > 0 ? "قسط" : "فوري";
+      const remaining = Math.max(0, Number(inv.total || 0) - Number(inv.paid || 0));
+      const status = remaining <= 0 ? "مسددة" : "مفتوحة";
+      return [
+        (inv.id || "").slice(0, 8),
+        time,
+        name,
+        String(inv.total || 0),
+        String(inv.paid || 0),
+        String(remaining),
+        type,
+        status,
+      ];
+    });
+    const header = ["رقم","الوقت","العميل","الإجمالي","مدفوع","متبقي","نوع","الحالة"];
+    const csv = [header, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `daily-${today}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportPDF() {
+    const rowsHtml = todays.map((inv) => {
+      const cust = customers.find((c) => c.id === inv.customerId);
+      const name = cust?.name ?? "زبون";
+      const time = (inv.createdAt || "").slice(11, 16);
+      const type = inv.monthlyInstallment && inv.monthlyInstallment > 0 ? "قسط" : "فوري";
+      const remaining = Math.max(0, Number(inv.total || 0) - Number(inv.paid || 0));
+      const status = remaining <= 0 ? "مسددة" : "مفتوحة";
+      return `<tr>
+        <td style="padding:6px;border:1px solid #ddd">${(inv.id||"").slice(0,8)}</td>
+        <td style="padding:6px;border:1px solid #ddd">${time}</td>
+        <td style="padding:6px;border:1px solid #ddd">${name}</td>
+        <td style="padding:6px;border:1px solid #ddd">${inv.total}</td>
+        <td style="padding:6px;border:1px solid #ddd">${inv.paid}</td>
+        <td style="padding:6px;border:1px solid #ddd">${remaining}</td>
+        <td style="padding:6px;border:1px solid #ddd">${type}</td>
+        <td style="padding:6px;border:1px solid #ddd">${status}</td>
+      </tr>`;
+    }).join("");
+    const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>اليومية - ${today}</title>
+      <style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}</style>
+      </head><body><h2>ملخّص اليومية - ${today}</h2>
+      <table><thead><tr><th>رقم</th><th>الوقت</th><th>العميل</th><th>الإجمالي</th><th>مدفوع</th><th>متبقي</th><th>نوع</th><th>حالة</th></tr></thead>
+      <tbody>${rowsHtml}</tbody></table>
+      </body></html>`;
+    const w = window.open('', '_blank', 'width=900,height=700');
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    // give the new window a moment to render then trigger print
+    setTimeout(() => { w.print(); }, 300);
+  }
+
   return (
     <div>
-      <PageHeader title="اليومية" subtitle="ملخّص فواتير ومبيعات اليوم" />
+      <PageHeader
+        title="اليومية"
+        subtitle="ملخّص فواتير ومبيعات اليوم"
+        action={<div className="flex gap-2"><Button onClick={exportCSV}>تصدير CSV</Button><Button onClick={exportPDF}>تصدير PDF</Button></div>}
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 mb-6">
         <MetricCard
