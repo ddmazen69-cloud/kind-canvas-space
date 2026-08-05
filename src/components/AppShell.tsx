@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from "@/lib/router-compat";
 import type { ReactNode } from "react";
 import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutGrid, Users, FileText, Bell, Receipt, Truck, Package, BarChart3, Settings, Archive } from "lucide-react";
+import { LayoutGrid, Users, FileText, Bell, Receipt, Truck, Package, BarChart3, Settings, Archive, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDB, lowStockCount, useShopSettings, isDueSoonOrOverdue } from "@/lib/store";
 import { UserChip } from "@/components/UserChip";
@@ -93,6 +93,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="text-display text-2xl font-bold leading-none text-primary">سِجلّي</div>
             <div className="mt-1 text-[10px] font-medium uppercase tracking-[0.24em] text-muted-foreground">Segilly</div>
           </div>
+          {/* Help / Docs quick link */}
+          <Link to="/docs" className="ms-auto" title="مركز المساعدة">
+            <span className="inline-grid h-9 w-9 place-items-center rounded-full bg-emerald-600 text-emerald-foreground shadow-sm ring-1 ring-emerald-500/30">
+              <BookOpen className="w-4 h-4 text-white" />
+            </span>
+          </Link>
         </div>
         <nav className="stagger no-scrollbar -mx-1 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-1">
           {visibleNav.map((n) => {
@@ -111,12 +117,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
               >
                 <span className="flex items-center gap-2">
-                  {n.label}
                   {showBadge && (
-                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-danger text-danger-foreground text-[10px] font-bold leading-none animate-pulse">
-                      {overdueCount}
-                    </span>
+                    <span className="inline-flex items-center justify-center h-3 w-3 rounded-full bg-danger ring-1 ring-danger/20 mr-1" aria-hidden />
                   )}
+                  {n.label}
                 </span>
                 <span className="relative">
                   <Icon className="w-4 h-4" />

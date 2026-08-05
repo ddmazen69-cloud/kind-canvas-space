@@ -1,5 +1,5 @@
 import { useProfile } from "@/lib/store";
-import { useMyRole, ROLE_LABEL } from "@/lib/roles";
+import { useMyRole, ROLE_LABEL, useTeam } from "@/lib/roles";
 import { ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +37,7 @@ export function UserAvatar({ size = 36, className = "" }: { size?: number; class
 export function UserChip({ className = "" }: { className?: string }) {
   const { label, user, loading } = useProfile();
   const { role, loading: roleLoading } = useMyRole();
+  const { members, loading: teamLoading } = useTeam();
 
 
   if (loading) {
@@ -72,10 +73,20 @@ export function UserChip({ className = "" }: { className?: string }) {
           {roleLoading ? (
             <span className="mt-1.5 block h-3 w-14 animate-pulse rounded-full bg-foreground/10" />
           ) : (
-            <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-semibold text-primary ring-1 ring-primary/20">
-              <ShieldCheck className="h-3 w-3" />
-              {role ? ROLE_LABEL[role] : "بدون صلاحية"}
-            </span>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-semibold text-primary ring-1 ring-primary/20">
+                <ShieldCheck className="h-3 w-3" />
+                {role ? ROLE_LABEL[role] : "بدون صلاحية"}
+              </span>
+              {/* Small team avatars */}
+              {!teamLoading && members.length > 0 && (
+                <div className="flex items-center -space-x-2">
+                  {members.slice(0, 2).map((m) => (
+                    <img key={m.userId} src={m.avatarUrl ?? undefined} alt={m.displayName} className="h-6 w-6 rounded-full ring-1 ring-[var(--hairline)]" />
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </span>
       </div>
