@@ -107,6 +107,10 @@ export interface StockItem {
   lastUnitCost: number;
   salePrice: number;
   barcode: string | null;
+  /** الحد الأدنى للمخزون لهذه الصنف */
+  minQuantity?: number | null;
+  /** باركود مخصص (قيمة نصية قابلة للتعيين) */
+  customBarcode?: string | null;
   /** نوع الصنف (قسم الملابس/المفروشات) */
   category: string;
   createdAt: string;
@@ -214,6 +218,8 @@ async function fetchAll() {
       lastUnitCost: Number(r.last_unit_cost ?? 0),
       salePrice: Number(r.sale_price ?? 0),
       barcode: r.barcode ?? null,
+      minQuantity: r.min_quantity ?? null,
+      customBarcode: r.custom_barcode ?? null,
       category: r.category ?? "other",
       createdAt: r.created_at, updatedAt: r.updated_at,
     })),
@@ -645,7 +651,7 @@ export const db = {
 
   async updateStockItem(
     id: string,
-    patch: Partial<{ name: string; quantity: number; lastUnitCost: number; salePrice: number; barcode: string | null; category: string }>,
+    patch: Partial<{ name: string; quantity: number; lastUnitCost: number; salePrice: number; barcode: string | null; category: string; minQuantity?: number | null; customBarcode?: string | null }>,
     adjustment?: { delta: number; reason: string; notes?: string },
   ) {
     const upd: any = {};
@@ -654,6 +660,8 @@ export const db = {
     if (patch.lastUnitCost !== undefined) upd.last_unit_cost = patch.lastUnitCost;
     if (patch.salePrice !== undefined) upd.sale_price = patch.salePrice;
     if (patch.barcode !== undefined) upd.barcode = patch.barcode || null;
+    if (patch.minQuantity !== undefined) upd.min_quantity = patch.minQuantity;
+    if (patch.customBarcode !== undefined) upd.custom_barcode = patch.customBarcode || null;
     if (patch.category !== undefined) upd.category = patch.category;
     const { error } = await supabase.from("stock_items").update(upd).eq("id", id);
     if (error) throw error;
@@ -690,9 +698,9 @@ export const db = {
     await fetchAll();
     return next;
   },
-  async addStockItem(item: { name: string; quantity?: number; lastUnitCost?: number; salePrice?: number; barcode?: string | null; category?: string }) {
+  async addStockItem(item: { name: string; quantity?: number; lastUnitCost?: number; salePrice?: number; barcode?: string | null; category?: string; minQuantity?: number | null; customBarcode?: string | null }) {
     const user_id = await uid();
-    const { data, error } = await supabase.from("stock_items").insert({
+    const payload: any = {
       user_id,
       name: item.name,
       quantity: item.quantity ?? 0,
@@ -700,8 +708,25 @@ export const db = {
       sale_price: item.salePrice ?? 0,
       barcode: item.barcode ?? null,
       category: item.category ?? "other",
-    }).select("id").single();
-    if (error) throw error;
+    };
+    if (item.minQuantity !== undefined) payload.min_quantity = item.minQuantity;
+    if (item.customBarcode !== undefined) payload.custom_barcode = item.customBarcode ?? null;
+
+    // Try inserting with new fields; if the DB doesn't have the columns, retry without them (compatibility)
+    let data: any = null;
+    let error: any = null;
+    try {
+      const res = await supabase.from("stock_items").insert(payload).select("id").single();
+      data = res.data; error = res.error;
+    } catch (e) { error = e; }
+    if (error) {
+      // Retry without optional fields if column not found
+      const legacyPayload = { ...payload };
+      delete legacyPayload.min_quantity; delete legacyPayload.custom_barcode;
+      const retry = await supabase.from("stock_items").insert(legacyPayload).select("id").single();
+      if (retry.error) throw retry.error;
+      data = retry.data;
+    }
     await fetchAll();
     return data?.id as string | undefined;
   },

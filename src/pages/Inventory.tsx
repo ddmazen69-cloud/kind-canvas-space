@@ -496,6 +496,8 @@ function EditDialog({ item, onClose }: { item: StockItem | null; onClose: () => 
   const [cost, setCost] = useState("");
   const [price, setPrice] = useState("");
   const [barcode, setBarcode] = useState("");
+  const [minQty, setMinQty] = useState("");
+  const [customPrefix, setCustomPrefix] = useState("");
   const [reason, setReason] = useState<string>("correction");
   const [reasonNotes, setReasonNotes] = useState("");
   const [busy, setBusy] = useState(false);
@@ -508,6 +510,8 @@ function EditDialog({ item, onClose }: { item: StockItem | null; onClose: () => 
       setCost(String(item.lastUnitCost));
       setPrice(String(item.salePrice));
       setBarcode(item.barcode ?? "");
+      setMinQty(item.minQuantity ? String(item.minQuantity) : "");
+      setCustomPrefix(item.customBarcode ?? "");
       setReason("correction");
       setReasonNotes("");
     }
@@ -527,9 +531,16 @@ function EditDialog({ item, onClose }: { item: StockItem | null; onClose: () => 
     if (reasonRequired && !reason) { toast.error("اختر سبب التعديل"); return; }
     setBusy(true);
     try {
+      // compute custom barcode if prefix provided
+      let customBarcodeValue: string | undefined = undefined;
+      let finalBarcode = barcode.trim() || null;
+      if (customPrefix.trim()) {
+        customBarcodeValue = `${customPrefix.trim()}${Math.round((newCost || 0) * 2)}`;
+        finalBarcode = customBarcodeValue;
+      }
       await db.updateStockItem(
         item.id,
-        { name: name.trim(), quantity: newQty, lastUnitCost: newCost, salePrice: newPrice, barcode: barcode.trim() || null },
+        { name: name.trim(), quantity: newQty, lastUnitCost: newCost, salePrice: newPrice, barcode: finalBarcode, minQuantity: minQty ? Math.max(0, Math.round(Number(minQty))) : undefined, customBarcode: customPrefix ? customBarcodeValue : undefined },
         reasonRequired ? {
           delta,
           reason: REASONS.find((r) => r.value === reason)?.label ?? reason,
@@ -769,6 +780,7 @@ function AddProductDialog({ open, onOpenChange, prefillBarcode, existingBarcodes
     if (open) {
       setName(""); setQty(""); setCost(""); setPrice(""); setCategory("other");
       setBarcode(prefillBarcode ?? "");
+      setMinQty(""); setCustomPrefix("");
     }
   }, [open, prefillBarcode]);
 
@@ -784,13 +796,20 @@ function AddProductDialog({ open, onOpenChange, prefillBarcode, existingBarcodes
     if (!name.trim()) { toast.error("اكتب اسم الصنف"); return; }
     setBusy(true);
     try {
+      // compute custom barcode if prefix provided
+      let customBarcodeValue: string | undefined = undefined;
+      if (customPrefix.trim()) {
+        customBarcodeValue = `${customPrefix.trim()}${Math.round((nCost || 0) * 2)}`;
+      }
       await db.addStockItem({
         name: name.trim(),
         quantity: nQty,
         lastUnitCost: nCost,
         salePrice: nPrice,
         category,
-        barcode: barcode.trim() || null,
+        barcode: (customBarcodeValue ?? barcode.trim()) || null,
+        minQuantity: minQty ? Math.max(0, Math.round(Number(minQty))) : undefined,
+        customBarcode: customPrefix ? customBarcodeValue : undefined,
       });
       toast.success("تمت إضافة الصنف");
       onOpenChange(false);
@@ -860,6 +879,28 @@ function AddProductDialog({ open, onOpenChange, prefillBarcode, existingBarcodes
             </div>
             <div className="text-[11px] text-muted-foreground">
               لا يوجد باركود على المنتج؟ اضغط <Sparkles className="inline w-3 h-3 text-primary" /> لتوليد كود فريد يمكن طباعته ولصقه على الصنف.
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <div className="grid gap-1.5">
+                <Label className="text-xs">الباركود المخصص (بادئة)</Label>
+                <Input value={customPrefix} onChange={(e) => setCustomPrefix(e.target.value)} placeholder="مثال: 040770" dir="ltr" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-xs">معاينة الباركود</Label>
+                <div className="flex items-center gap-2">
+                  <div className="font-mono text-sm">{customPrefix.trim() ? `${customPrefix.trim()}${Math.round((nCost || 0) * 2)}` : "-"}</div>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    if (!customPrefix.trim()) { toast.error('أدخل بادئة للباركود'); return; }
+                    const cb = `${customPrefix.trim()}${Math.round((nCost || 0) * 2)}`;
+                    setBarcode(cb); toast.success('تم تعيين الباركود المخصص');
+                  }}>استخدم</Button>
+                </div>
+              </div>
+            </div>
+            <div className="grid gap-1.5 mt-3">
+              <Label>الحد الأدنى للمخزون</Label>
+              <Input type="number" inputMode="numeric" value={minQty} onChange={(e) => setMinQty(e.target.value)} placeholder="مثال: 5" />
+              <div className="text-[11px] text-muted-foreground">يُعتبر الصنف منخفضًا إذا كانت الكمية أقل من هذا الرقم.</div>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
