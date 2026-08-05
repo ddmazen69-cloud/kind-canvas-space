@@ -205,7 +205,7 @@ export async function applyArchiveRetention(days: ArchiveRetentionDays) {
   const cutoff = new Date(Date.now() - days * 86400000).toISOString();
   const { count, error } = await supabase.from("archived_records").delete({ count: "exact" }).eq("user_id", userId).lt("deleted_at", cutoff);
   if (error) throw error;
-  if (count) await logArchiveActivity(`تطبيق سياسة الاحتفاظ وحذف ${count} سجل مؤرشف تجاوز ${days} يومًا`);
+  if (count) await logArchiveActivity("purge", `تطبيق سياسة الاحتفاظ وحذف ${count} سجل مؤرشف تجاوز ${days} يومًا`);
   return count ?? 0;
 }
 
