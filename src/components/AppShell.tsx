@@ -15,6 +15,7 @@ import { useRoleAbilities } from "@/lib/roles";
 
 const nav = [
   { to: "/", label: "لوحة التحكم", icon: LayoutGrid },
+  { to: "/daily", label: "اليومية", icon: FileText },
   { to: "/customers", label: "العملاء", icon: Users },
   { to: "/invoices", label: "الفواتير", icon: FileText },
   { to: "/suppliers", label: "الموردين", icon: Truck },
