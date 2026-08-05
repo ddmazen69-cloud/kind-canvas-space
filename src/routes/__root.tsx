@@ -14,7 +14,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { PrivacyProvider } from "@/lib/privacy";
-import { QuickActionsFab } from "@/components/QuickActionsFab";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { useAuth } from "@/lib/store";
 import { useHydrated } from "@/lib/hydrated";
@@ -190,7 +189,6 @@ function RootComponent() {
           ) : (
             <Outlet />
           )}
-          <FabIfAuthed />
         </PrivacyProvider>
       </TooltipProvider>
     </QueryClientProvider>
