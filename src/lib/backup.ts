@@ -23,6 +23,16 @@ export async function buildBackup(options: ExportOptions = {}): Promise<BackupPa
 export function downloadBlob(content: BlobPart, filename: string, type: string) { const url = URL.createObjectURL(new Blob([content], { type })); const anchor = document.createElement("a"); anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url); }
 export async function downloadJsonBackup(options: ExportOptions = {}) { const backup = await buildBackup(options); downloadBlob(JSON.stringify(backup, null, 2), `segilly-backup-${stamp()}.json`, "application/json"); return backup; }
 export async function downloadExcelBackup(options: ExportOptions = {}) { const [{ utils, write }, backup] = await Promise.all([import("xlsx"), buildBackup(options)]); const workbook = utils.book_new(); for (const [name, rows] of Object.entries(backup.tables)) utils.book_append_sheet(workbook, utils.json_to_sheet(rows.length ? rows as object[] : [{}]), name.slice(0, 31)); const output = write(workbook, { bookType: "xlsx", type: "array" }) as ArrayBuffer; downloadBlob(output, `segilly-backup-${stamp()}.xlsx`, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); return backup; }
+export async function uploadJsonBackupToStorage(options: ExportOptions = {}) {
+  const user = await currentUser();
+  const backup = await buildBackup(options);
+  const filename = `segilly-backup-${stamp()}.json`;
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+  const path = `${user.id}/${filename}`;
+  const { error } = await supabase.storage.from("backups").upload(path, blob, { upsert: true });
+  if (error) throw error;
+  return { path, filename, backup };
+}
 export async function dataCounts(): Promise<Record<string, number>> { const user = await currentUser(); const entries = await Promise.all(DATA_TABLES.map(async (table) => { const { count, error } = await supabase.from(table).select("id", { count: "exact", head: true }).eq("user_id", user.id); if (error) throw error; return [table, count ?? 0] as const; })); return Object.fromEntries(entries); }
 export async function dataMeta() { const user = await currentUser(); const backup = await buildBackup(); const bytes = new TextEncoder().encode(JSON.stringify(backup)).byteLength; let newest = ""; for (const rows of Object.values(backup.tables)) for (const row of rows) { const date = row && typeof row === "object" ? rowDate(row as Record<string, unknown>) : null; if (date && date > newest) newest = date; } return { bytes, latest: newest || null, userId: user.id }; }
 export async function getActivity(): Promise<ActivityEntry[]> { const user = await currentUser(); const { data, error } = await supabase.from("data_activity").select("id, action, details, actor, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(30); if (error) throw error; return (data ?? []).map((entry) => ({ id: entry.id, type: entry.action as ActivityEntry["type"], details: entry.details, actor: entry.actor, at: entry.created_at })); }
