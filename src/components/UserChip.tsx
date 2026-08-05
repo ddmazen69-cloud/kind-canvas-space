@@ -82,7 +82,22 @@ export function UserChip({ className = "" }: { className?: string }) {
               {!teamLoading && members.length > 0 && (
                 <div className="flex items-center -space-x-2">
                   {members.slice(0, 2).map((m) => (
-                    <img key={m.userId} src={m.avatarUrl ?? undefined} alt={m.displayName} className="h-6 w-6 rounded-full ring-1 ring-[var(--hairline)] object-cover" />
+                    m.avatarUrl ? (
+                      <img
+                        key={m.userId}
+                        src={m.avatarUrl}
+                        alt={m.displayName}
+                        className="h-6 w-6 rounded-full ring-1 ring-[var(--hairline)] object-cover"
+                      />
+                    ) : (
+                      <span
+                        key={m.userId}
+                        className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary ring-1 ring-[var(--hairline)]"
+                        title={m.displayName}
+                      >
+                        {initials(m.displayName, m.email ?? undefined)}
+                      </span>
+                    )
                   ))}
                 </div>
               )}
