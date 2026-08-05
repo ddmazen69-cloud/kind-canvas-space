@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      archive_preferences: {
+        Row: {
+          created_at: string
+          retention_days: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          retention_days?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          retention_days?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       archived_records: {
         Row: {
           amount: number
@@ -389,6 +410,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      role_abilities: {
+        Row: {
+          ability_key: string
+          allowed: boolean
+          created_at: string
+          id: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          ability_key: string
+          allowed?: boolean
+          created_at?: string
+          id?: string
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          ability_key?: string
+          allowed?: boolean
+          created_at?: string
+          id?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       shop_settings: {
         Row: {
