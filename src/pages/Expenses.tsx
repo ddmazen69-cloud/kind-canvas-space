@@ -365,7 +365,7 @@ function SummaryCard({ label, children, clickable, active, onClick }: { label: s
       tabIndex={clickable ? 0 : undefined}
       onKeyDown={clickable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } } : undefined}
       className={cn(
-        "rounded-[1.25rem] bg-card/70 p-4 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+        "flex min-h-[140px] flex-col justify-between rounded-[1.5rem] bg-card/70 p-6 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] md:p-7",
         active ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "border-primary/30",
         clickable && "cursor-pointer hover:border-primary/60 hover:shadow-md hover:-translate-y-0.5"
       )}
@@ -374,7 +374,7 @@ function SummaryCard({ label, children, clickable, active, onClick }: { label: s
         <span>{label}</span>
         {clickable && <span className="text-[10px] text-primary/70">{active ? "تم التصفية ✓" : "اضغط للتصفية"}</span>}
       </div>
-      <div className="text-2xl font-extrabold text-primary mt-1 text-right tabular-nums">{children}</div>
+      <div className="mt-3 text-right text-3xl font-extrabold leading-none text-primary tabular-nums md:text-4xl">{children}</div>
     </div>
   );
 }

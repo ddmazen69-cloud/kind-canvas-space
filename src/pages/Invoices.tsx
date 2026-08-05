@@ -203,7 +203,7 @@ function InvoicesPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <StatCard icon={<TrendingUp className="w-5 h-5" />} label="إجمالي المبيعات النشطة" value={`${fmt(stats.activeSalesTotal)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
         <StatCard icon={<CalendarDays className="w-5 h-5" />} label="تحصيلات الشهر الحالي" value={`${fmt(stats.monthCollections)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
         <StatCard icon={<AlertCircle className="w-5 h-5" />} label="الفواتير المتعثرة" value={String(stats.overdueCount)} tone="danger" trend="down" valueClassName={blurCls} />
@@ -424,16 +424,16 @@ function StatCard({ icon, label, value, tone, trend, valueClassName }: { icon: R
   const toneCls = tone === "primary" ? "bg-primary/10 text-primary border-primary/30" : tone === "success" ? "bg-success/10 text-success border-success/30" : "bg-danger/10 text-danger border-danger/30";
   const valueCls = tone === "success" ? "text-success" : tone === "danger" ? "text-danger" : "";
   return (
-    <div className={cn("rounded-[1.25rem] bg-card/70 p-4 flex items-center gap-3 transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] animate-[fade-in_0.4s_ease-out]", tone === "success" ? "border-success/30 hover:border-success/60" : tone === "danger" ? "border-danger/30 hover:border-danger/60" : "border-border hover:border-primary/40")}>
-      <div className={cn("w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0", toneCls)}>{icon}</div>
-      <div className="min-w-0 flex-1">
-        <div className="text-xs text-muted-foreground flex items-center gap-1">
+    <div className={cn("flex min-h-[150px] flex-col justify-between rounded-[1.5rem] bg-card/70 p-6 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 animate-[fade-in_0.4s_ease-out] md:p-7", tone === "success" ? "border-success/30 hover:border-success/60" : tone === "danger" ? "border-danger/30 hover:border-danger/60" : "border-border hover:border-primary/40")}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 text-xs text-muted-foreground flex items-center gap-1">
           {label}
           {trend === "up" && <TrendingUp className="w-3 h-3 text-success" />}
           {trend === "down" && <TrendingUp className="w-3 h-3 text-danger rotate-180" />}
         </div>
-        <div className={cn("text-lg font-extrabold tabular-nums truncate", valueCls, valueClassName)}>{value}</div>
+        <div className={cn("w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0", toneCls)}>{icon}</div>
       </div>
+      <div className={cn("mt-4 text-3xl font-extrabold leading-none tabular-nums truncate md:text-4xl", valueCls, valueClassName)}>{value}</div>
     </div>
   );
 }

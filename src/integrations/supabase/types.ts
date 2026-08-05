@@ -15,9 +15,24 @@ export type Database = {
   public: {
     Tables: {
       archive_preferences: {
-        Row: { retention_days: number; updated_at: string; user_id: string }
-        Insert: { retention_days?: number; updated_at?: string; user_id: string }
-        Update: { retention_days?: number; updated_at?: string; user_id?: string }
+        Row: {
+          created_at: string
+          retention_days: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          retention_days?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          retention_days?: number
+          updated_at?: string
+          user_id?: string
+        }
         Relationships: []
       }
       archived_records: {
@@ -396,12 +411,38 @@ export type Database = {
           },
         ]
       }
+      role_abilities: {
+        Row: {
+          ability_key: string
+          allowed: boolean
+          created_at: string
+          id: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          ability_key: string
+          allowed?: boolean
+          created_at?: string
+          id?: string
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          ability_key?: string
+          allowed?: boolean
+          created_at?: string
+          id?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shop_settings: {
         Row: {
           address: string
           alerts_enabled: boolean
           created_at: string
-          color_theme: string
           currency: string
           default_due_day: number
           default_installment_months: number
@@ -412,9 +453,6 @@ export type Database = {
           low_stock_threshold: number
           phone: string
           print_paper: string
-          print_show_footer_note: boolean
-          print_show_logo: boolean
-          print_show_tax_number: boolean
           reminder_days_before: number
           shop_name: string
           tax_number: string
@@ -427,7 +465,6 @@ export type Database = {
           address?: string
           alerts_enabled?: boolean
           created_at?: string
-          color_theme?: string
           currency?: string
           default_due_day?: number
           default_installment_months?: number
@@ -438,9 +475,6 @@ export type Database = {
           low_stock_threshold?: number
           phone?: string
           print_paper?: string
-          print_show_footer_note?: boolean
-          print_show_logo?: boolean
-          print_show_tax_number?: boolean
           reminder_days_before?: number
           shop_name?: string
           tax_number?: string
@@ -453,7 +487,6 @@ export type Database = {
           address?: string
           alerts_enabled?: boolean
           created_at?: string
-          color_theme?: string
           currency?: string
           default_due_day?: number
           default_installment_months?: number
@@ -464,9 +497,6 @@ export type Database = {
           low_stock_threshold?: number
           phone?: string
           print_paper?: string
-          print_show_footer_note?: boolean
-          print_show_logo?: boolean
-          print_show_tax_number?: boolean
           reminder_days_before?: number
           shop_name?: string
           tax_number?: string
@@ -611,27 +641,6 @@ export type Database = {
         }
         Relationships: []
       }
-      role_abilities: {
-        Row: {
-          ability_key: string
-          allowed: boolean
-          role: Database["public"]["Enums"]["app_role"]
-          updated_at: string
-        }
-        Insert: {
-          ability_key: string
-          allowed?: boolean
-          role: Database["public"]["Enums"]["app_role"]
-          updated_at?: string
-        }
-        Update: {
-          ability_key?: string
-          allowed?: boolean
-          role?: Database["public"]["Enums"]["app_role"]
-          updated_at?: string
-        }
-        Relationships: []
-      }
       team_invites: {
         Row: {
           accepted_at: string | null
@@ -720,7 +729,6 @@ export type Database = {
         Returns: {
           avatar_url: string
           display_name: string
-          email: string
           last_seen_at: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string

@@ -289,7 +289,7 @@ ${topItems.map((i) => `<tr><td>${escapeHtml(i.name)}</td><td class="num">${fmt(i
         </TabsList>
       </Tabs>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         <SummaryBox label="المبيعات" value={totals.sales} icon={<Receipt className="w-5 h-5" />} tone="primary" blurCls={blurCls} />
         <SummaryBox label="التحصيلات" value={totals.collected} icon={<Wallet className="w-5 h-5" />} tone="success" blurCls={blurCls} />
         <SummaryBox label="المصروفات" value={totals.expenses} icon={<TrendingDown className="w-5 h-5" />} tone="danger" blurCls={blurCls} />
@@ -464,12 +464,12 @@ function SummaryBox({
 }) {
   const toneCls = tone === "success" ? "text-success" : tone === "danger" ? "text-danger" : "text-primary";
   return (
-    <div className="rounded-[1.25rem] hairline/70 bg-card/70 p-4">
-      <div className="flex items-center justify-between mb-2">
+    <div className="flex min-h-[150px] flex-col justify-between rounded-[1.5rem] hairline/70 bg-card/70 p-6 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 md:p-7">
+      <div className="flex items-center justify-between gap-3">
         <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
-        <span className={toneCls}>{icon}</span>
+        <span className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-full bg-foreground/[0.05] ring-1 ring-foreground/10", toneCls)}>{icon}</span>
       </div>
-      <div className={cn("text-2xl font-extrabold tabular-nums", toneCls, blurCls)}>{fmt(value)} ج.م</div>
+      <div className={cn("mt-4 text-3xl font-extrabold leading-none tabular-nums md:text-4xl", toneCls, blurCls)}>{fmt(value)} <span className="text-base font-bold text-muted-foreground">ج.م</span></div>
     </div>
   );
 }
