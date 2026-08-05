@@ -59,12 +59,12 @@ export function UserChip({ className = "" }: { className?: string }) {
   return (
     <div
       className={cn(
-        "rounded-[1.5rem] bg-foreground/[0.04] p-1.5 ring-1 ring-[var(--hairline)]",
+        "rounded-[1.5rem] bg-transparent p-1.5 ring-1 ring-[var(--hairline)]",
         "transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]",
         className,
       )}
     >
-      <div className="flex items-center gap-2.5 rounded-[1.25rem] px-2 py-1.5">
+      <div className="flex items-center gap-2.5 rounded-[1.25rem] px-2 py-1.5 bg-[#2b0f14]/20">
         <UserAvatar />
         <span className="min-w-0 flex-1 text-right">
           <span className="block truncate text-sm font-semibold leading-tight">
@@ -82,7 +82,7 @@ export function UserChip({ className = "" }: { className?: string }) {
               {!teamLoading && members.length > 0 && (
                 <div className="flex items-center -space-x-2">
                   {members.slice(0, 2).map((m) => (
-                    <img key={m.userId} src={m.avatarUrl ?? undefined} alt={m.displayName} className="h-6 w-6 rounded-full ring-1 ring-[var(--hairline)]" />
+                    <img key={m.userId} src={m.avatarUrl ?? undefined} alt={m.displayName} className="h-6 w-6 rounded-full ring-1 ring-[var(--hairline)] object-cover" />
                   ))}
                 </div>
               )}

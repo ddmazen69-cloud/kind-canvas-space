@@ -84,7 +84,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div dir="rtl" className="min-h-screen text-foreground flex">
       {/* Sidebar */}
       <aside className="sticky top-0 hidden h-screen w-[17.5rem] shrink-0 flex-col gap-8 p-4 md:flex">
-        <div className="glass flex h-full min-h-0 flex-col gap-6 overflow-hidden rounded-[1.75rem] p-5">
+        <div className="glass flex h-full min-h-0 flex-col gap-6 overflow-hidden rounded-[1.75rem] p-5 bg-[#2b0f14]/80 shadow-2xl backdrop-blur-md">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/10 ring-1 ring-primary/20">
             <img src={logoMark} alt="" width={28} height={28} className="h-7 w-7 object-contain" />
@@ -100,7 +100,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           </Link>
         </div>
-        <nav className="stagger no-scrollbar -mx-1 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-1">
+        <nav className="stagger no-scrollbar -mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-1">
           {visibleNav.map((n) => {
             const active = n.to === "/" ? location.pathname === "/" : location.pathname.startsWith(n.to);
             const Icon = n.icon;
@@ -110,10 +110,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 key={n.to}
                 to={n.to}
                 className={cn(
-                  "group relative flex items-center justify-between gap-2 rounded-full px-4 py-2.5 text-sm transition-[transform,box-shadow,background-color,color] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                  "group relative flex items-center justify-between gap-2 rounded-full px-4 py-3 text-sm transition-[transform,box-shadow,background-color,color] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
                   active
-                    ? "bg-primary font-semibold text-primary-foreground shadow-[0_14px_34px_-16px_hsl(var(--primary)/0.95)]"
-                    : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground hover:translate-x-[-3px] hover:shadow-[inset_0_0_0_1px_var(--hairline)]"
+                    ? "bg-primary font-semibold text-primary-foreground shadow-[0_18px_40px_-18px_hsl(var(--primary)/0.95)]"
+                    : "text-white/70 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground hover:translate-x-[-3px] hover:shadow-[inset_0_0_0_1px_var(--hairline)]"
                 )}
               >
                 <span className="flex items-center gap-2">
