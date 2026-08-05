@@ -323,7 +323,7 @@ export default function DailyLog() {
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="حالة السداد" /></SelectValue>
+                <SelectTrigger className="w-full"><SelectValue placeholder="حالة السداد" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">كل الحالات</SelectItem>
                   <SelectItem value="paid">مدفوعة</SelectItem>
