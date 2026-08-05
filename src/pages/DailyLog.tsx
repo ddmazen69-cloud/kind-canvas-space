@@ -43,7 +43,7 @@ export default function DailyLog() {
       const time = (inv.createdAt || "").slice(11, 16);
       const type = inv.monthlyInstallment && inv.monthlyInstallment > 0 ? "قسط" : "فوري";
       const remaining = Math.max(0, Number(inv.total || 0) - Number(inv.paid || 0));
-      const status = remaining <= 0 ? "مسددة" : "مفتوحة";
+      const status = Number(inv.paid || 0) <= 0 ? "غير مدفوعة" : remaining <= 0 ? "مدفوعة" : "مدفوعة جزئياً";
       return [
         (inv.id || "").slice(0, 8),
         time,
@@ -75,7 +75,7 @@ export default function DailyLog() {
       const time = (inv.createdAt || "").slice(11, 16);
       const type = inv.monthlyInstallment && inv.monthlyInstallment > 0 ? "قسط" : "فوري";
       const remaining = Math.max(0, Number(inv.total || 0) - Number(inv.paid || 0));
-      const status = remaining <= 0 ? "مسددة" : "مفتوحة";
+      const status = Number(inv.paid || 0) <= 0 ? "غير مدفوعة" : remaining <= 0 ? "مدفوعة" : "مدفوعة جزئياً";
       return `
         <tr>
           <td>${i + 1}</td>
@@ -203,7 +203,7 @@ export default function DailyLog() {
                 const time = (inv.createdAt || "").slice(11, 16);
                 const type = inv.monthlyInstallment && inv.monthlyInstallment > 0 ? "قسط" : "فوري";
                 const remaining = Math.max(0, Number(inv.total || 0) - Number(inv.paid || 0));
-                const status = remaining <= 0 ? "مسددة" : "مفتوحة";
+                const status = Number(inv.paid || 0) <= 0 ? "غير مدفوعة" : remaining <= 0 ? "مدفوعة" : "مدفوعة جزئياً";
                 return (
                   <tr key={inv.id} className="border-t border-[var(--hairline)]">
                     <td className="py-3 pr-4">{inv.id.slice(0, 8)}</td>
