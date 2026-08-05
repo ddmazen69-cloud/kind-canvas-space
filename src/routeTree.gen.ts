@@ -26,6 +26,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SuppliersRouteImport } from './routes/suppliers'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as CustomersCustomerIdRouteImport } from './routes/customers.$customerId'
 import { Route as JoinTokenRouteImport } from './routes/join.$token'
 
 const IndexRoute = IndexRouteImport.update({
@@ -113,6 +114,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomersCustomerIdRoute = CustomersCustomerIdRouteImport.update({
+  id: '/$customerId',
+  path: '/$customerId',
+  getParentRoute: () => CustomersRoute,
+} as any)
 const JoinTokenRoute = JoinTokenRouteImport.update({
   id: '/join/$token',
   path: '/join/$token',
@@ -125,7 +131,7 @@ export interface FileRoutesByFullPath {
   '/alerts': typeof AlertsRoute
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
-  '/customers': typeof CustomersRoute
+  '/customers': typeof CustomersRouteWithChildren
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRoute
   '/invoices': typeof InvoicesRoute
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/suppliers': typeof SuppliersRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
+  '/customers/$customerId': typeof CustomersCustomerIdRoute
   '/join/$token': typeof JoinTokenRoute
 }
 export interface FileRoutesByTo {
@@ -145,7 +152,7 @@ export interface FileRoutesByTo {
   '/alerts': typeof AlertsRoute
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
-  '/customers': typeof CustomersRoute
+  '/customers': typeof CustomersRouteWithChildren
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRoute
   '/invoices': typeof InvoicesRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/suppliers': typeof SuppliersRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
+  '/customers/$customerId': typeof CustomersCustomerIdRoute
   '/join/$token': typeof JoinTokenRoute
 }
 export interface FileRoutesById {
@@ -166,7 +174,7 @@ export interface FileRoutesById {
   '/alerts': typeof AlertsRoute
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
-  '/customers': typeof CustomersRoute
+  '/customers': typeof CustomersRouteWithChildren
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRoute
   '/invoices': typeof InvoicesRoute
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/suppliers': typeof SuppliersRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
+  '/customers/$customerId': typeof CustomersCustomerIdRoute
   '/join/$token': typeof JoinTokenRoute
 }
 export interface FileRouteTypes {
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/suppliers'
     | '/support'
     | '/terms'
+    | '/customers/$customerId'
     | '/join/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
     | '/suppliers'
     | '/support'
     | '/terms'
+    | '/customers/$customerId'
     | '/join/$token'
   id:
     | '__root__'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/suppliers'
     | '/support'
     | '/terms'
+    | '/customers/$customerId'
     | '/join/$token'
   fileRoutesById: FileRoutesById
 }
@@ -249,7 +261,7 @@ export interface RootRouteChildren {
   AlertsRoute: typeof AlertsRoute
   ArchiveRoute: typeof ArchiveRoute
   AuthRoute: typeof AuthRoute
-  CustomersRoute: typeof CustomersRoute
+  CustomersRoute: typeof CustomersRouteWithChildren
   ExpensesRoute: typeof ExpensesRoute
   InventoryRoute: typeof InventoryRoute
   InvoicesRoute: typeof InvoicesRoute
@@ -385,6 +397,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/customers/$customerId': {
+      id: '/customers/$customerId'
+      path: '/$customerId'
+      fullPath: '/customers/$customerId'
+      preLoaderRoute: typeof CustomersCustomerIdRouteImport
+      parentRoute: typeof CustomersRoute
+    }
     '/join/$token': {
       id: '/join/$token'
       path: '/join/$token'
@@ -395,13 +414,25 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface CustomersRouteChildren {
+  CustomersCustomerIdRoute: typeof CustomersCustomerIdRoute
+}
+
+const CustomersRouteChildren: CustomersRouteChildren = {
+  CustomersCustomerIdRoute: CustomersCustomerIdRoute,
+}
+
+const CustomersRouteWithChildren = CustomersRoute._addFileChildren(
+  CustomersRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AlertsRoute: AlertsRoute,
   ArchiveRoute: ArchiveRoute,
   AuthRoute: AuthRoute,
-  CustomersRoute: CustomersRoute,
+  CustomersRoute: CustomersRouteWithChildren,
   ExpensesRoute: ExpensesRoute,
   InventoryRoute: InventoryRoute,
   InvoicesRoute: InvoicesRoute,
@@ -418,3 +449,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
