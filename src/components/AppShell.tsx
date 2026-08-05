@@ -93,8 +93,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="text-display text-2xl font-bold leading-none text-primary">سِجلّي</div>
             <div className="mt-1 text-[10px] font-medium uppercase tracking-[0.24em] text-muted-foreground">Segilly</div>
           </div>
-          {/* Help / Docs quick link */}
-          <Link to="/docs" className="ms-auto" title="مركز المساعدة">
+          {/* Help / Support quick link */}
+          <Link to="/support" className="ms-auto" title="مركز المساعدة">
             <span className="inline-grid h-9 w-9 place-items-center rounded-full bg-emerald-600 text-emerald-foreground shadow-sm ring-1 ring-emerald-500/30">
               <BookOpen className="w-4 h-4 text-white" />
             </span>
