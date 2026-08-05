@@ -9,6 +9,16 @@ import { PageTransition } from "@/components/PageTransition";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
 import { toast } from "sonner";
 
+function escapeHtml(s: string) {
+  return String(s || "").replace(/[&<>\"']/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[c] ?? c));
+}
+
 function fmtMoney(n: number) {
   return `${Math.round(n).toLocaleString()} ج.م`;
 }
