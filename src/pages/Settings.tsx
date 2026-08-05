@@ -25,7 +25,7 @@ import {
   type ShopSettings, type ThemeMode, type PrintPaper, type ColorTheme,
 } from "@/lib/store";
 import { applyTheme } from "@/lib/theme";
-import { DATA_TABLES, dataCounts, dataMeta, downloadExcelBackup, downloadJsonBackup, getActivity, importBackup, logActivity, readImportFile, wipeAllData, type ActivityEntry, type BackupPayload } from "@/lib/backup";
+import { DATA_TABLES, dataCounts, dataMeta, downloadExcelBackup, downloadJsonBackup, uploadJsonBackupToStorage, getActivity, importBackup, logActivity, readImportFile, wipeAllData, type ActivityEntry, type BackupPayload } from "@/lib/backup";
 import {
   Settings as SettingsIcon, Store, KeyRound, Save, LogOut, Receipt, Bell,
   Palette, Database, Upload, Trash2, FileJson, FileSpreadsheet, RotateCcw, ShieldAlert, Mail,
@@ -1044,6 +1044,15 @@ function DataTab() {
     if (!selected.length) { toast.error("اختَر قسم بيانات واحدًا على الأقل"); return; }
     await run(format, async () => { const options = { tables: selected, from: from || undefined, to: to || undefined }; const exported = format === "json" ? await downloadJsonBackup(options) : await downloadExcelBackup(options); await logActivity(format === "json" ? "backup" : "export", `تصدير ${Object.values(exported.tables).reduce((sum, rows) => sum + rows.length, 0)} سجل بصيغة ${format === "json" ? "JSON" : "Excel"}`); setActivity(await getActivity()); }, format === "json" ? "تم تنزيل النسخة الاحتياطية" : "تم تنزيل ملف Excel");
   };
+  const exportToCloud = async () => {
+    if (!selected.length) { toast.error("اختَر قسم بيانات واحدًا على الأقل"); return; }
+    await run("cloud", async () => {
+      const options = { tables: selected, from: from || undefined, to: to || undefined };
+      const result = await uploadJsonBackupToStorage(options);
+      await logActivity("backup", `رفع نسخة احتياطية إلى السحابة: ${result.path}`);
+      setActivity(await getActivity());
+    }, "تم رفع النسخة للسحابة");
+  };
   const inspect = async (nextFile: File | undefined) => { setFile(nextFile ?? null); setBackup(null); setImportSelected([]); setImportError(""); if (!nextFile) return; setBusy("inspect"); try { const parsed = await readImportFile(nextFile); const tables = Object.keys(parsed.tables).filter((table) => (parsed.tables[table] ?? []).length); setBackup(parsed); setImportSelected(tables); if (!tables.length) setImportError("الملف صالح، لكنه لا يحتوي على سجلات."); } catch (error) { setImportError(error instanceof Error ? error.message : "تعذر قراءة الملف"); } finally { setBusy(null); } };
   const confirmImport = async () => { if (!backup || !importSelected.length) return; await run("import", async () => { const total = await importBackup(backup, importSelected); await logActivity("import", `استيراد ${total} سجل من ${file?.name ?? "ملف"}`); setActivity(await getActivity()); setImportOpen(false); await load(); }, "تم استيراد البيانات ودمجها"); };
   const total = counts ? Object.values(counts).reduce((sum, value) => sum + value, 0) : 0;
@@ -1060,7 +1069,17 @@ function DataTab() {
           <div className="flex justify-between mb-3"><Label>الأقسام المضمنة</Label><Button variant="ghost" size="sm" onClick={() => setSelected(selected.length === DATA_TABLES.length ? [] : [...DATA_TABLES])}>{selected.length === DATA_TABLES.length ? "إلغاء الكل" : "اختيار الكل"}</Button></div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{DATA_TABLES.map((table) => <label key={table} className="flex items-center gap-2 rounded-xl bg-foreground/[0.04] px-3 py-2 text-xs"><input type="checkbox" checked={selected.includes(table)} onChange={() => flip(table, setSelected)} className="accent-primary" />{TABLE_LABELS[table]}</label>)}</div>
           <div className="grid gap-3 sm:grid-cols-2 mt-5"><Field label="من تاريخ"><Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></Field><Field label="إلى تاريخ"><Input type="date" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} /></Field></div>
-          <div className="mt-5 rounded-2xl bg-primary/8 p-4 flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-bold">إنشاء نسخة احتياطية الآن</p><p className="text-xs text-muted-foreground">تشمل الاختيارات أعلاه فقط.</p></div><div className="flex gap-2"><Button disabled={busy !== null} onClick={() => exportData("json")} className="gap-1.5"><FileJson className="w-4 h-4" /> JSON</Button><Button disabled={busy !== null} onClick={() => exportData("xlsx")} variant="secondary" className="gap-1.5"><FileSpreadsheet className="w-4 h-4" /> Excel</Button></div></div>
+          <div className="mt-5 rounded-2xl bg-primary/8 p-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold">إنشاء نسخة احتياطية الآن</p>
+              <p className="text-xs text-muted-foreground">تشمل الاختيارات أعلاه فقط.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button disabled={busy !== null} onClick={() => exportData("json")} className="gap-1.5"><FileJson className="w-4 h-4" /> JSON</Button>
+              <Button disabled={busy !== null} onClick={() => exportData("xlsx")} variant="secondary" className="gap-1.5"><FileSpreadsheet className="w-4 h-4" /> Excel</Button>
+              <Button disabled={busy !== null} onClick={() => exportToCloud()} variant="outline" className="gap-1.5"><Cloud className="w-4 h-4" /> سحابة</Button>
+            </div>
+          </div>
         </Section>
         <Section icon={<FileUp className="w-5 h-5" />} title="استيراد واستعادة البيانات" hint="ستراجع الملف قبل الدمج، ولن يتم الحفظ تلقائياً.">
           <input ref={fileRef} type="file" accept=".json,.xlsx,.xls" className="hidden" onChange={(event) => inspect(event.target.files?.[0])} />
