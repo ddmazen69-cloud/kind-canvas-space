@@ -446,7 +446,7 @@ function ShopField({ label, hint, required, optional, children }: { label: strin
         </div>
         {required ? <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">مطلوب</span> : null}
         {optional ? <span className="rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[10px] text-muted-foreground">اختياري</span> : null}
-      </div>
+      </Section>
       {children}
       {hint ? <p className="text-[11px] leading-5 text-muted-foreground">{hint}</p> : null}
     </div>
