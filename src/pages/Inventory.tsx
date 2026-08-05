@@ -773,6 +773,8 @@ function AddProductDialog({ open, onOpenChange, prefillBarcode, existingBarcodes
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("other");
   const [barcode, setBarcode] = useState("");
+  const [minQty, setMinQty] = useState("");
+  const [customPrefix, setCustomPrefix] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
