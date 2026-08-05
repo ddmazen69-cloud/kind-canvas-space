@@ -1151,6 +1151,8 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
   const cashShort = Math.max(0, totalPrice - cashPaidNum);
   const isCashMode = saleType === "cash" || (totalPrice > 0 && downNum >= totalPrice);
   const totalDue = downNum + monthlyNum * countNum;
+  const nextInvoiceNumber = invoiceNumber(data.invoices, `new-invoice-${data.invoices.length + 1}`, shop.invoicePrefix);
+  const invoiceStatus = totalPrice > 0 ? (isCashMode ? "مسددة" : "نشطة") : "غير مكتملة";
 
   /** جدول الأقساط المتوقّع — عرض فقط قبل الحفظ. */
   const schedule = useMemo(() => {
@@ -1273,6 +1275,19 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
           <DialogDescription className="text-right">
             {isCashMode ? "بيع فوري — سداد كامل المبلغ الآن." : "بيع بالتقسيط — مقدم ودفعات شهرية."}
           </DialogDescription>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-3 text-right">
+              <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">رقم الفاتورة</div>
+              <div className="mt-1 text-lg font-semibold">{nextInvoiceNumber}</div>
+            </div>
+            <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-3 text-right">
+              <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">حالة الفاتورة</div>
+              <div className={cn(
+                "mt-1 text-lg font-semibold",
+                invoiceStatus === "مسددة" ? "text-success" : invoiceStatus === "نشطة" ? "text-primary" : "text-warning",
+              )}>{invoiceStatus}</div>
+            </div>
+          </div>
         </DialogHeader>
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-6 pb-8 text-right">
           <div className="rounded-[1.75rem] border border-foreground/10 bg-foreground/[0.02] p-1.5">
