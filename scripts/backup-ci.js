@@ -66,6 +66,13 @@ async function main() {
         console.error('Upload error for', userId, uploadErr.message);
       } else {
         console.log('Uploaded', path);
+        // Log activity so the app UI can show automated backups
+        try {
+          const { error: logErr } = await supabase.from('data_activity').insert({ user_id: userId, action: 'backup', details: `Automated backup uploaded: ${path}`, actor: 'system' });
+          if (logErr) console.warn('Failed to log activity for', userId, logErr.message);
+        } catch (le) {
+          console.warn('Activity insert failed for', userId, le?.message || le);
+        }
       }
     } catch (e) {
       console.error('Failed to upload for', userId, e?.message || e);
