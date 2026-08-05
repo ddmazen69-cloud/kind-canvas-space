@@ -423,8 +423,27 @@ function ShopTab({ form, set }: TabProps) {
 function ShopField({ label, hint, required, optional, children }: { label: string; hint?: string; required?: boolean; optional?: boolean; children: React.ReactNode }) {
   return (
     <div className="grid gap-2">
-      <div className="flex items-center gap-2">
+      <Section icon={<Database className="w-5 h-5" />} title="ملخص بياناتك" hint="إجمالي البيانات وحجمها وآخر تحديث لها.">
         <Label className="text-sm font-medium">{label}</Label>
+        {/* Automatic backup status */}
+        <div className="mt-3">
+          {(() => {
+            // Show the most recent backup activity (manual or automated)
+            const lastBackup = activity.find((e) => e.type === 'backup') || null;
+            return (
+              <div className="rounded-xl bg-foreground/[0.04] px-3 py-2.5 flex justify-between items-center">
+                <div>
+                  <div className="text-xs text-muted-foreground">النسخ الاحتياطي</div>
+                  <div className="mt-1 font-semibold">{lastBackup ? 'موجود' : 'لا توجد نسخ'}</div>
+                </div>
+                <div className="text-right text-sm text-muted-foreground flex items-center gap-3">
+                  <div>{lastBackup ? `آخر نسخة: ${new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(lastBackup.at))}` : 'لم يتم تنفيذ نسخة بعد'}</div>
+                  <Button size="sm" variant="ghost" onClick={async () => { setActivity(await getActivity()); toast.success('تم التحديث'); }}>تحديث</Button>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
         {required ? <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">مطلوب</span> : null}
         {optional ? <span className="rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[10px] text-muted-foreground">اختياري</span> : null}
       </div>
