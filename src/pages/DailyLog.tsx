@@ -2,8 +2,12 @@ import { PageHeader } from "@/components/PageHeader";
 import { MetricCard } from "@/components/MetricCard";
 import { BezelCard } from "@/components/BezelCard";
 import { FileText, Wallet } from "lucide-react";
-import { useDB } from "@/lib/store";
+import { useDB, fmt } from "@/lib/store";
 import { Button } from "@/components/ui/button";
+import { AppShell } from "@/components/AppShell";
+import { PageTransition } from "@/components/PageTransition";
+import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
+import { toast } from "sonner";
 
 function fmtMoney(n: number) {
   return `${Math.round(n).toLocaleString()} ج.م`;
@@ -55,40 +59,74 @@ export default function DailyLog() {
   }
 
   function exportPDF() {
-    const rowsHtml = todays.map((inv) => {
+    const rows = todays.map((inv, i) => {
       const cust = customers.find((c) => c.id === inv.customerId);
       const name = cust?.name ?? "زبون";
       const time = (inv.createdAt || "").slice(11, 16);
       const type = inv.monthlyInstallment && inv.monthlyInstallment > 0 ? "قسط" : "فوري";
       const remaining = Math.max(0, Number(inv.total || 0) - Number(inv.paid || 0));
       const status = remaining <= 0 ? "مسددة" : "مفتوحة";
-      return `<tr>
-        <td style="padding:6px;border:1px solid #ddd">${(inv.id||"").slice(0,8)}</td>
-        <td style="padding:6px;border:1px solid #ddd">${time}</td>
-        <td style="padding:6px;border:1px solid #ddd">${name}</td>
-        <td style="padding:6px;border:1px solid #ddd">${inv.total}</td>
-        <td style="padding:6px;border:1px solid #ddd">${inv.paid}</td>
-        <td style="padding:6px;border:1px solid #ddd">${remaining}</td>
-        <td style="padding:6px;border:1px solid #ddd">${type}</td>
-        <td style="padding:6px;border:1px solid #ddd">${status}</td>
-      </tr>`;
+      return `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${time}</td>
+          <td>${escapeHtml(name)}</td>
+          <td class="num">${fmt(Number(inv.total || 0))}</td>
+          <td class="num ok">${fmt(Number(inv.paid || 0))}</td>
+          <td class="num ${remaining > 0 ? "due" : ""}">${fmt(remaining)}</td>
+          <td>${type}</td>
+          <td>${status}</td>
+        </tr>`;
     }).join("");
-    const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>اليومية - ${today}</title>
-      <style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:8px}</style>
-      </head><body><h2>ملخّص اليومية - ${today}</h2>
-      <table><thead><tr><th>رقم</th><th>الوقت</th><th>العميل</th><th>الإجمالي</th><th>مدفوع</th><th>متبقي</th><th>نوع</th><th>حالة</th></tr></thead>
-      <tbody>${rowsHtml}</tbody></table>
-      </body></html>`;
-    const w = window.open('', '_blank', 'width=900,height=700');
-    if (!w) return;
-    w.document.write(html);
-    w.document.close();
-    w.focus();
-    // give the new window a moment to render then trigger print
-    setTimeout(() => { w.print(); }, 300);
+
+    const totalDue = todays.reduce((s, x) => s + Math.max(0, Number(x.total || 0) - Number(x.paid || 0)), 0);
+    const totalSales = todays.reduce((s, x) => s + Number(x.total || 0), 0);
+    const totalPaidAll = todays.reduce((s, x) => s + Number(x.paid || 0), 0);
+
+    const body = `
+      <h2 class="sec">بيانات الفواتير — اليومية</h2>
+      <div class="t-wrap"><table>
+        <thead><tr>
+          <th>م</th><th>الوقت</th><th>العميل</th><th class="num">الإجمالي</th><th class="num">مدفوع</th><th class="num">متبقي</th><th>نوع</th><th>حالة</th>
+        </tr></thead>
+        <tbody>${rows || `<tr><td colspan="8" class="empty">لا توجد فواتير اليوم</td></tr>`}</tbody>
+        <tfoot><tr>
+          <td colspan="3">الإجماليات</td>
+          <td class="num">${fmt(totalSales)}</td>
+          <td class="num ok">${fmt(totalPaidAll)}</td>
+          <td class="num">${fmt(totalDue)}</td>
+          <td colspan="2">—</td>
+        </tr></tfoot>
+      </table></div>
+      <div class="sig"><div>توقيع المسؤول</div><div>الختم الرسمي</div></div>`;
+
+    const todayLabel = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+    const html = pdfDocument({
+      docTitle: `تقرير اليومية - ${today}`,
+      badge: "اليومية",
+      title: "تقرير اليومية",
+      lede: `ملخّص جميع الفواتير الصادرة في اليوم ${todayLabel}`,
+      meta: [
+        { label: "تاريخ", value: todayLabel },
+        { label: "عدد الفواتير", value: String(todays.length) },
+      ],
+      kpis: [
+        { label: "عدد الفواتير", value: String(todays.length) },
+        { label: "إجمالي المبيعات", value: `${fmt(totalSales)} ج.م`, tone: "brand" },
+        { label: "إجمالي المدفوع", value: `${fmt(totalPaidAll)} ج.م` },
+        { label: "المديونية المتبقية", value: `${fmt(totalDue)} ج.م`, tone: "danger" },
+      ],
+      body,
+      page: "A4",
+    });
+    if (!openPdfDocument(html, { autoPrint: true, features: "width=980,height=760" })) {
+      toast.error("الرجاء السماح بفتح النوافذ المنبثقة لتصدير PDF");
+      return;
+    }
+    toast.success("جاري تجهيز نسخة PDF... استعمل حوار الطباعة لحفظها.");
   }
 
-  return (
+  const PageContent = () => (
     <div>
       <PageHeader
         title="اليومية"
@@ -174,5 +212,13 @@ export default function DailyLog() {
         </div>
       </BezelCard>
     </div>
+  );
+
+  return (
+    <AppShell>
+      <PageTransition>
+        <PageContent />
+      </PageTransition>
+    </AppShell>
   );
 }
