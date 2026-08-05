@@ -150,12 +150,17 @@ export async function restoreArchived(rec: ArchivedRecord, reason?: string) {
     if (!cust) throw new Error("لا يمكن استرجاع الفاتورة: العميل نفسه محذوف — استرجع العميل أولًا");
   }
 
-  const { error } = await supabase.from(table).insert(row as any);
+  const upsertPayload = { ...row };
+  const { error } = await supabase.from(table).upsert(upsertPayload as any, { onConflict: "id" });
   if (error) throw error;
 
   if (rec.entityType === "invoice") {
-    if (invoice_items?.length) await supabase.from("invoice_items").insert(invoice_items as any);
-    if (payments?.length) await supabase.from("payments").insert(payments as any);
+    if (invoice_items?.length) {
+      await supabase.from("invoice_items").upsert(invoice_items as any, { onConflict: "id" });
+    }
+    if (payments?.length) {
+      await supabase.from("payments").upsert(payments as any, { onConflict: "id" });
+    }
   }
   await supabase.from("archived_records").delete().eq("id", rec.id);
   await logArchiveActivity("restore", `استرجاع ${ENTITY_LABELS[rec.entityType]}: ${rec.label}`, reason);

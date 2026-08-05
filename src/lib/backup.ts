@@ -28,5 +28,35 @@ export async function dataMeta() { const user = await currentUser(); const backu
 export async function getActivity(): Promise<ActivityEntry[]> { const user = await currentUser(); const { data, error } = await supabase.from("data_activity").select("id, action, details, actor, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(30); if (error) throw error; return (data ?? []).map((entry) => ({ id: entry.id, type: entry.action as ActivityEntry["type"], details: entry.details, actor: entry.actor, at: entry.created_at })); }
 export async function logActivity(type: ActivityEntry["type"], details: string) { const user = await currentUser(); const { data, error } = await supabase.from("data_activity").insert({ user_id: user.id, action: type, details, actor: user.email ?? "المستخدم الحالي" }).select("id, action, details, actor, created_at").single(); if (error) throw error; return { id: data.id, type: data.action as ActivityEntry["type"], details: data.details, actor: data.actor, at: data.created_at }; }
 export async function readImportFile(file: File): Promise<BackupPayload> { let parsed: unknown; if (file.name.toLowerCase().endsWith(".json")) parsed = JSON.parse(await file.text()); else if (/\.(xlsx|xls)$/i.test(file.name)) { const { read, utils } = await import("xlsx"); const workbook = read(await file.arrayBuffer(), { type: "array" }); parsed = { app: "segilly", version: 1, exportedAt: new Date().toISOString(), tables: Object.fromEntries(workbook.SheetNames.filter((name) => BACKUP_TABLES.includes(name as DataTable)).map((name) => [name, utils.sheet_to_json(workbook.Sheets[name], { defval: null })])) }; } else throw new Error("اختر ملف JSON أو Excel"); if (!parsed || typeof parsed !== "object") throw new Error("الملف غير صالح"); const candidate = parsed as Partial<BackupPayload>; if (!candidate.tables || typeof candidate.tables !== "object") throw new Error("لم نجد بيانات قابلة للاستيراد في الملف"); const tables = Object.fromEntries(Object.entries(candidate.tables).filter(([name, rows]) => BACKUP_TABLES.includes(name as DataTable) && Array.isArray(rows))); if (!Object.keys(tables).length) throw new Error("الملف لا يحتوي على جداول النظام"); return { app: "segilly", version: 1, exportedAt: candidate.exportedAt ?? new Date().toISOString(), tables }; }
-export async function importBackup(backup: BackupPayload, selected: string[]) { const user = await currentUser(); let imported = 0; for (const table of IMPORT_ORDER) { if (!selected.includes(table)) continue; const rows = (backup.tables[table] ?? []).filter((row): row is Record<string, unknown> => !!row && typeof row === "object"); if (!rows.length) continue; const safeRows = rows.map(({ user_id: _userId, ...row }) => ({ ...row, user_id: user.id })); const { error } = await supabase.from(table).upsert(safeRows as never, { onConflict: "id" }); if (error) throw new Error(`تعذر استيراد ${table}: ${error.message}`); imported += rows.length; } return imported; }
+const ARCHIVE_ENTITY_BY_TABLE: Partial<Record<DataTable, "customer" | "invoice" | "supplier" | "stock_item" | "expense">> = {
+  customers: "customer",
+  invoices: "invoice",
+  suppliers: "supplier",
+  stock_items: "stock_item",
+  expenses: "expense",
+};
+
+export async function importBackup(backup: BackupPayload, selected: string[]) {
+  const user = await currentUser();
+  let imported = 0;
+  for (const table of IMPORT_ORDER) {
+    if (!selected.includes(table)) continue;
+    const rows = (backup.tables[table] ?? []).filter((row): row is Record<string, unknown> => !!row && typeof row === "object");
+    if (!rows.length) continue;
+    const safeRows = rows.map(({ user_id: _userId, ...row }) => ({ ...row, user_id: user.id }));
+    const { error } = await supabase.from(table).upsert(safeRows as never, { onConflict: "id" });
+    if (error) throw new Error(`تعذر استيراد ${table}: ${error.message}`);
+
+    const archiveEntity = ARCHIVE_ENTITY_BY_TABLE[table as DataTable];
+    if (archiveEntity) {
+      for (const row of safeRows) {
+        if (!row.id) continue;
+        await supabase.from("archived_records").delete().eq("entity_type", archiveEntity).eq("entity_id", row.id);
+      }
+    }
+
+    imported += rows.length;
+  }
+  return imported;
+}
 export async function wipeAllData() { const user = await currentUser(); let deleted = 0; for (const table of DELETE_ORDER) { const { count, error } = await supabase.from(table).delete({ count: "exact" }).eq("user_id", user.id); if (error) throw error; deleted += count ?? 0; } return deleted; }
