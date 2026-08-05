@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { PageTransition } from "@/components/PageTransition";
@@ -13,16 +14,48 @@ import { useDB, type Customer, type Invoice, type Payment, fmt, daysLate } from 
 import { usePrivacy } from "@/lib/privacy";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, CircleAlert, Clock3, FileDown, Printer, Share2, User, Wallet } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  CircleAlert,
+  Clock3,
+  FileDown,
+  Printer,
+  Share2,
+  User,
+  Wallet,
+  TrendingUp,
+  Landmark,
+  Activity,
+} from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
 import { Route } from "@/routes/customers.$customerId";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 function isoToDDMMYYYY(iso: string): string {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
   if (!y || !m || !d) return "";
   return `${d}/${m}/${y}`;
+}
+
+function formatMonthLabel(iso: string): string {
+  const date = new Date(iso);
+  return new Intl.DateTimeFormat("ar-EG", { month: "short" }).format(date);
 }
 
 function customerMetrics(invoices: Invoice[], c: Customer) {
@@ -75,11 +108,68 @@ function CustomerDetailPage() {
   const myPayments = customer ? data.payments.filter((p) => myInvoices.some((i) => i.id === p.invoiceId)).sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime()) : [];
   const timeline = customer ? buildTimeline(customer, myInvoices, myPayments) : [];
   const initials = customer ? customer.name.trim().split(/\s+/).slice(0, 2).map((s) => s[0]).join("") : "؟";
-  const latePct = myInvoices.length ? Math.round((myInvoices.filter((inv) => daysLate(inv) > 0).length / myInvoices.length) * 100) : 0;
+
+  const lateRate = myInvoices.length ? Math.round((myInvoices.filter((inv) => daysLate(inv) > 0).length / myInvoices.length) * 100) : 0;
   const paymentConsistency = myInvoices.length ? Math.round((myPayments.length / myInvoices.length) * 100) : 0;
   const avgInvoice = myInvoices.length ? myInvoices.reduce((sum, inv) => sum + inv.total, 0) / myInvoices.length : 0;
   const avgPayment = myPayments.length ? myPayments.reduce((sum, p) => sum + p.amount, 0) / myPayments.length : 0;
   const riskLevel = m && m.worstLate > 30 ? "مرتفع" : m && m.worstLate > 7 ? "متوسط" : "منخفض";
+  const actionRecommendation = m && m.worstLate > 30
+    ? "من الأفضل تعليق أي بيع آجل مؤقتًا مع متابعة مباشرة لسداد المتأخرات."
+    : m && m.worstLate > 7
+      ? "ينصح بمتابعة السداد خلال 72 ساعة مع تذكير مباشر."
+      : "العميل في وضع جيد، ويمكن متابعة التوسع مع مراقبة الالتزام الشهري.";
+
+  const monthlyData = useMemo(() => {
+    const months = Array.from({ length: 6 }, (_, idx) => {
+      const date = new Date();
+      date.setDate(1);
+      date.setMonth(date.getMonth() - (5 - idx));
+      return date.toISOString().slice(0, 10);
+    });
+
+    const map = months.map((monthIso) => ({
+      month: formatMonthLabel(monthIso),
+      charged: 0,
+      paid: 0,
+      balance: 0,
+    }));
+
+    for (const invoice of myInvoices) {
+      const monthKey = invoice.createdAt.slice(0, 7);
+      const idx = months.findIndex((item) => item.startsWith(monthKey));
+      if (idx >= 0) {
+        map[idx].charged += invoice.total;
+        map[idx].paid += invoice.paid;
+      }
+    }
+
+    for (const payment of myPayments) {
+      const monthKey = payment.paidAt.slice(0, 7);
+      const idx = months.findIndex((item) => item.startsWith(monthKey));
+      if (idx >= 0) map[idx].paid += payment.amount;
+    }
+
+    for (const item of map) {
+      item.balance = Math.max(0, item.charged - item.paid);
+    }
+
+    return map;
+  }, [myInvoices, myPayments]);
+
+  const invoiceStatusSummary = useMemo(() => {
+    const opened = myInvoices.length;
+    const settled = myInvoices.filter((inv) => inv.paid >= inv.total).length;
+    const active = myInvoices.filter((inv) => inv.paid < inv.total).length;
+    return [
+      { name: "مكتمل", value: settled, color: "#22c55e" },
+      { name: "قيد السداد", value: active, color: "#f59e0b" },
+      { name: "مفتوح", value: Math.max(0, opened - settled - active), color: "#ef4444" },
+    ];
+  }, [myInvoices]);
+
+  const latestInvoice = myInvoices[0];
+  const latestPayment = myPayments[0];
 
   if (!customer || !m) {
     return (
@@ -170,8 +260,8 @@ function CustomerDetailPage() {
       <PageTransition>
         <div className="space-y-6">
           <PageHeader
-            title="تفاصيل العميل"
-            subtitle="ملف مستقل يساعدك على فهم سلوك العميل ومعدل التزامه وملف معاملاته."
+            title="ملف العميل الذكي"
+            subtitle="تحليل سلوكي احترافي، حركة حساب كاملة، وفواتير مدمجة لاتخاذ قرار إداري أسرع."
             action={
               <div className="flex items-center gap-2">
                 <Link to="/customers" className="inline-flex items-center gap-2 rounded-full border border-border/60 px-3 py-2 text-sm font-bold hover:bg-foreground/[0.04]">
@@ -233,7 +323,10 @@ function CustomerDetailPage() {
 
             <div className="bezel-shell">
               <div className="bezel-core p-5 space-y-3 text-right">
-                <div className="text-sm font-bold">ملخص السلوك</div>
+                <div className="flex items-center gap-2 text-sm font-bold">
+                  <Activity className="h-4 w-4 text-primary" />
+                  تحليل سريع
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-2xl bg-foreground/[0.04] p-3">
                     <div className="text-[11px] text-muted-foreground">معدل التزام العميل</div>
@@ -253,8 +346,8 @@ function CustomerDetailPage() {
                   </div>
                 </div>
                 <div className="rounded-2xl bg-primary/8 p-3 text-sm text-muted-foreground">
-                  <div className="mb-1 flex items-center gap-2 font-bold text-foreground"><CircleAlert className="h-4 w-4 text-warning" /> تحليل سريع</div>
-                  <div>العميل {paymentConsistency >= 75 ? "يُظهر التزامًا جيدًا" : paymentConsistency >= 45 ? "يتطلب متابعة أكثر" : "يعتمد على متابعة مستمرة"}، مع {m.worstLate > 0 ? `تأخر أقصاه ${m.worstLate} يوم` : "عدم وجود تأخر مسجل"} في آخر دورة.</div>
+                  <div className="mb-1 flex items-center gap-2 font-bold text-foreground"><CircleAlert className="h-4 w-4 text-warning" /> التوصية الإدارية</div>
+                  <div>{actionRecommendation}</div>
                 </div>
               </div>
             </div>
@@ -287,41 +380,122 @@ function CustomerDetailPage() {
             </div>
           </Reveal>
 
-          <Reveal>
+          <Reveal className="grid gap-4 xl:grid-cols-2">
             <div className="bezel-shell">
-              <div className="bezel-core p-5">
+              <div className="bezel-core p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock3 className="h-4 w-4" />
-                    الزمن الكلي للحركات
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    اتجاه الرصيد خلال الأشهر الأخيرة
                   </div>
-                  <div className="text-sm font-bold">سجل الحركات الكامل</div>
                 </div>
-                <ScrollArea className="max-h-[56vh]">
-                  <div className="space-y-3 pr-2">
-                    {timeline.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">لا توجد حركات مسجلة بعد</div>
-                    ) : timeline.map((t) => {
-                      const isPurchase = t.kind === "purchase";
-                      const isOpening = t.kind === "opening";
-                      return (
-                        <div key={t.id} className="rounded-2xl border border-[var(--hairline)] p-3">
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <Badge variant="outline" className={cn(
-                              isPurchase ? "bg-danger/10 text-danger border-danger/30" : isOpening ? "bg-warning/10 text-warning border-warning/30" : "bg-success/10 text-success border-success/30"
-                            )}>{isPurchase ? "شراء" : isOpening ? "رصيد افتتاحي" : "سداد"}</Badge>
-                            <span className="text-[11px] text-muted-foreground" dir="ltr">{isoToDDMMYYYY(t.date.slice(0, 10))}</span>
-                          </div>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="text-sm text-muted-foreground">{t.description}</div>
-                            <div className={cn("font-bold whitespace-nowrap", isPurchase || isOpening ? "text-danger" : "text-success", privacy && "privacy-blur")}>{isPurchase || isOpening ? "+" : "−"} {fmt(t.amount)} ج.م</div>
-                          </div>
-                          <div className="mt-2 text-xs text-muted-foreground">الرصيد المتبقي: <span className={cn("font-bold", t.runningBalance > 0 ? "text-danger" : "text-success", privacy && "privacy-blur")}>{fmt(t.runningBalance)} ج.م</span></div>
-                        </div>
-                      );
-                    })}
+                <div className="h-72 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={monthlyData}>
+                      <defs>
+                        <linearGradient id="chargedFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#22c55e" stopOpacity={0.45} />
+                          <stop offset="95%" stopColor="#22c55e" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                      <XAxis dataKey="month" tick={{ fill: "#9ca3af", fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: "#9ca3af", fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <Tooltip formatter={(value: number) => [`${fmt(value)} ج.م`, "القيمة"]} />
+                      <Area type="monotone" dataKey="charged" stroke="#22c55e" fill="url(#chargedFill)" strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            <div className="bezel-shell">
+              <div className="bezel-core p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Landmark className="h-4 w-4 text-primary" />
+                    توزيع الأرصدة حسب نوع الفاتورة
                   </div>
-                </ScrollArea>
+                </div>
+                <div className="h-72 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={invoiceStatusSummary}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        innerRadius={40}
+                        paddingAngle={4}
+                      >
+                        {invoiceStatusSummary.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => [`${value} فاتورة`, "العدد"]} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                  {invoiceStatusSummary.map((entry) => (
+                    <div key={entry.name} className="rounded-xl bg-foreground/[0.04] p-2 text-center">
+                      <div className="font-bold text-foreground">{entry.value}</div>
+                      <div>{entry.name}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Reveal>
+
+          <Reveal className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+            <div className="bezel-shell">
+              <div className="bezel-core p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Wallet className="h-4 w-4 text-primary" />
+                    سداد العميل شهريًا
+                  </div>
+                </div>
+                <div className="h-72 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={monthlyData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                      <XAxis dataKey="month" tick={{ fill: "#9ca3af", fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: "#9ca3af", fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <Tooltip formatter={(value: number) => [`${fmt(value)} ج.م`, "المدفوع"]} />
+                      <Bar dataKey="paid" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            <div className="bezel-shell">
+              <div className="bezel-core p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-bold">
+                  <CheckCircle2 className="h-4 w-4 text-success" /> وجهة نظر إدارية
+                </div>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="rounded-2xl bg-foreground/[0.04] p-3">
+                    <div className="font-bold text-foreground">الحالة الحالية</div>
+                    <div className="mt-1">العميل {m.balance > 0 ? "يملك رصيدًا مستحقًا" : "لا يوجد عليه رصيد مستحق الآن"}، وبنسبة سداد تصل إلى {m.paidPct}%.</div>
+                  </div>
+                  <div className="rounded-2xl bg-foreground/[0.04] p-3">
+                    <div className="font-bold text-foreground">أخر حركة</div>
+                    <div className="mt-1">{latestPayment ? `دفعة بمبلغ ${fmt(latestPayment.amount)} ج.م بتاريخ ${isoToDDMMYYYY(latestPayment.paidAt.slice(0, 10))}` : "لا توجد دفعات مسجلة بعد"}</div>
+                  </div>
+                  <div className="rounded-2xl bg-foreground/[0.04] p-3">
+                    <div className="font-bold text-foreground">أخر فاتورة</div>
+                    <div className="mt-1">{latestInvoice ? `${fmt(latestInvoice.total)} ج.م — ${latestInvoice.notes || "بدون وصف"}` : "لا توجد فواتير مسجلة بعد"}</div>
+                  </div>
+                  <div className="rounded-2xl bg-success/8 p-3">
+                    <div className="font-bold text-foreground">التركيز المطلوب</div>
+                    <div className="mt-1">{lateRate > 20 ? "تحتاج متابعة سريعة للتأخرات." : "مستوى استقرار جيد، التزام متوازن."}</div>
+                  </div>
+                </div>
               </div>
             </div>
           </Reveal>
@@ -329,10 +503,48 @@ function CustomerDetailPage() {
           <Reveal>
             <div className="bezel-shell">
               <div className="bezel-core p-5">
-                <div className="mb-3 flex items-center gap-2 text-sm font-bold"><CheckCircle2 className="h-4 w-4 text-success" /> توصية إدارية</div>
-                <div className="rounded-2xl bg-success/8 p-3 text-sm text-muted-foreground">
-                  {m.worstLate > 30 ? "العميل يحتاج إلى متابعة مباشرة بسبب تأخره المتكرر، مع منع أي شحن جديد حتى يتم stabilize السداد." : m.worstLate > 7 ? "الأفضل متابعة السداد خلال 72 ساعة وتقديم حافز صغير إن أمكن لتجديد الالتزام." : "العميل في وضع جيد، يمكن توجيه المزيد من المبيعات مع إبقاء المتابعة الشهرية."}
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock3 className="h-4 w-4" />
+                    جدول الفواتير والمدفوعات
+                  </div>
+                  <div className="text-sm font-bold">جدول الحركات المفصل</div>
                 </div>
+                <ScrollArea className="max-h-[56vh]">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[760px] text-sm">
+                      <thead className="bg-foreground/[0.04] text-muted-foreground">
+                        <tr>
+                          <th className="p-3 text-right">رقم الفاتورة</th>
+                          <th className="p-3 text-right">التاريخ</th>
+                          <th className="p-3 text-right">الإجمالي</th>
+                          <th className="p-3 text-right">المسدد</th>
+                          <th className="p-3 text-right">المتبقي</th>
+                          <th className="p-3 text-right">الحالة</th>
+                          <th className="p-3 text-right">الوصف</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myInvoices.map((invoice) => {
+                          const remaining = Math.max(0, invoice.total - invoice.paid);
+                          const status = invoice.paid >= invoice.total ? "مكتمل" : invoice.paid > 0 ? "جزئي" : "مفتوح";
+                          const tone = invoice.paid >= invoice.total ? "bg-success/12 text-success" : invoice.paid > 0 ? "bg-warning/12 text-warning" : "bg-danger/12 text-danger";
+                          return (
+                            <tr key={invoice.id} className="border-t border-[var(--hairline)]">
+                              <td className="p-3 font-bold">{invoice.id.slice(0, 8).toUpperCase()}</td>
+                              <td className="p-3" dir="ltr">{isoToDDMMYYYY(invoice.firstDueDate)}</td>
+                              <td className="p-3 font-bold">{fmt(invoice.total)} ج.م</td>
+                              <td className="p-3 text-success font-bold">{fmt(invoice.paid)} ج.م</td>
+                              <td className="p-3 text-danger font-bold">{fmt(remaining)} ج.م</td>
+                              <td className="p-3"><Badge className={tone}>{status}</Badge></td>
+                              <td className="p-3 text-muted-foreground">{invoice.notes || "بدون وصف"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </ScrollArea>
               </div>
             </div>
           </Reveal>
