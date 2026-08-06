@@ -53,7 +53,7 @@ export async function importBackup(backup: BackupPayload, selected: string[]) {
     if (!selected.includes(table)) continue;
     const rows = (backup.tables[table] ?? []).filter((row): row is Record<string, unknown> => !!row && typeof row === "object");
     if (!rows.length) continue;
-    const safeRows = rows.map(({ user_id: _userId, ...row }) => ({ ...row, user_id: user.id }));
+    const safeRows: Record<string, unknown>[] = rows.map(({ user_id: _userId, ...row }) => ({ ...row, user_id: user.id }));
     const { error } = await supabase.from(table).upsert(safeRows as never, { onConflict: "id" });
     if (error) throw new Error(`تعذر استيراد ${table}: ${error.message}`);
 
