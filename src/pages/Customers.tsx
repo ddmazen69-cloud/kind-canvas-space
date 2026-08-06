@@ -25,7 +25,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Search, MessageCircle, Pencil, Trash2, Sparkles, Star, Info, User, Eye, EyeOff, FileDown, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, History, Share2, Wallet, Printer, ShoppingBag, Receipt, CreditCard, Banknote } from "lucide-react";
+import { Plus, Search, MessageCircle, Pencil, Trash2, Sparkles, Star, Info, User, Eye, EyeOff, FileDown, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, History, Lock, Share2, Wallet, Printer, ShoppingBag, Receipt, CreditCard, Banknote } from "lucide-react";
 import type { Payment } from "@/lib/store";
 import { toArabicDigits } from "@/lib/arabic-digits";
 import { cn } from "@/lib/utils";
@@ -67,7 +67,7 @@ const STATUS_TABS: { value: CustomerStatus; label: string; dot: string; active: 
 
 export default function Page() { return (<AppShell><PageTransition><CustomersPage /></PageTransition></AppShell>); }
 
-type FilterTab = "all" | "installment" | "cash" | "overdue" | "bajah" | "settled";
+type FilterTab = "all" | "installment" | "cash" | "overdue" | "bajah" | "settled" | "blocked";
 
 const FILTERS: { value: FilterTab; label: string; activeCls: string }[] = [
   { value: "all", label: "الكل", activeCls: "bg-primary text-primary-foreground shadow-[0_12px_30px_-14px_hsl(var(--primary)/0.9)]" },
@@ -75,6 +75,7 @@ const FILTERS: { value: FilterTab; label: string; activeCls: string }[] = [
   { value: "cash", label: "عملاء فوري", activeCls: "bg-success text-success-foreground shadow-[0_12px_30px_-14px_hsl(var(--success)/0.9)]" },
   { value: "overdue", label: "المتأخرون", activeCls: "bg-warning text-warning-foreground shadow-[0_12px_30px_-14px_hsl(var(--warning)/0.9)]" },
   { value: "bajah", label: "عملاء بجحين", activeCls: "bg-danger text-danger-foreground shadow-[0_12px_30px_-14px_hsl(var(--danger)/0.9)]" },
+  { value: "blocked", label: "المحظورين", activeCls: "bg-danger text-danger-foreground shadow-[0_12px_30px_-14px_hsl(var(--danger)/0.9)]" },
   { value: "settled", label: "الخالصون", activeCls: "bg-success text-success-foreground shadow-[0_12px_30px_-14px_hsl(var(--success)/0.9)]" },
 ];
 
@@ -106,6 +107,21 @@ function customerMetrics(invoices: Invoice[], c: Customer) {
   const worstLate = Math.max(0, ...mine.map(daysLate));
   const paidPct = totalCharged > 0 ? Math.min(100, Math.round((totalPaid / totalCharged) * 100)) : 0;
   return { balance, worstLate, paidPct, totalCharged, totalPaid };
+}
+
+function customerBlockAdvice(c: Customer, m: ReturnType<typeof customerMetrics>) {
+  const reasons: string[] = [];
+  if (c.status === "defaulter") reasons.push("الحالة: مماطل");
+  if (m.worstLate > 30) reasons.push(`تأخر ${m.worstLate} يوم`);
+  if (c.creditLimit > 0 && m.balance >= c.creditLimit) reasons.push("تجاوز سقف الائتمان");
+  if (m.balance > 0 && m.paidPct < 30) reasons.push("نسبة سداد منخفضة");
+  const shouldBlock = !c.frozen && reasons.length > 0;
+  return {
+    shouldBlock,
+    label: c.frozen ? "محظور" : shouldBlock ? "موصى بحظر" : "طبيعي",
+    tone: c.frozen ? "danger" : shouldBlock ? "warning" : "success",
+    reasons,
+  };
 }
 
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -140,14 +156,15 @@ function CustomersPage() {
   );
 
   const counts = useMemo(() => {
-    let overdue = 0, bajah = 0, settled = 0, installment = 0, cash = 0;
+    let overdue = 0, bajah = 0, settled = 0, installment = 0, cash = 0, blocked = 0;
     for (const { c, m } of enriched) {
       if (m.worstLate > 1) overdue++;
       if (c.status === "defaulter" || m.worstLate > 30) bajah++;
       if (m.balance <= 0) settled++;
       if (c.customerType === "cash") cash++; else installment++;
+      if (c.frozen) blocked++;
     }
-    return { all: enriched.length, installment, cash, overdue, bajah, settled };
+    return { all: enriched.length, installment, cash, overdue, bajah, settled, blocked };
   }, [enriched]);
 
   const debtStats = useMemo(() => {
@@ -170,6 +187,7 @@ function CustomersPage() {
         if (filter === "cash") return c.customerType === "cash";
         if (filter === "overdue") return m.worstLate > 1;
         if (filter === "bajah") return c.status === "defaulter" || m.worstLate > 30;
+        if (filter === "blocked") return c.frozen;
         if (filter === "settled") return m.balance <= 0;
         return true;
       })
@@ -187,7 +205,7 @@ function CustomersPage() {
   };
 
   const exportPDF = () => {
-    const tabLabel: Record<FilterTab, string> = { all: "كل العملاء", installment: "عملاء الأقساط", cash: "العملاء الفوريون", overdue: "العملاء المتأخرون", bajah: "العملاء البجحون", settled: "العملاء الخالصون" };
+    const tabLabel: Record<FilterTab, string> = { all: "كل العملاء", installment: "عملاء الأقساط", cash: "العملاء الفوريون", overdue: "العملاء المتأخرون", bajah: "العملاء البجحون", blocked: "العملاء المحظورين", settled: "العملاء الخالصون" };
     const today = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
     const rows = list.map(({ c, m }, i) => `
       <tr>
@@ -322,6 +340,10 @@ function CustomersPage() {
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-warning/70" />
                 {debtStats.debtors} عليهم مديونية
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-danger/70" />
+                {counts.blocked} محظور
               </span>
             </div>
           </div>
@@ -518,6 +540,23 @@ function CustomersPage() {
                           customer={c}
                           trigger={<Button size="icon" variant="ghost" className="action-btn rounded-full" aria-label="تعديل"><Pencil className="h-4 w-4" /></Button>}
                         />
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant={c.frozen ? "destructive" : "outline"}
+                          className="action-btn rounded-full"
+                          onClick={async () => {
+                            try {
+                              await db.updateCustomer(c.id, { frozen: !c.frozen });
+                              toast.success(c.frozen ? "تم رفع الحظر عن العميل" : "تم حظر العميل");
+                            } catch (error: any) {
+                              toast.error(error?.message || "تعذّر تغيير حالة الحظر");
+                            }
+                          }}
+                          aria-label={c.frozen ? "رفع الحظر" : "حظر العميل"}
+                        >
+                          <Lock className="h-4 w-4" />
+                        </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button size="icon" variant="ghost" className="action-btn danger rounded-full text-danger hover:bg-danger/10 hover:text-danger" aria-label="حذف"><Trash2 className="h-4 w-4" /></Button>
@@ -589,6 +628,20 @@ function CustomersPage() {
                             )}
                             <CustomerTypeBadge type={c.customerType} />
                             <StarRating value={c.rating} />
+                            {(() => {
+                              const bl = customerBlockAdvice(c, m);
+                              return (
+                                <Badge
+                                  variant={c.frozen ? "destructive" : "outline"}
+                                  className={cn(
+                                    "text-xs font-bold uppercase",
+                                    c.frozen ? "border-danger text-danger" : bl.shouldBlock ? "border-warning text-warning" : "border-success text-success",
+                                  )}
+                                >
+                                  {c.frozen ? "محظور" : bl.shouldBlock ? "موصى بحظر" : "طبيعي"}
+                                </Badge>
+                              );
+                            })()}
                           </div>
                         </div>
                         <span
