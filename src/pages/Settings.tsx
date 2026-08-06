@@ -1123,6 +1123,78 @@ function DataTab() {
     </div>
   );
 }
+function AutoBackupSection({ onDone }: { onDone: () => void }) {
+  const [settings, setSettings] = useState<BackupSettings>(DEFAULT_BACKUP_SETTINGS);
+  const [files, setFiles] = useState<CloudBackup[]>([]);
+  const [busy, setBusy] = useState(false);
+  const refresh = useCallback(async () => {
+    try {
+      const [next, cloud] = await Promise.all([getBackupSettings(), listCloudBackups().catch(() => [])]);
+      setSettings(next); setFiles(cloud);
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const persist = async (patch: Partial<BackupSettings>) => {
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    setBusy(true);
+    try {
+      await saveBackupSettings({ enabled: next.enabled, frequencyDays: next.frequencyDays, nameTemplate: next.nameTemplate });
+      toast.success("تم حفظ إعدادات النسخ التلقائي");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذر الحفظ"); }
+    finally { setBusy(false); }
+  };
+
+  const next = nextBackupAt(settings);
+  const dateFmt = (value: string) => new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+
+  return (
+    <Section icon={<Cloud className="w-5 h-5" />} title="النسخ الاحتياطي التلقائي" hint="نسخة سحابية تتولد من غير تدخل منك، حسب الجدول اللي تختاره.">
+      <div className="rounded-2xl bg-primary/8 p-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold">تفعيل النسخ التلقائي</p>
+          <p className="text-xs text-muted-foreground">{settings.enabled ? (next ? `النسخة الجاية تقريبًا: ${dateFmt(next.toISOString())}` : "قيد التفعيل") : "متوقف حاليًا"}</p>
+        </div>
+        <Switch checked={settings.enabled} disabled={busy} onCheckedChange={(value) => void persist({ enabled: value })} />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 mt-4">
+        <Field label="تكرار النسخ">
+          <Select value={String(settings.frequencyDays)} onValueChange={(value) => void persist({ frequencyDays: Number(value) })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{FREQUENCY_OPTIONS.map((option) => <SelectItem key={option.days} value={String(option.days)}>{option.label}</SelectItem>)}</SelectContent>
+          </Select>
+        </Field>
+        <Field label="تسمية النسخة التلقائية">
+          <Input value={settings.nameTemplate} disabled={busy} onChange={(event) => setSettings((old) => ({ ...old, nameTemplate: event.target.value }))} onBlur={() => void persist({})} placeholder="segilly-backup" />
+        </Field>
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">اسم الملف المتوقع: <span className="font-bold">{backupFileName(settings.nameTemplate, "json")}</span> — آخر نسخة تلقائية: {settings.lastRunAt ? dateFmt(settings.lastRunAt) : "لسه مفيش"}</p>
+
+      <Separator className="my-5" />
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-bold">النسخ المحفوظة على السحابة</p>
+        <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => void refresh()}><RotateCcw className="w-4 h-4" /> تحديث</Button>
+      </div>
+      {files.length ? (
+        <div className="grid gap-2">
+          {files.map((backupFile) => (
+            <div key={backupFile.path} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-foreground/[0.04] px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold">{backupFile.name}</p>
+                <p className="text-[11px] text-muted-foreground">{dateFmt(backupFile.createdAt)} · {bytes(backupFile.size)}</p>
+              </div>
+              <div className="flex gap-1.5">
+                <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => void downloadCloudBackup(backupFile.path).catch((e) => toast.error(e instanceof Error ? e.message : "تعذر التنزيل"))}><Download className="w-4 h-4" /> تنزيل</Button>
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={async () => { try { await deleteCloudBackup(backupFile.path); toast.success("تم حذف النسخة"); await refresh(); onDone(); } catch (e) { toast.error(e instanceof Error ? e.message : "تعذر الحذف"); } }}><Trash2 className="w-4 h-4" /></Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : <p className="rounded-2xl bg-foreground/[0.04] p-4 text-sm text-muted-foreground">مفيش نسخ سحابية لسه.</p>}
+    </Section>
+  );
+}
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) { return <div className="rounded-2xl bg-foreground/[0.04] p-3"><div className="flex gap-1.5 text-xs text-muted-foreground">{icon}{label}</div><div className="mt-2 text-lg font-bold">{value}</div></div>; }
 function CountCard({ label, value }: { label: string; value: number | null }) { return <div className="rounded-xl bg-foreground/[0.04] px-3 py-2.5 flex justify-between"><span className="text-xs text-muted-foreground">{label}</span><span className="text-sm font-bold">{value === null ? "…" : fmt(value)}</span></div>; }
 function bytes(value: number) { return value < 1024 * 1024 ? `${Math.max(1, Math.round(value / 1024))} ك.ب` : `${(value / 1024 / 1024).toFixed(1)} م.ب`; }
