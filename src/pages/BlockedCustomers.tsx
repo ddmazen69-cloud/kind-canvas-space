@@ -164,8 +164,8 @@ function BlockedCustomersPage() {
       ],
       kpis: [
         { label: "عدد العملاء", value: String(list.length) },
-        { label: "الديون المجمدة", value: \`\${fmt(totalDue)} ج.م\`, tone: "danger" },
-        { label: "أقصى تأخير", value: \`\${stats.maxWorstLate} يوم\`, tone: "brand" },
+        { label: "الديون المجمدة", value: `${fmt(totalDue)} ج.م`, tone: "danger" },
+        { label: "أقصى تأخير", value: `${stats.maxWorstLate} يوم`, tone: "brand" },
       ],
       body,
       page: "A4 landscape",
