@@ -18,6 +18,7 @@ import { AmbientBackground } from "@/components/AmbientBackground";
 import { useAuth } from "@/lib/store";
 import { useHydrated } from "@/lib/hydrated";
 import { ArabicNumerals } from "@/lib/arabic-digits";
+import { QuickActionsFab } from "@/components/QuickActionsFab";
 
 function NotFoundComponent() {
   return (
