@@ -352,6 +352,10 @@ export const db = {
     if (error) throw error;
     await fetchAll();
   },
+  async toggleFreezeCustomer(id: string, frozen: boolean) {
+    await this.updateCustomer(id, { frozen });
+    void logActivity("تعديل عميل", `تم ${frozen ? "حظر" : "إلغاء حظر"} العميل`).catch(() => undefined);
+  },
   async removeCustomer(id: string) {
     await archiveBeforeDelete("customer", id);
     const { error } = await supabase.from("customers").delete().eq("id", id);
@@ -762,6 +766,64 @@ export function supplierBalance(
 
 export function customerBalance(invoices: Invoice[], customerId: string, openingBalance = 0) {
   return openingBalance + invoices.filter((i) => i.customerId === customerId).reduce((s, i) => s + (i.total - i.paid), 0);
+}
+
+export interface CustomerRiskAnalysis {
+  level: "high" | "medium" | "low";
+  score: number;
+  recommendBlock: boolean;
+  reasons: string[];
+}
+
+export function analyzeCustomerRisk(c: Customer, invoices: Invoice[]): CustomerRiskAnalysis {
+  const mine = invoices.filter((i) => i.customerId === c.id);
+  const totalCharged = mine.reduce((s, i) => s + i.total, 0) + (c.openingBalance || 0);
+  const totalPaid = mine.reduce((s, i) => s + i.paid, 0);
+  const balance = Math.max(0, totalCharged - totalPaid);
+  const worstLate = Math.max(0, ...mine.map(daysLate));
+  const paidPct = totalCharged > 0 ? Math.min(100, Math.round((totalPaid / totalCharged) * 100)) : 0;
+  const isOverLimit = c.creditLimit > 0 && balance >= c.creditLimit;
+
+  const reasons: string[] = [];
+  let riskPoints = 0;
+
+  if (worstLate > 30) {
+    riskPoints += 45;
+    reasons.push(`تأخر عن سداد الأقساط لمدة طويلة (${worstLate} يوماً)`);
+  } else if (worstLate > 14) {
+    riskPoints += 25;
+    reasons.push(`تأخر في السداد لمدة (${worstLate} يوماً)`);
+  }
+
+  if (c.customerType === "installment" && balance > 0) {
+    if (paidPct < 25 && totalCharged > 500) {
+      riskPoints += 35;
+      reasons.push(`نسبة سداد ضعيفة جداً (${paidPct}% فقط من إجمالي المستحقات)`);
+    } else if (paidPct < 50 && worstLate > 7) {
+      riskPoints += 20;
+      reasons.push(`نسبة المسدد أقل من 50% مع وجود تأخير سداد`);
+    }
+  }
+
+  if (isOverLimit) {
+    riskPoints += 30;
+    reasons.push(`تجاوز سقف المديونية المسموح بها (${fmt(c.creditLimit)} ج.م)`);
+  }
+
+  if (c.status === "defaulter") {
+    riskPoints += 25;
+    reasons.push(`مصنف كعميل مماطل في السجل`);
+  }
+  if (c.rating <= 2) {
+    riskPoints += 15;
+    reasons.push(`تقييم الأمانة والالتزام منخفض (★${c.rating})`);
+  }
+
+  const score = Math.min(100, riskPoints);
+  const recommendBlock = score >= 50 || worstLate > 30 || (c.status === "defaulter" && balance > 0);
+  const level: "high" | "medium" | "low" = score >= 50 ? "high" : score >= 25 ? "medium" : "low";
+
+  return { level, score, recommendBlock, reasons };
 }
 
 export function daysLate(inv: Invoice) {

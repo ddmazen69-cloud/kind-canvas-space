@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CustomerTypeBadge } from "@/components/CustomerTypeBadge";
 import { StarRating } from "@/components/StarRating";
-import { useDB, type Customer, type Invoice, type Payment, fmt, daysLate } from "@/lib/store";
+import { useDB, db, type Customer, type Invoice, type Payment, fmt, daysLate, analyzeCustomerRisk } from "@/lib/store";
 import { usePrivacy } from "@/lib/privacy";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -27,6 +27,10 @@ import {
   TrendingUp,
   Landmark,
   Activity,
+  ShieldAlert,
+  Lock,
+  Unlock,
+  Ban,
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
@@ -109,16 +113,19 @@ function CustomerDetailPage() {
   const timeline = customer ? buildTimeline(customer, myInvoices, myPayments) : [];
   const initials = customer ? customer.name.trim().split(/\s+/).slice(0, 2).map((s) => s[0]).join("") : "؟";
 
+  const risk = customer ? analyzeCustomerRisk(customer, data.invoices) : null;
   const lateRate = myInvoices.length ? Math.round((myInvoices.filter((inv) => daysLate(inv) > 0).length / myInvoices.length) * 100) : 0;
   const paymentConsistency = myInvoices.length ? Math.round((myPayments.length / myInvoices.length) * 100) : 0;
   const avgInvoice = myInvoices.length ? myInvoices.reduce((sum, inv) => sum + inv.total, 0) / myInvoices.length : 0;
   const avgPayment = myPayments.length ? myPayments.reduce((sum, p) => sum + p.amount, 0) / myPayments.length : 0;
-  const riskLevel = m && m.worstLate > 30 ? "مرتفع" : m && m.worstLate > 7 ? "متوسط" : "منخفض";
-  const actionRecommendation = m && m.worstLate > 30
-    ? "من الأفضل تعليق أي بيع آجل مؤقتًا مع متابعة مباشرة لسداد المتأخرات."
-    : m && m.worstLate > 7
-      ? "ينصح بمتابعة السداد خلال 72 ساعة مع تذكير مباشر."
-      : "العميل في وضع جيد، ويمكن متابعة التوسع مع مراقبة الالتزام الشهري.";
+  const riskLevel = customer?.frozen ? "حظر تلميحي" : risk?.level === "high" ? "مرتفع" : risk?.level === "medium" ? "متوسط" : "منخفض";
+  const actionRecommendation = customer?.frozen
+    ? "العميل مجمّد حالياً ومحظور من التعامل الشديد والبيع الآجل."
+    : risk?.recommendBlock
+      ? `ينصح بالحظر فوراً للأسباب التالية: ${risk.reasons.join(" ، ")}`
+      : m && m.worstLate > 7
+        ? "ينصح بمتابعة السداد خلال 72 ساعة مع تذكير مباشر."
+        : "العميل في وضع جيد، ويمكن متابعة التوسع مع مراقبة الالتزام الشهري.";
 
   const monthlyData = useMemo(() => {
     const months = Array.from({ length: 6 }, (_, idx) => {
@@ -267,6 +274,22 @@ function CustomerDetailPage() {
                 <Link to="/customers" className="inline-flex items-center gap-2 rounded-full border border-border/60 px-3 py-2 text-sm font-bold hover:bg-foreground/[0.04]">
                   <ArrowLeft className="h-4 w-4" /> العودة للقائمة
                 </Link>
+                <Button
+                  variant={customer.frozen ? "default" : "destructive"}
+                  size="sm"
+                  className={cn("gap-1.5 font-bold", customer.frozen ? "bg-success text-success-foreground hover:bg-success/90" : "bg-danger text-danger-foreground hover:bg-danger/90")}
+                  onClick={async () => {
+                    try {
+                      await db.toggleFreezeCustomer(customer.id, !customer.frozen);
+                      toast.success(customer.frozen ? "تم فك الحظر عن العميل" : "تم حظر العميل وتجميد حسابه");
+                    } catch (err: any) {
+                      toast.error(err.message || "حدث خطأ أثناء تغيير حالة الحظر");
+                    }
+                  }}
+                >
+                  {customer.frozen ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                  {customer.frozen ? "فك الحظر" : "حظر العميل"}
+                </Button>
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportStatement(false)}>
                   <FileDown className="w-4 h-4" /> تصدير PDF
                 </Button>
@@ -280,16 +303,72 @@ function CustomerDetailPage() {
             }
           />
 
+          {customer.frozen && (
+            <div className="rounded-2xl border border-danger/40 bg-danger/10 p-4 text-danger flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <ShieldAlert className="h-6 w-6 shrink-0" />
+                <div>
+                  <div className="font-extrabold text-base">🛑 هذا العميل محظور حالياً من التعامل الشديد والبيع الآجل</div>
+                  <div className="text-xs text-danger/80 mt-0.5">تم تجميد حساب العميل لمنع إصدار أي فواتير أقساط جديدة حتى تسوية مديونيته.</div>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-danger/40 text-danger hover:bg-danger/20 font-bold shrink-0"
+                onClick={async () => {
+                  await db.toggleFreezeCustomer(customer.id, false);
+                  toast.success("تم فك الحظر عن العميل");
+                }}
+              >
+                فك الحظر الآن
+              </Button>
+            </div>
+          )}
+
+          {!customer.frozen && risk?.recommendBlock && (
+            <div className="rounded-2xl border border-danger/40 bg-danger/10 p-4 text-danger flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <ShieldAlert className="h-6 w-6 shrink-0" />
+                <div>
+                  <div className="font-extrabold text-base">⚠️ توصية النظام التحليلي: يُنصح بحظر هذا العميل فوراً</div>
+                  <div className="text-xs text-danger/90 mt-1">
+                    الأسباب الحسابية: {risk.reasons.join(" • ")}
+                  </div>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                className="bg-danger text-danger-foreground hover:bg-danger/90 font-bold shrink-0"
+                onClick={async () => {
+                  await db.toggleFreezeCustomer(customer.id, true);
+                  toast.success("تم حظر العميل بنجاح بناءً على التوصية");
+                }}
+              >
+                حظر العميل فوراً
+              </Button>
+            </div>
+          )}
+
           <Reveal className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
             <div className="bezel-shell">
               <div className="bezel-core p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3 text-right">
                     <Avatar className="h-14 w-14 hairline">
-                      <AvatarFallback className="bg-primary/10 text-primary font-bold">{initials || <User className="w-5 h-5" />}</AvatarFallback>
+                      <AvatarFallback className={cn("font-bold", customer.frozen ? "bg-danger/20 text-danger" : "bg-primary/10 text-primary")}>
+                        {initials || <User className="w-5 h-5" />}
+                      </AvatarFallback>
                     </Avatar>
                     <div>
-                      <div className="text-xl font-extrabold">{customer.name}</div>
+                      <div className="text-xl font-extrabold flex items-center gap-2">
+                        {customer.name}
+                        {customer.frozen && (
+                          <Badge variant="destructive" className="gap-1 bg-danger/20 text-danger border-danger/30 text-xs font-bold">
+                            <Ban className="h-3 w-3" /> محظور
+                          </Badge>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground" dir="ltr">{customer.phone}</div>
                     </div>
                   </div>

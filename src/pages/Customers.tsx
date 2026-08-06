@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StarRating } from "@/components/StarRating";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CustomerTypeBadge } from "@/components/CustomerTypeBadge";
-import { useDB, db, fmt, aiScript, daysLate, type Customer, type CustomerStatus, type CustomerType, type Invoice } from "@/lib/store";
+import { useDB, db, fmt, aiScript, daysLate, analyzeCustomerRisk, type Customer, type CustomerStatus, type CustomerType, type Invoice } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,7 +25,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Search, MessageCircle, Pencil, Trash2, Sparkles, Star, Info, User, Eye, EyeOff, FileDown, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, History, Share2, Wallet, Printer, ShoppingBag, Receipt, CreditCard, Banknote } from "lucide-react";
+import { Plus, Search, MessageCircle, Pencil, Trash2, Sparkles, Star, Info, User, Eye, EyeOff, FileDown, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, History, Share2, Wallet, Printer, ShoppingBag, Receipt, CreditCard, Banknote, ShieldAlert, Lock, Unlock, Ban } from "lucide-react";
 import type { Payment } from "@/lib/store";
 import { toArabicDigits } from "@/lib/arabic-digits";
 import { cn } from "@/lib/utils";
@@ -67,7 +67,7 @@ const STATUS_TABS: { value: CustomerStatus; label: string; dot: string; active: 
 
 export default function Page() { return (<AppShell><PageTransition><CustomersPage /></PageTransition></AppShell>); }
 
-type FilterTab = "all" | "installment" | "cash" | "overdue" | "bajah" | "settled";
+type FilterTab = "all" | "installment" | "cash" | "overdue" | "bajah" | "settled" | "blocked";
 
 const FILTERS: { value: FilterTab; label: string; activeCls: string }[] = [
   { value: "all", label: "الكل", activeCls: "bg-primary text-primary-foreground shadow-[0_12px_30px_-14px_hsl(var(--primary)/0.9)]" },
@@ -75,6 +75,7 @@ const FILTERS: { value: FilterTab; label: string; activeCls: string }[] = [
   { value: "cash", label: "عملاء فوري", activeCls: "bg-success text-success-foreground shadow-[0_12px_30px_-14px_hsl(var(--success)/0.9)]" },
   { value: "overdue", label: "المتأخرون", activeCls: "bg-warning text-warning-foreground shadow-[0_12px_30px_-14px_hsl(var(--warning)/0.9)]" },
   { value: "bajah", label: "عملاء بجحين", activeCls: "bg-danger text-danger-foreground shadow-[0_12px_30px_-14px_hsl(var(--danger)/0.9)]" },
+  { value: "blocked", label: "المحظورون 🛑", activeCls: "bg-danger text-danger-foreground shadow-[0_12px_30px_-14px_hsl(var(--danger)/0.9)]" },
   { value: "settled", label: "الخالصون", activeCls: "bg-success text-success-foreground shadow-[0_12px_30px_-14px_hsl(var(--success)/0.9)]" },
 ];
 
@@ -135,19 +136,24 @@ function CustomersPage() {
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const enriched = useMemo(
-    () => data.customers.map((c) => ({ c, m: customerMetrics(data.invoices, c) })),
+    () => data.customers.map((c) => ({
+      c,
+      m: customerMetrics(data.invoices, c),
+      risk: analyzeCustomerRisk(c, data.invoices),
+    })),
     [data.customers, data.invoices],
   );
 
   const counts = useMemo(() => {
-    let overdue = 0, bajah = 0, settled = 0, installment = 0, cash = 0;
+    let overdue = 0, bajah = 0, settled = 0, installment = 0, cash = 0, blocked = 0;
     for (const { c, m } of enriched) {
+      if (c.frozen) blocked++;
       if (m.worstLate > 1) overdue++;
       if (c.status === "defaulter" || m.worstLate > 30) bajah++;
       if (m.balance <= 0) settled++;
       if (c.customerType === "cash") cash++; else installment++;
     }
-    return { all: enriched.length, installment, cash, overdue, bajah, settled };
+    return { all: enriched.length, installment, cash, overdue, bajah, settled, blocked };
   }, [enriched]);
 
   const debtStats = useMemo(() => {
@@ -166,6 +172,7 @@ function CustomersPage() {
   const list = useMemo(() => {
     const filtered = enriched
       .filter(({ c, m }) => {
+        if (filter === "blocked") return c.frozen === true;
         if (filter === "installment") return c.customerType !== "cash";
         if (filter === "cash") return c.customerType === "cash";
         if (filter === "overdue") return m.worstLate > 1;
@@ -320,6 +327,10 @@ function CustomersPage() {
                 {counts.cash} عميل فوري
               </span>
               <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-danger" />
+                {counts.blocked} محظورون
+              </span>
+              <span className="inline-flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-warning/70" />
                 {debtStats.debtors} عليهم مديونية
               </span>
@@ -348,7 +359,7 @@ function CustomersPage() {
               </div>
             </div>
           </button>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-3">
             <button
               type="button"
               onClick={() => setFilter("overdue")}
@@ -358,9 +369,23 @@ function CustomersPage() {
                 filter === "overdue" && "ring-2 ring-warning/40",
               )}
             >
-              <div className="bezel-core p-6">
-                <div className="text-xs font-medium text-muted-foreground">متأخرون</div>
-                <div className="text-numeric mt-1 text-2xl font-extrabold leading-none text-warning">{counts.overdue}</div>
+              <div className="bezel-core p-4">
+                <div className="text-[11px] font-medium text-muted-foreground">متأخرون</div>
+                <div className="text-numeric mt-1 text-xl font-extrabold leading-none text-warning">{counts.overdue}</div>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilter("blocked")}
+              aria-pressed={filter === "blocked"}
+              className={cn(
+                "bezel-shell bezel-lift text-right transition-transform duration-300 hover:-translate-y-0.5",
+                filter === "blocked" && "ring-2 ring-danger/40",
+              )}
+            >
+              <div className="bezel-core p-4">
+                <div className="text-[11px] font-medium text-muted-foreground">محظورون</div>
+                <div className="text-numeric mt-1 text-xl font-extrabold leading-none text-danger">{counts.blocked}</div>
               </div>
             </button>
             <button
@@ -372,9 +397,9 @@ function CustomersPage() {
                 filter === "settled" && "ring-2 ring-success/40",
               )}
             >
-              <div className="bezel-core p-6">
-                <div className="text-xs font-medium text-muted-foreground">خالصون</div>
-                <div className="text-numeric mt-1 text-2xl font-extrabold leading-none text-success">{counts.settled}</div>
+              <div className="bezel-core p-4">
+                <div className="text-[11px] font-medium text-muted-foreground">خالصون</div>
+                <div className="text-numeric mt-1 text-xl font-extrabold leading-none text-success">{counts.settled}</div>
               </div>
             </button>
           </div>
@@ -451,7 +476,7 @@ function CustomersPage() {
         ) : (
           <ScrollArea className="max-h-[64vh]">
             <div className="flex flex-col gap-3 pl-1">
-              {list.map(({ c, m }, idx) => {
+              {list.map(({ c, m, risk }, idx) => {
                 const overdue7 = m.worstLate > 7;
                 const lateLabel = m.worstLate > 0 ? `متأخر ${m.worstLate} يوم` : null;
                 const message = aiScript(c, m.balance, m.worstLate);
@@ -462,7 +487,10 @@ function CustomersPage() {
                 return (
                   <div
                     key={c.id}
-                    className="group bezel-shell bezel-lift animate-[fade-in_0.5s_cubic-bezier(0.32,0.72,0,1)_both]"
+                    className={cn(
+                      "group bezel-shell bezel-lift animate-[fade-in_0.5s_cubic-bezier(0.32,0.72,0,1)_both]",
+                      c.frozen && "ring-1 ring-danger/30 bg-danger/[0.02]"
+                    )}
                     style={{ animationDelay: `${Math.min(idx, 12) * 45}ms` }}
                   >
                     <div className="bezel-core grid grid-cols-1 items-center gap-5 p-5 md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.1fr)] md:gap-6">
@@ -519,6 +547,61 @@ function CustomersPage() {
                           trigger={<Button size="icon" variant="ghost" className="action-btn rounded-full" aria-label="تعديل"><Pencil className="h-4 w-4" /></Button>}
                         />
                         <AlertDialog>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className={cn(
+                                      "action-btn rounded-full transition-colors",
+                                      c.frozen
+                                        ? "text-success hover:bg-success/15 hover:text-success"
+                                        : "text-danger hover:bg-danger/15 hover:text-danger"
+                                    )}
+                                    aria-label={c.frozen ? "فك حظر العميل" : "حظر العميل"}
+                                  >
+                                    {c.frozen ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                                  </Button>
+                                </AlertDialogTrigger>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                {c.frozen ? "إلغاء حظر العميل وتمكين التعامل" : "حظر العميل وتجميد حسابه"}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <AlertDialogContent className="text-right">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="flex items-center gap-2 justify-end">
+                                {c.frozen ? "فك حظر العميل" : "حظر وتجميد التعامل مع العميل"}
+                                {c.frozen ? <Unlock className="h-5 w-5 text-success" /> : <ShieldAlert className="h-5 w-5 text-danger" />}
+                              </AlertDialogTitle>
+                              <AlertDialogDescription className="text-right whitespace-pre-wrap">
+                                {c.frozen
+                                  ? `هل تود إلغاء الحظر عن العميل «${c.name}» والسماح بإصدار فواتير وأقساط جديدة له؟`
+                                  : `هل أنت متأكد من حظر العميل «${c.name}»؟\nسيتم إيقاف الشراء الآجل لهذا العميل وتعيين شارة حظر على حسابه.`}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter className="flex-row-reverse gap-2">
+                              <AlertDialogAction
+                                className={c.frozen ? "bg-success text-success-foreground hover:bg-success/90" : "bg-danger text-danger-foreground hover:bg-danger/90"}
+                                onClick={async () => {
+                                  try {
+                                    await db.toggleFreezeCustomer(c.id, !c.frozen);
+                                    toast.success(c.frozen ? "تم فك الحظر عن العميل" : "تم حظر العميل بنجاح");
+                                  } catch (err: any) {
+                                    toast.error(err.message || "حدث خطأ أثناء تغيير حالة الحظر");
+                                  }
+                                }}
+                              >
+                                {c.frozen ? "تأكيد فك الحظر" : "حظر العميل فوراً"}
+                              </AlertDialogAction>
+                              <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                        <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button size="icon" variant="ghost" className="action-btn danger rounded-full text-danger hover:bg-danger/10 hover:text-danger" aria-label="حذف"><Trash2 className="h-4 w-4" /></Button>
                           </AlertDialogTrigger>
@@ -572,6 +655,35 @@ function CustomersPage() {
                           <div className="truncate font-bold leading-tight">{c.name}</div>
                           <div className="text-numeric mt-0.5 truncate text-xs text-muted-foreground" dir="ltr">{c.phone}</div>
                           <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+                            {c.frozen && (
+                              <Badge variant="destructive" className="gap-1 bg-danger/20 text-danger border-danger/30 font-bold">
+                                <Ban className="h-3 w-3" />
+                                محظور
+                              </Badge>
+                            )}
+                            {!c.frozen && risk.recommendBlock && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge variant="outline" className="gap-1 border-danger/40 bg-danger/10 text-danger animate-pulse cursor-help text-[10px] font-bold">
+                                      <ShieldAlert className="h-3 w-3" />
+                                      يُنصح بحظره
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs text-right space-y-1">
+                                    <div className="font-bold text-danger flex items-center gap-1 justify-end">
+                                      تحليل خطورة العميل ⚠️
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">أسباب التوصية بالحظر:</div>
+                                    <ul className="text-xs list-disc list-inside space-y-0.5">
+                                      {risk.reasons.map((r, i) => (
+                                        <li key={i}>{r}</li>
+                                      ))}
+                                    </ul>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
                             {c.status === "defaulter" && c.notes ? (
                               <TooltipProvider>
                                 <Tooltip>
@@ -594,11 +706,13 @@ function CustomersPage() {
                         <span
                           className={cn(
                             "text-display grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-lg font-bold",
-                            c.status === "defaulter"
-                              ? "bg-danger/12 text-danger ring-1 ring-danger/25"
-                              : c.status === "committed"
-                                ? "bg-success/12 text-success ring-1 ring-success/25"
-                                : "bg-primary/12 text-primary ring-1 ring-primary/25",
+                            c.frozen
+                              ? "bg-danger/20 text-danger ring-1 ring-danger/40"
+                              : c.status === "defaulter"
+                                ? "bg-danger/12 text-danger ring-1 ring-danger/25"
+                                : c.status === "committed"
+                                  ? "bg-success/12 text-success ring-1 ring-success/25"
+                                  : "bg-primary/12 text-primary ring-1 ring-primary/25",
                           )}
                         >
                           {initial}
