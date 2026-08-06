@@ -71,3 +71,66 @@ export async function importBackup(backup: BackupPayload, selected: string[]) {
   return imported;
 }
 export async function wipeAllData() { const user = await currentUser(); let deleted = 0; for (const table of DELETE_ORDER) { const { count, error } = await supabase.from(table).delete({ count: "exact" }).eq("user_id", user.id); if (error) throw error; deleted += count ?? 0; } return deleted; }
+
+/* ------------------------- تسمية النسخ والنسخ التلقائي ------------------------- */
+export type BackupSettings = { enabled: boolean; frequencyDays: number; nameTemplate: string; lastRunAt: string | null };
+export const DEFAULT_BACKUP_SETTINGS: BackupSettings = { enabled: false, frequencyDays: 1, nameTemplate: "segilly-backup", lastRunAt: null };
+export const FREQUENCY_OPTIONS = [
+  { days: 1, label: "كل يوم" },
+  { days: 2, label: "كل يومين" },
+  { days: 7, label: "كل أسبوع" },
+  { days: 14, label: "كل أسبوعين" },
+  { days: 30, label: "كل شهر" },
+] as const;
+
+export function safeBackupName(name: string | undefined, fallback = "segilly-backup") {
+  const cleaned = (name ?? "").trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "-").slice(0, 60);
+  return cleaned || fallback;
+}
+export function backupFileName(name: string | undefined, ext: "json" | "xlsx") {
+  return `${safeBackupName(name)}-${stamp()}.${ext}`;
+}
+
+export async function getBackupSettings(): Promise<BackupSettings> {
+  const user = await currentUser();
+  const { data, error } = await supabase.from("backup_settings").select("enabled, frequency_days, name_template, last_run_at").eq("user_id", user.id).maybeSingle();
+  if (error) throw error;
+  if (!data) return DEFAULT_BACKUP_SETTINGS;
+  return { enabled: data.enabled, frequencyDays: data.frequency_days, nameTemplate: data.name_template, lastRunAt: data.last_run_at };
+}
+export async function saveBackupSettings(settings: Omit<BackupSettings, "lastRunAt">) {
+  const user = await currentUser();
+  const { error } = await supabase.from("backup_settings").upsert({
+    user_id: user.id,
+    enabled: settings.enabled,
+    frequency_days: settings.frequencyDays,
+    name_template: safeBackupName(settings.nameTemplate),
+  }, { onConflict: "user_id" });
+  if (error) throw error;
+}
+export function nextBackupAt(settings: BackupSettings) {
+  if (!settings.enabled) return null;
+  const base = settings.lastRunAt ? new Date(settings.lastRunAt) : new Date();
+  return new Date(base.getTime() + settings.frequencyDays * 86400000);
+}
+export type CloudBackup = { name: string; path: string; size: number; createdAt: string };
+export async function listCloudBackups(): Promise<CloudBackup[]> {
+  const user = await currentUser();
+  const { data, error } = await supabase.storage.from("backups").list(user.id, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
+  if (error) throw error;
+  return (data ?? []).filter((f) => f.name !== ".emptyFolderPlaceholder").map((f) => ({
+    name: f.name,
+    path: `${user.id}/${f.name}`,
+    size: (f.metadata as { size?: number } | null)?.size ?? 0,
+    createdAt: f.created_at ?? new Date().toISOString(),
+  }));
+}
+export async function downloadCloudBackup(path: string) {
+  const { data, error } = await supabase.storage.from("backups").download(path);
+  if (error) throw error;
+  downloadBlob(await data.arrayBuffer(), path.split("/").pop() ?? "backup.json", "application/json");
+}
+export async function deleteCloudBackup(path: string) {
+  const { error } = await supabase.storage.from("backups").remove([path]);
+  if (error) throw error;
+}
