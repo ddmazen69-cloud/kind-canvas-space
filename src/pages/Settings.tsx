@@ -25,7 +25,7 @@ import {
   type ShopSettings, type ThemeMode, type PrintPaper, type ColorTheme,
 } from "@/lib/store";
 import { applyTheme } from "@/lib/theme";
-import { DATA_TABLES, dataCounts, dataMeta, downloadExcelBackup, downloadJsonBackup, uploadJsonBackupToStorage, getActivity, importBackup, logActivity, readImportFile, wipeAllData, type ActivityEntry, type BackupPayload } from "@/lib/backup";
+import { DATA_TABLES, backupFileName, getBackupSettings, saveBackupSettings, nextBackupAt, listCloudBackups, downloadCloudBackup, deleteCloudBackup, FREQUENCY_OPTIONS, DEFAULT_BACKUP_SETTINGS, type BackupSettings, type CloudBackup, dataCounts, dataMeta, downloadExcelBackup, downloadJsonBackup, uploadJsonBackupToStorage, getActivity, importBackup, logActivity, readImportFile, wipeAllData, type ActivityEntry, type BackupPayload } from "@/lib/backup";
 import {
   Settings as SettingsIcon, Store, KeyRound, Save, LogOut, Receipt, Bell,
   Palette, Database, Upload, Trash2, FileJson, FileSpreadsheet, RotateCcw, ShieldAlert, Mail,
@@ -423,30 +423,11 @@ function ShopTab({ form, set }: TabProps) {
 function ShopField({ label, hint, required, optional, children }: { label: string; hint?: string; required?: boolean; optional?: boolean; children: React.ReactNode }) {
   return (
     <div className="grid gap-2">
-      <Section icon={<Database className="w-5 h-5" />} title="ملخص بياناتك" hint="إجمالي البيانات وحجمها وآخر تحديث لها.">
+      <div className="flex items-center gap-2">
         <Label className="text-sm font-medium">{label}</Label>
-        {/* Automatic backup status */}
-        <div className="mt-3">
-          {(() => {
-            // Show the most recent backup activity (manual or automated)
-            const lastBackup = activity.find((e) => e.type === 'backup') || null;
-            return (
-              <div className="rounded-xl bg-foreground/[0.04] px-3 py-2.5 flex justify-between items-center">
-                <div>
-                  <div className="text-xs text-muted-foreground">النسخ الاحتياطي</div>
-                  <div className="mt-1 font-semibold">{lastBackup ? 'موجود' : 'لا توجد نسخ'}</div>
-                </div>
-                <div className="text-right text-sm text-muted-foreground flex items-center gap-3">
-                  <div>{lastBackup ? `آخر نسخة: ${new Intl.DateTimeFormat('ar-EG', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(lastBackup.at))}` : 'لم يتم تنفيذ نسخة بعد'}</div>
-                  <Button size="sm" variant="ghost" onClick={async () => { setActivity(await getActivity()); toast.success('تم التحديث'); }}>تحديث</Button>
-                </div>
-              </div>
-            );
-          })()}
-        </div>
         {required ? <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">مطلوب</span> : null}
         {optional ? <span className="rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[10px] text-muted-foreground">اختياري</span> : null}
-      </Section>
+      </div>
       {children}
       {hint ? <p className="text-[11px] leading-5 text-muted-foreground">{hint}</p> : null}
     </div>
@@ -1040,6 +1021,7 @@ function DataTab() {
   const [confirmText, setConfirmText] = useState("");
   const [selected, setSelected] = useState<string[]>([...DATA_TABLES]);
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
+  const [exportName, setExportName] = useState("segilly-backup");
   const [file, setFile] = useState<File | null>(null); const [backup, setBackup] = useState<BackupPayload | null>(null);
   const [importSelected, setImportSelected] = useState<string[]>([]); const [importOpen, setImportOpen] = useState(false);
   const [importError, setImportError] = useState(""); const [activity, setActivity] = useState<ActivityEntry[]>([]);
@@ -1061,12 +1043,12 @@ function DataTab() {
   const flip = (table: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => setter((all) => all.includes(table) ? all.filter((item) => item !== table) : [...all, table]);
   const exportData = async (format: "json" | "xlsx") => {
     if (!selected.length) { toast.error("اختَر قسم بيانات واحدًا على الأقل"); return; }
-    await run(format, async () => { const options = { tables: selected, from: from || undefined, to: to || undefined }; const exported = format === "json" ? await downloadJsonBackup(options) : await downloadExcelBackup(options); await logActivity(format === "json" ? "backup" : "export", `تصدير ${Object.values(exported.tables).reduce((sum, rows) => sum + rows.length, 0)} سجل بصيغة ${format === "json" ? "JSON" : "Excel"}`); setActivity(await getActivity()); }, format === "json" ? "تم تنزيل النسخة الاحتياطية" : "تم تنزيل ملف Excel");
+    await run(format, async () => { const options = { tables: selected, from: from || undefined, to: to || undefined, name: exportName }; const exported = format === "json" ? await downloadJsonBackup(options) : await downloadExcelBackup(options); await logActivity(format === "json" ? "backup" : "export", `تصدير ${Object.values(exported.tables).reduce((sum, rows) => sum + rows.length, 0)} سجل بصيغة ${format === "json" ? "JSON" : "Excel"}`); setActivity(await getActivity()); }, format === "json" ? "تم تنزيل النسخة الاحتياطية" : "تم تنزيل ملف Excel");
   };
   const exportToCloud = async () => {
     if (!selected.length) { toast.error("اختَر قسم بيانات واحدًا على الأقل"); return; }
     await run("cloud", async () => {
-      const options = { tables: selected, from: from || undefined, to: to || undefined };
+      const options = { tables: selected, from: from || undefined, to: to || undefined, name: exportName };
       const result = await uploadJsonBackupToStorage(options);
       await logActivity("backup", `رفع نسخة احتياطية إلى السحابة: ${result.path}`);
       setActivity(await getActivity());
@@ -1088,6 +1070,7 @@ function DataTab() {
           <div className="flex justify-between mb-3"><Label>الأقسام المضمنة</Label><Button variant="ghost" size="sm" onClick={() => setSelected(selected.length === DATA_TABLES.length ? [] : [...DATA_TABLES])}>{selected.length === DATA_TABLES.length ? "إلغاء الكل" : "اختيار الكل"}</Button></div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{DATA_TABLES.map((table) => <label key={table} className="flex items-center gap-2 rounded-xl bg-foreground/[0.04] px-3 py-2 text-xs"><input type="checkbox" checked={selected.includes(table)} onChange={() => flip(table, setSelected)} className="accent-primary" />{TABLE_LABELS[table]}</label>)}</div>
           <div className="grid gap-3 sm:grid-cols-2 mt-5"><Field label="من تاريخ"><Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></Field><Field label="إلى تاريخ"><Input type="date" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} /></Field></div>
+          <div className="mt-3"><Field label="اسم النسخة الاحتياطية"><Input value={exportName} onChange={(event) => setExportName(event.target.value)} placeholder="segilly-backup" /></Field><p className="mt-1.5 text-[11px] text-muted-foreground">اسم الملف: <span className="font-bold">{backupFileName(exportName, "json")}</span></p></div>
           <div className="mt-5 rounded-2xl bg-primary/8 p-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-bold">إنشاء نسخة احتياطية الآن</p>
@@ -1107,6 +1090,7 @@ function DataTab() {
           {backup ? <div className="mt-4 rounded-2xl bg-success/10 p-4"><p className="text-sm font-bold flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-success" />الملف جاهز للمراجعة</p><p className="text-xs text-muted-foreground mt-1">{file?.name} يحتوي على {fmt(Object.values(backup.tables).reduce((sum, rows) => sum + rows.length, 0))} سجل.</p><Button size="sm" className="mt-3 gap-1.5" onClick={() => setImportOpen(true)}><Download className="w-4 h-4" /> مراجعة واستيراد</Button></div> : null}
         </Section>
       </div>
+      <AutoBackupSection onDone={load} />
       <div className="grid gap-6 xl:grid-cols-[1.3fr_.7fr]"><Section icon={<History className="w-5 h-5" />} title="سجل عمليات البيانات" hint="العمليات وتوقيتها ومنفذها.">{activity.length ? <div className="grid gap-2">{activity.slice(0, 8).map((entry) => <Activity key={entry.id} entry={entry} />)}</div> : <p className="rounded-2xl bg-foreground/[0.04] p-4 text-sm text-muted-foreground">لا توجد عمليات مسجلة بعد.</p>}</Section><Section className="border border-destructive/25" icon={<AlertTriangle className="w-5 h-5 text-destructive" />} title="منطقة الخطر" hint={`سيتم حذف ${fmt(total)} سجل، مع بقاء بيانات المحل.`}><div className="rounded-xl bg-destructive/8 p-3 text-xs leading-6 text-muted-foreground">العملية نهائية. نزّل نسخة احتياطية قبل المتابعة.</div><Button variant="outline" className="mt-4 gap-1.5 text-destructive border-destructive/40 hover:bg-destructive/10 hover:text-destructive" onClick={() => { setConfirmText(""); setConfirmOpen(true); }}><Trash2 className="w-4 h-4" /> حذف كل البيانات</Button></Section></div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -1137,6 +1121,78 @@ function DataTab() {
       </AlertDialog>
       <Dialog open={importOpen} onOpenChange={setImportOpen}><DialogContent dir="rtl" className="sm:max-w-xl"><DialogHeader><DialogTitle className="text-right">مراجعة الاستيراد</DialogTitle><DialogDescription className="text-right">اختر الأقسام المراد دمجها، ثم أكّد العملية.</DialogDescription></DialogHeader>{backup ? <div className="grid gap-2">{Object.entries(backup.tables).filter(([, rows]) => rows.length).map(([table, rows]) => <label key={table} className="flex items-center justify-between rounded-xl bg-foreground/[0.04] px-3 py-3"><span className="flex gap-2 text-sm"><input type="checkbox" checked={importSelected.includes(table)} onChange={() => flip(table, setImportSelected)} className="accent-primary" />{TABLE_LABELS[table] ?? table}</span><Badge variant="secondary">{fmt(rows.length)} سجل</Badge></label>)}</div> : null}<DialogFooter className="gap-2"><Button variant="ghost" onClick={() => setImportOpen(false)}>إلغاء</Button><Button disabled={busy !== null || !importSelected.length} onClick={confirmImport} className="gap-1.5"><CheckCircle2 className="w-4 h-4" /> {busy === "import" ? "جاري الاستيراد..." : "استيراد ودمج"}</Button></DialogFooter></DialogContent></Dialog>
     </div>
+  );
+}
+function AutoBackupSection({ onDone }: { onDone: () => void }) {
+  const [settings, setSettings] = useState<BackupSettings>(DEFAULT_BACKUP_SETTINGS);
+  const [files, setFiles] = useState<CloudBackup[]>([]);
+  const [busy, setBusy] = useState(false);
+  const refresh = useCallback(async () => {
+    try {
+      const [next, cloud] = await Promise.all([getBackupSettings(), listCloudBackups().catch(() => [])]);
+      setSettings(next); setFiles(cloud);
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const persist = async (patch: Partial<BackupSettings>) => {
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    setBusy(true);
+    try {
+      await saveBackupSettings({ enabled: next.enabled, frequencyDays: next.frequencyDays, nameTemplate: next.nameTemplate });
+      toast.success("تم حفظ إعدادات النسخ التلقائي");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "تعذر الحفظ"); }
+    finally { setBusy(false); }
+  };
+
+  const next = nextBackupAt(settings);
+  const dateFmt = (value: string) => new Intl.DateTimeFormat("ar-EG", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+
+  return (
+    <Section icon={<Cloud className="w-5 h-5" />} title="النسخ الاحتياطي التلقائي" hint="نسخة سحابية تتولد من غير تدخل منك، حسب الجدول اللي تختاره.">
+      <div className="rounded-2xl bg-primary/8 p-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold">تفعيل النسخ التلقائي</p>
+          <p className="text-xs text-muted-foreground">{settings.enabled ? (next ? `النسخة الجاية تقريبًا: ${dateFmt(next.toISOString())}` : "قيد التفعيل") : "متوقف حاليًا"}</p>
+        </div>
+        <Switch checked={settings.enabled} disabled={busy} onCheckedChange={(value) => void persist({ enabled: value })} />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 mt-4">
+        <Field label="تكرار النسخ">
+          <Select value={String(settings.frequencyDays)} onValueChange={(value) => void persist({ frequencyDays: Number(value) })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{FREQUENCY_OPTIONS.map((option) => <SelectItem key={option.days} value={String(option.days)}>{option.label}</SelectItem>)}</SelectContent>
+          </Select>
+        </Field>
+        <Field label="تسمية النسخة التلقائية">
+          <Input value={settings.nameTemplate} disabled={busy} onChange={(event) => setSettings((old) => ({ ...old, nameTemplate: event.target.value }))} onBlur={() => void persist({})} placeholder="segilly-backup" />
+        </Field>
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">اسم الملف المتوقع: <span className="font-bold">{backupFileName(settings.nameTemplate, "json")}</span> — آخر نسخة تلقائية: {settings.lastRunAt ? dateFmt(settings.lastRunAt) : "لسه مفيش"}</p>
+
+      <Separator className="my-5" />
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-bold">النسخ المحفوظة على السحابة</p>
+        <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => void refresh()}><RotateCcw className="w-4 h-4" /> تحديث</Button>
+      </div>
+      {files.length ? (
+        <div className="grid gap-2">
+          {files.map((backupFile) => (
+            <div key={backupFile.path} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-foreground/[0.04] px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold">{backupFile.name}</p>
+                <p className="text-[11px] text-muted-foreground">{dateFmt(backupFile.createdAt)} · {bytes(backupFile.size)}</p>
+              </div>
+              <div className="flex gap-1.5">
+                <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => void downloadCloudBackup(backupFile.path).catch((e) => toast.error(e instanceof Error ? e.message : "تعذر التنزيل"))}><Download className="w-4 h-4" /> تنزيل</Button>
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={async () => { try { await deleteCloudBackup(backupFile.path); toast.success("تم حذف النسخة"); await refresh(); onDone(); } catch (e) { toast.error(e instanceof Error ? e.message : "تعذر الحذف"); } }}><Trash2 className="w-4 h-4" /></Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : <p className="rounded-2xl bg-foreground/[0.04] p-4 text-sm text-muted-foreground">مفيش نسخ سحابية لسه.</p>}
+    </Section>
   );
 }
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) { return <div className="rounded-2xl bg-foreground/[0.04] p-3"><div className="flex gap-1.5 text-xs text-muted-foreground">{icon}{label}</div><div className="mt-2 text-lg font-bold">{value}</div></div>; }
