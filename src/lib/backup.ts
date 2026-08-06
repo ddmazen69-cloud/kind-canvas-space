@@ -7,9 +7,10 @@ const DELETE_ORDER = ["payments", "invoice_items", "invoices", "purchase_items",
 
 export type DataTable = (typeof BACKUP_TABLES)[number];
 export type BackupPayload = { app: "segilly"; version: 1; exportedAt: string; tables: Record<string, unknown[]> };
-export type ExportOptions = { tables?: string[]; from?: string; to?: string };
+export type ExportOptions = { tables?: string[]; from?: string; to?: string; name?: string };
 export type ActivityEntry = { id: string; type: "backup" | "export" | "import" | "delete" | "setting"; details: string; actor: string; at: string };
 const stamp = () => new Date().toISOString().slice(0, 10);
+const fileName = (options: ExportOptions, ext: "json" | "xlsx") => `${(options.name ?? "").trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "-").slice(0, 60) || "segilly-backup"}-${stamp()}.${ext}`;
 
 async function currentUser() { const { data: { user } } = await supabase.auth.getUser(); if (!user) throw new Error("مش مسجّل دخول"); return user; }
 function rowDate(row: Record<string, unknown>) { const value = row.updated_at ?? row.created_at ?? row.purchase_date ?? row.expense_date ?? row.paid_at; return typeof value === "string" ? value.slice(0, 10) : null; }
@@ -21,12 +22,12 @@ export async function buildBackup(options: ExportOptions = {}): Promise<BackupPa
   return { app: "segilly", version: 1, exportedAt: new Date().toISOString(), tables };
 }
 export function downloadBlob(content: BlobPart, filename: string, type: string) { const url = URL.createObjectURL(new Blob([content], { type })); const anchor = document.createElement("a"); anchor.href = url; anchor.download = filename; anchor.click(); URL.revokeObjectURL(url); }
-export async function downloadJsonBackup(options: ExportOptions = {}) { const backup = await buildBackup(options); downloadBlob(JSON.stringify(backup, null, 2), `segilly-backup-${stamp()}.json`, "application/json"); return backup; }
-export async function downloadExcelBackup(options: ExportOptions = {}) { const [{ utils, write }, backup] = await Promise.all([import("xlsx"), buildBackup(options)]); const workbook = utils.book_new(); for (const [name, rows] of Object.entries(backup.tables)) utils.book_append_sheet(workbook, utils.json_to_sheet(rows.length ? rows as object[] : [{}]), name.slice(0, 31)); const output = write(workbook, { bookType: "xlsx", type: "array" }) as ArrayBuffer; downloadBlob(output, `segilly-backup-${stamp()}.xlsx`, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); return backup; }
+export async function downloadJsonBackup(options: ExportOptions = {}) { const backup = await buildBackup(options); downloadBlob(JSON.stringify(backup, null, 2), fileName(options, "json"), "application/json"); return backup; }
+export async function downloadExcelBackup(options: ExportOptions = {}) { const [{ utils, write }, backup] = await Promise.all([import("xlsx"), buildBackup(options)]); const workbook = utils.book_new(); for (const [name, rows] of Object.entries(backup.tables)) utils.book_append_sheet(workbook, utils.json_to_sheet(rows.length ? rows as object[] : [{}]), name.slice(0, 31)); const output = write(workbook, { bookType: "xlsx", type: "array" }) as ArrayBuffer; downloadBlob(output, fileName(options, "xlsx"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); return backup; }
 export async function uploadJsonBackupToStorage(options: ExportOptions = {}) {
   const user = await currentUser();
   const backup = await buildBackup(options);
-  const filename = `segilly-backup-${stamp()}.json`;
+  const filename = fileName(options, "json");
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
   const path = `${user.id}/${filename}`;
   const { error } = await supabase.storage.from("backups").upload(path, blob, { upsert: true });
