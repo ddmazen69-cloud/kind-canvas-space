@@ -1069,6 +1069,7 @@ function DataTab() {
           <div className="flex justify-between mb-3"><Label>الأقسام المضمنة</Label><Button variant="ghost" size="sm" onClick={() => setSelected(selected.length === DATA_TABLES.length ? [] : [...DATA_TABLES])}>{selected.length === DATA_TABLES.length ? "إلغاء الكل" : "اختيار الكل"}</Button></div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{DATA_TABLES.map((table) => <label key={table} className="flex items-center gap-2 rounded-xl bg-foreground/[0.04] px-3 py-2 text-xs"><input type="checkbox" checked={selected.includes(table)} onChange={() => flip(table, setSelected)} className="accent-primary" />{TABLE_LABELS[table]}</label>)}</div>
           <div className="grid gap-3 sm:grid-cols-2 mt-5"><Field label="من تاريخ"><Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></Field><Field label="إلى تاريخ"><Input type="date" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} /></Field></div>
+          <div className="mt-3"><Field label="اسم النسخة الاحتياطية"><Input value={exportName} onChange={(event) => setExportName(event.target.value)} placeholder="segilly-backup" /></Field><p className="mt-1.5 text-[11px] text-muted-foreground">اسم الملف: <span className="font-bold">{backupFileName(exportName, "json")}</span></p></div>
           <div className="mt-5 rounded-2xl bg-primary/8 p-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-bold">إنشاء نسخة احتياطية الآن</p>
