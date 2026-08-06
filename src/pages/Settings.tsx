@@ -25,7 +25,7 @@ import {
   type ShopSettings, type ThemeMode, type PrintPaper, type ColorTheme,
 } from "@/lib/store";
 import { applyTheme } from "@/lib/theme";
-import { DATA_TABLES, dataCounts, dataMeta, downloadExcelBackup, downloadJsonBackup, uploadJsonBackupToStorage, getActivity, importBackup, logActivity, readImportFile, wipeAllData, type ActivityEntry, type BackupPayload } from "@/lib/backup";
+import { DATA_TABLES, backupFileName, getBackupSettings, saveBackupSettings, nextBackupAt, listCloudBackups, downloadCloudBackup, deleteCloudBackup, FREQUENCY_OPTIONS, DEFAULT_BACKUP_SETTINGS, type BackupSettings, type CloudBackup, dataCounts, dataMeta, downloadExcelBackup, downloadJsonBackup, uploadJsonBackupToStorage, getActivity, importBackup, logActivity, readImportFile, wipeAllData, type ActivityEntry, type BackupPayload } from "@/lib/backup";
 import {
   Settings as SettingsIcon, Store, KeyRound, Save, LogOut, Receipt, Bell,
   Palette, Database, Upload, Trash2, FileJson, FileSpreadsheet, RotateCcw, ShieldAlert, Mail,
@@ -1021,6 +1021,7 @@ function DataTab() {
   const [confirmText, setConfirmText] = useState("");
   const [selected, setSelected] = useState<string[]>([...DATA_TABLES]);
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
+  const [exportName, setExportName] = useState("segilly-backup");
   const [file, setFile] = useState<File | null>(null); const [backup, setBackup] = useState<BackupPayload | null>(null);
   const [importSelected, setImportSelected] = useState<string[]>([]); const [importOpen, setImportOpen] = useState(false);
   const [importError, setImportError] = useState(""); const [activity, setActivity] = useState<ActivityEntry[]>([]);
@@ -1042,12 +1043,12 @@ function DataTab() {
   const flip = (table: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => setter((all) => all.includes(table) ? all.filter((item) => item !== table) : [...all, table]);
   const exportData = async (format: "json" | "xlsx") => {
     if (!selected.length) { toast.error("اختَر قسم بيانات واحدًا على الأقل"); return; }
-    await run(format, async () => { const options = { tables: selected, from: from || undefined, to: to || undefined }; const exported = format === "json" ? await downloadJsonBackup(options) : await downloadExcelBackup(options); await logActivity(format === "json" ? "backup" : "export", `تصدير ${Object.values(exported.tables).reduce((sum, rows) => sum + rows.length, 0)} سجل بصيغة ${format === "json" ? "JSON" : "Excel"}`); setActivity(await getActivity()); }, format === "json" ? "تم تنزيل النسخة الاحتياطية" : "تم تنزيل ملف Excel");
+    await run(format, async () => { const options = { tables: selected, from: from || undefined, to: to || undefined, name: exportName }; const exported = format === "json" ? await downloadJsonBackup(options) : await downloadExcelBackup(options); await logActivity(format === "json" ? "backup" : "export", `تصدير ${Object.values(exported.tables).reduce((sum, rows) => sum + rows.length, 0)} سجل بصيغة ${format === "json" ? "JSON" : "Excel"}`); setActivity(await getActivity()); }, format === "json" ? "تم تنزيل النسخة الاحتياطية" : "تم تنزيل ملف Excel");
   };
   const exportToCloud = async () => {
     if (!selected.length) { toast.error("اختَر قسم بيانات واحدًا على الأقل"); return; }
     await run("cloud", async () => {
-      const options = { tables: selected, from: from || undefined, to: to || undefined };
+      const options = { tables: selected, from: from || undefined, to: to || undefined, name: exportName };
       const result = await uploadJsonBackupToStorage(options);
       await logActivity("backup", `رفع نسخة احتياطية إلى السحابة: ${result.path}`);
       setActivity(await getActivity());
