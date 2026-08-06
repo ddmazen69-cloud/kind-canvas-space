@@ -25,7 +25,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Search, MessageCircle, Pencil, Trash2, Sparkles, Star, Info, User, Eye, EyeOff, FileDown, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, History, Share2, Wallet, Printer, ShoppingBag, Receipt, CreditCard, Banknote, ShieldAlert, Lock, Unlock, Ban } from "lucide-react";
+import { Plus, Search, MessageCircle, Pencil, Trash2, Sparkles, Star, Info, User, Eye, EyeOff, FileDown, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, History, Share2, Wallet, Printer, ShoppingBag, Receipt, CreditCard, Banknote, ShieldAlert, Lock, Unlock, Ban, ArrowLeft } from "lucide-react";
 import type { Payment } from "@/lib/store";
 import { toArabicDigits } from "@/lib/arabic-digits";
 import { cn } from "@/lib/utils";
@@ -134,6 +134,7 @@ function CustomersPage() {
   const { privacy, toggle } = usePrivacy();
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [showBlockedView, setShowBlockedView] = useState(false);
 
   const enriched = useMemo(
     () => data.customers.map((c) => ({
@@ -194,7 +195,7 @@ function CustomersPage() {
   };
 
   const exportPDF = () => {
-    const tabLabel: Record<FilterTab, string> = { all: "كل العملاء", installment: "عملاء الأقساط", cash: "العملاء الفوريون", overdue: "العملاء المتأخرون", bajah: "العملاء البجحون", settled: "العملاء الخالصون" };
+    const tabLabel: Record<FilterTab, string> = { all: "كل العملاء", installment: "عملاء الأقساط", cash: "العملاء الفوريون", overdue: "العملاء المتأخرون", bajah: "العملاء البجحون", settled: "العملاء الخالصون", blocked: "العملاء المحظورون" };
     const today = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
     const rows = list.map(({ c, m }, i) => `
       <tr>
@@ -285,6 +286,30 @@ function CustomersPage() {
               <FileDown className="w-4 h-4" />
               تصدير كشف حساب (PDF)
             </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 border-danger/40 bg-danger/8 text-danger hover:bg-danger/15 hover:text-danger font-bold"
+                    onClick={() => navigate({ to: "/blocked" })}
+                  >
+                    <ShieldAlert className="w-4 h-4" />
+                    العملاء المحظورون
+                    {counts.blocked > 0 && (
+                      <span className="text-numeric grid h-5 min-w-5 place-items-center rounded-full bg-danger px-1.5 text-[10px] font-bold text-danger-foreground">
+                        {counts.blocked}
+                      </span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  فتح مركز إدارة المحظورين والقائمة السوداء والتوصيات الذكية للحظر.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <CustomerDialog trigger={<Button className="gap-2"><Plus className="w-4 h-4" /> إضافة عميل</Button>} />
           </div>
         }
