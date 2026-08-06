@@ -60,8 +60,9 @@ export async function importBackup(backup: BackupPayload, selected: string[]) {
     const archiveEntity = ARCHIVE_ENTITY_BY_TABLE[table as DataTable];
     if (archiveEntity) {
       for (const row of safeRows) {
-        if (!row.id) continue;
-        await supabase.from("archived_records").delete().eq("entity_type", archiveEntity).eq("entity_id", row.id);
+        const rowId = typeof row.id === "string" ? row.id : null;
+        if (!rowId) continue;
+        await supabase.from("archived_records").delete().eq("entity_type", archiveEntity).eq("entity_id", rowId);
       }
     }
 
