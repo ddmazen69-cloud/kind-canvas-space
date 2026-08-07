@@ -169,7 +169,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RasdIfAuthed() {
   const { user } = useAuth();
   if (!user) return null;
-  return <RasdProvider><RasdAssistant /></RasdProvider>;
+  return <RasdAssistant />;
 }
 
 function RootComponent() {
@@ -183,14 +183,16 @@ function RootComponent() {
         <Sonner richColors position="top-center" dir="rtl" />
         <PrivacyProvider>
           <AmbientBackground />
-          {hydrated ? (
-            <AnimatePresence mode="wait">
+          <RasdProvider>
+            {hydrated ? (
+              <AnimatePresence mode="wait">
+                <Outlet />
+              </AnimatePresence>
+            ) : (
               <Outlet />
-            </AnimatePresence>
-          ) : (
-            <Outlet />
-          )}
-          <RasdIfAuthed />
+            )}
+            <RasdIfAuthed />
+          </RasdProvider>
         </PrivacyProvider>
       </TooltipProvider>
     </QueryClientProvider>
