@@ -19,7 +19,6 @@ import {
   expenseCategoryLabel,
   supplierBalance,
 } from "@/lib/store";
-import { QuickActionsFab } from "@/components/QuickActionsFab";
 import {
   Users,
   Wallet,
@@ -1111,8 +1110,6 @@ export function Dashboard() {
             )}
           </BezelCard>
         </Reveal>
-
-      <QuickActionsFab />
     </>
   );
 }

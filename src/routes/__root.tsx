@@ -18,7 +18,6 @@ import { AmbientBackground } from "@/components/AmbientBackground";
 import { useAuth } from "@/lib/store";
 import { useHydrated } from "@/lib/hydrated";
 import { ArabicNumerals } from "@/lib/arabic-digits";
-import { QuickActionsFab } from "@/components/QuickActionsFab";
 import { RasdAssistant } from "@/components/RasdAssistant";
 
 function NotFoundComponent() {
@@ -167,12 +166,6 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function FabIfAuthed() {
-  const { user } = useAuth();
-  if (!user) return null;
-  return <QuickActionsFab />;
-}
-
 function RasdIfAuthed() {
   const { user } = useAuth();
   if (!user) return null;
@@ -197,7 +190,6 @@ function RootComponent() {
           ) : (
             <Outlet />
           )}
-          <FabIfAuthed />
           <RasdIfAuthed />
         </PrivacyProvider>
       </TooltipProvider>
