@@ -673,8 +673,23 @@ export const db = {
     if (patch.category !== undefined) upd.category = patch.category;
     if (patch.location !== undefined) upd.location = patch.location;
     if (patch.season !== undefined) upd.season = patch.season;
-    const { error } = await supabase.from("stock_items").update(upd).eq("id", id);
-    if (error) throw error;
+    const hasLocationSeason = patch.location !== undefined || patch.season !== undefined;
+    let { error } = await supabase.from("stock_items").update(upd).eq("id", id);
+    if (error && hasLocationSeason) {
+      // Columns might not exist yet — retry without location/season (migration pending)
+      const safeUpd = { ...upd };
+      delete safeUpd.location;
+      delete safeUpd.season;
+      if (Object.keys(safeUpd).length > 0) {
+        const retry = await supabase.from("stock_items").update(safeUpd).eq("id", id);
+        if (retry.error) throw retry.error;
+        error = null;
+      } else {
+        error = null; // nothing else to update
+      }
+    } else if (error) {
+      throw error;
+    }
     if (adjustment && adjustment.delta !== 0) {
       const user_id = await uid();
       await supabase.from("stock_adjustments").insert({
@@ -732,9 +747,12 @@ export const db = {
       data = res.data; error = res.error;
     } catch (e) { error = e; }
     if (error) {
-      // Retry without optional fields if column not found
+      // Retry without optional fields if column not found (migration pending)
       const legacyPayload = { ...payload };
-      delete legacyPayload.min_quantity; delete legacyPayload.custom_barcode;
+      delete legacyPayload.min_quantity;
+      delete legacyPayload.custom_barcode;
+      delete legacyPayload.location;
+      delete legacyPayload.season;
       const retry = await supabase.from("stock_items").insert(legacyPayload).select("id").single();
       if (retry.error) throw retry.error;
       data = retry.data;
