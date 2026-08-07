@@ -522,6 +522,7 @@ function AdjustDialog({ item, onClose }: { item: StockItem | null; onClose: () =
 
 function EditDialog({ item, onClose }: { item: StockItem | null; onClose: () => void }) {
   const [name, setName] = useState("");
+  const [size, setSize] = useState("");
   const [qty, setQty] = useState("");
   const [cost, setCost] = useState("");
   const [price, setPrice] = useState("");
@@ -536,6 +537,7 @@ function EditDialog({ item, onClose }: { item: StockItem | null; onClose: () => 
   useEffect(() => {
     if (item) {
       setName(item.name);
+      setSize(item.size ?? "");
       setQty(String(item.quantity));
       setCost(String(item.lastUnitCost));
       setPrice(String(item.salePrice));
@@ -570,7 +572,7 @@ function EditDialog({ item, onClose }: { item: StockItem | null; onClose: () => 
       }
       await db.updateStockItem(
         item.id,
-        { name: name.trim(), quantity: newQty, lastUnitCost: newCost, salePrice: newPrice, barcode: finalBarcode, minQuantity: minQty ? Math.max(0, Math.round(Number(minQty))) : undefined, customBarcode: customPrefix ? customBarcodeValue : undefined },
+        { name: name.trim(), size: size.trim() || null, quantity: newQty, lastUnitCost: newCost, salePrice: newPrice, barcode: finalBarcode, minQuantity: minQty ? Math.max(0, Math.round(Number(minQty))) : undefined, customBarcode: customPrefix ? customBarcodeValue : undefined },
         reasonRequired ? {
           delta,
           reason: REASONS.find((r) => r.value === reason)?.label ?? reason,
@@ -592,9 +594,15 @@ function EditDialog({ item, onClose }: { item: StockItem | null; onClose: () => 
           <DialogDescription className="text-right">حدّث الكمية والأسعار. أي تغيير في الكمية يحتاج سبب.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
-          <div className="grid gap-1.5">
-            <Label>اسم الصنف</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label>اسم الصنف</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>المقاس (اختياري)</Label>
+              <Input value={size} onChange={(e) => setSize(e.target.value)} maxLength={20} placeholder="مثال: L / 42 / XXL" />
+            </div>
           </div>
           <div className="grid gap-1.5">
             <Label className="flex items-center gap-1.5">
@@ -798,6 +806,7 @@ function AddProductDialog({ open, onOpenChange, prefillBarcode, existingBarcodes
   existingBarcodes: Array<string | null>;
 }) {
   const [name, setName] = useState("");
+  const [size, setSize] = useState("");
   const [qty, setQty] = useState("");
   const [cost, setCost] = useState("");
   const [price, setPrice] = useState("");
@@ -810,7 +819,7 @@ function AddProductDialog({ open, onOpenChange, prefillBarcode, existingBarcodes
 
   useEffect(() => {
     if (open) {
-      setName(""); setQty(""); setCost(""); setPrice(""); setCategory("other");
+      setName(""); setSize(""); setQty(""); setCost(""); setPrice(""); setCategory("other");
       setBarcode(prefillBarcode ?? "");
       setMinQty(""); setCustomPrefix("");
     }
@@ -835,6 +844,7 @@ function AddProductDialog({ open, onOpenChange, prefillBarcode, existingBarcodes
       }
       await db.addStockItem({
         name: name.trim(),
+        size: size.trim() || null,
         quantity: nQty,
         lastUnitCost: nCost,
         salePrice: nPrice,
@@ -859,9 +869,15 @@ function AddProductDialog({ open, onOpenChange, prefillBarcode, existingBarcodes
           </DialogTitle>
         </DialogHeader>
         <div className="grid max-h-[70vh] gap-3 overflow-y-auto pl-1">
-          <div className="grid gap-1.5">
-            <Label>اسم الصنف</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={100} placeholder="مثال: قميص رجالي قطن..." />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label>اسم الصنف</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={100} placeholder="مثال: قميص رجالي قطن..." />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>المقاس (اختياري)</Label>
+              <Input value={size} onChange={(e) => setSize(e.target.value)} maxLength={20} placeholder="مثال: L / 42 / XXL" />
+            </div>
           </div>
           <div className="grid gap-1.5">
             <Label className="flex items-center gap-1.5">

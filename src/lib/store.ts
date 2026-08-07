@@ -107,6 +107,7 @@ export interface SupplierPayment {
 export interface StockItem {
   id: string;
   name: string;
+  size: string | null;
   quantity: number;
   lastUnitCost: number;
   salePrice: number;
@@ -253,6 +254,7 @@ async function fetchAllFromServer() {
     })),
     stockItems: (st.data ?? []).map((r: any) => ({
       id: r.id, name: r.name,
+      size: r.size ?? null,
       quantity: Number(r.quantity ?? 0),
       lastUnitCost: Number(r.last_unit_cost ?? 0),
       salePrice: Number(r.sale_price ?? 0),
@@ -701,11 +703,12 @@ export const db = {
 
   async updateStockItem(
     id: string,
-    patch: Partial<{ name: string; quantity: number; lastUnitCost: number; salePrice: number; barcode: string | null; category: string; minQuantity?: number | null; customBarcode?: string | null; location?: "shop" | "warehouse"; season?: "summer" | "winter" | "general" }>,
+    patch: Partial<{ name: string; size: string | null; quantity: number; lastUnitCost: number; salePrice: number; barcode: string | null; category: string; minQuantity?: number | null; customBarcode?: string | null; location?: "shop" | "warehouse"; season?: "summer" | "winter" | "general" }>,
     adjustment?: { delta: number; reason: string; notes?: string },
   ) {
     const upd: any = {};
     if (patch.name !== undefined) upd.name = patch.name;
+    if (patch.size !== undefined) upd.size = patch.size || null;
     if (patch.quantity !== undefined) upd.quantity = patch.quantity;
     if (patch.lastUnitCost !== undefined) upd.last_unit_cost = patch.lastUnitCost;
     if (patch.salePrice !== undefined) upd.sale_price = patch.salePrice;
@@ -765,11 +768,12 @@ export const db = {
     await fetchAll();
     return next;
   },
-  async addStockItem(item: { name: string; quantity?: number; lastUnitCost?: number; salePrice?: number; barcode?: string | null; category?: string; minQuantity?: number | null; customBarcode?: string | null; location?: "shop" | "warehouse"; season?: "summer" | "winter" | "general" }) {
+  async addStockItem(item: { name: string; size?: string | null; quantity?: number; lastUnitCost?: number; salePrice?: number; barcode?: string | null; category?: string; minQuantity?: number | null; customBarcode?: string | null; location?: "shop" | "warehouse"; season?: "summer" | "winter" | "general" }) {
     const user_id = await uid();
     const payload: any = {
       user_id,
       name: item.name,
+      size: item.size ?? null,
       quantity: item.quantity ?? 0,
       last_unit_cost: item.lastUnitCost ?? 0,
       sale_price: item.salePrice ?? 0,
@@ -795,6 +799,7 @@ export const db = {
       delete legacyPayload.custom_barcode;
       delete legacyPayload.location;
       delete legacyPayload.season;
+      delete legacyPayload.size;
       const retry = await supabase.from("stock_items").insert(legacyPayload).select("id").single();
       if (retry.error) throw retry.error;
       data = retry.data;
