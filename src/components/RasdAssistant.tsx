@@ -14,6 +14,7 @@ const STARTERS = [
   "إيه الأصناف الناقصة؟",
   "المبيعات والتحصيلات الشهر ده كام؟",
   "هل الربح بيتحسن مقارنة بالشهر اللي فات؟",
+  "إزاي أسجل فاتورة أو دفعة؟",
 ];
 
 const WELCOME: Message = {
@@ -35,6 +36,8 @@ function startsLastMonth(value: string, now = new Date()) {
 /** Useful answers while the optional cloud AI service is being deployed. */
 function localAnswer(question: string, data: ReturnType<typeof useDB>, settings: { lowStockThreshold: number; reminderDaysBefore: number }) {
   const normalized = question.replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").toLowerCase();
+  const has = (...terms: string[]) => terms.some((term) => normalized.includes(term));
+  const asksHow = has("ازاي", "كيف", "فين", "اين", "اضيف", "اضافة", "اعمل", "استخدم", "مكان", "طريق");
   const overdue = data.invoices
     .filter((invoice) => isDueSoonOrOverdue(invoice, settings.reminderDaysBefore))
     .map((invoice) => {
@@ -48,7 +51,35 @@ function localAnswer(question: string, data: ReturnType<typeof useDB>, settings:
   const collectionsThisMonth = data.payments.filter((item) => startsThisMonth(item.paidAt)).reduce((sum, item) => sum + item.amount, 0)
     + data.invoices.filter((item) => startsThisMonth(item.createdAt)).reduce((sum, item) => sum + item.downPayment, 0);
 
-  if (normalized.includes("تنبيه") || normalized.includes("اهم") || normalized.includes("النهارده")) {
+  // Product help: this makes Rasd useful for every feature even before cloud AI is enabled.
+  if (asksHow && has("فاتور", "قسط", "دفع", "دفعة", "تحصيل")) {
+    return "لتسجيل بيع: افتح «الفواتير» ثم أضف فاتورة، واختر العميل وحدد الإجمالي والمقدم والقسط الشهري وموعد أول استحقاق. لتسجيل تحصيل لاحق، افتح الفاتورة أو استخدم «تسجيل دفعة» من زر الإجراءات السريعة. العميل النقدي يجب أن تكون فاتورته مسددة بالكامل.";
+  }
+  if (asksHow && has("عميل", "عملا", "زبون")) {
+    return "من «العملاء» اضغط إضافة عميل، ثم اختر نوعه: قسط أو فوري نقدي. يمكنك تحديد سقف المديونية ويوم الاستحقاق والتقييم. لتجنب البيع لعميل متعثر، جمّده أو حدّث حالته من تفاصيله.";
+  }
+  if (asksHow && has("منتج", "مخزون", "باركود", "صنف")) {
+    return "من «المنتجات» أضف الصنف وحدد الكمية وسعر الشراء والبيع والحد الأدنى والباركود إن وُجد. استخدم «المخزن» للبضاعة الموسمية أو المخزنة، واختر مكان الصنف وموسمه لتتابعه بشكل أدق.";
+  }
+  if (asksHow && has("مورد", "شراء")) {
+    return "من «الموردين» أضف المورد أولًا، ثم سجّل فاتورة شراء بنقدي أو آجل. يمكنك متابعة الرصيد المتبقي وتسجيل دفعات المورد من نفس القسم.";
+  }
+  if (asksHow && has("مصروف", "ايجار", "رواتب")) {
+    return "من «المصروفات» اضغط إضافة مصروف، ثم اختر البند والتاريخ والمبلغ وأي ملاحظة. يظهر تأثيره لاحقًا في التقارير وصافي الربح.";
+  }
+  if (asksHow && has("تقرير", "اكسل", "pdf", "تصدير")) {
+    return "من «التقارير» اختر الفترة ثم راجع المبيعات والتحصيلات والمصروفات والربح وأفضل العملاء والأصناف. تستطيع تصدير التقرير إلى Excel أو PDF من أزرار التصدير.";
+  }
+  if (asksHow && has("نسخ", "باك", "احتياطي", "ارشيف", "حذف")) {
+    return "قسم «الأرشيف» يحتفظ بالسجلات المحذوفة لتستعيدها حسب الصلاحية. ومن «الإعدادات» ثم تبويب البيانات تستطيع تصدير نسخة احتياطية أو استيرادها. راجع البيانات قبل المسح النهائي.";
+  }
+  if (asksHow && has("صلاح", "فريق", "عضو", "مدير", "بايع")) {
+    return "من «الإعدادات» ثم «الفريق» يستطيع المالك دعوة أعضاء وتحديد دورهم: مالك أو مدير أو بايع. المالك فقط يغيّر الصلاحيات، ويُظهر التطبيق لكل دور الأقسام المسموح بها.";
+  }
+  if (asksHow && has("تنبيه", "واتساب", "تذكير")) {
+    return "من «المنبه» ستجد الأقساط المستحقة والمتأخرة والأصناف الناقصة. يمكنك تسجيل دفعة مباشرة أو نسخ وإرسال رسالة واتساب مقترحة للعميل. عدد أيام التذكير يتغير من الإعدادات.";
+  }
+  if (has("تنبيه") || has("اهم", "النهارده")) {
     const parts = [
       overdue.length ? `${overdue.length} فاتورة مستحقة أو متأخرة` : "لا توجد أقساط مستحقة حاليًا",
       lowStock.length ? `${lowStock.length} صنف يحتاج متابعة في المخزون` : "المخزون فوق الحد الأدنى",
@@ -56,18 +87,18 @@ function localAnswer(question: string, data: ReturnType<typeof useDB>, settings:
     ];
     return `أهم 3 نقاط الآن:\n1. ${parts[0]}.\n2. ${parts[1]}.\n3. ${parts[2]}.`;
   }
-  if (normalized.includes("عميل") && (normalized.includes("متابع") || normalized.includes("متاخر") || normalized.includes("محتاج"))) {
+  if (has("عميل", "عملا", "زبون") && has("متابع", "متاخر", "محتاج")) {
     if (!overdue.length) return "لا يوجد عملاء لديهم أقساط مستحقة أو متأخرة حاليًا.";
     return `الأولوية للمتابعة:\n${overdue.slice(0, 5).map((item, index) => `${index + 1}. ${item.customer?.name ?? "عميل"}: متبقي ${fmt(item.remaining)} ج.م${item.days ? ` ومتأخر ${item.days} يوم` : " ومستحق الآن"}.`).join("\n")}`;
   }
-  if (normalized.includes("صنف") || normalized.includes("مخزون") || normalized.includes("ناقص")) {
+  if (has("صنف", "مخزون", "ناقص")) {
     if (!lowStock.length) return "لا توجد أصناف وصلت للحد الأدنى المحدد في الإعدادات.";
     return `الأصناف التي تحتاج إعادة طلب:\n${lowStock.slice(0, 8).map((item, index) => `${index + 1}. ${item.name}: المتاح ${fmt(item.quantity)}، والحد الأدنى ${fmt(item.minQuantity ?? settings.lowStockThreshold)}.`).join("\n")}`;
   }
-  if (normalized.includes("تحصيل") || normalized.includes("مبيعات") || normalized.includes("الشهر")) {
+  if (has("تحصيل", "مبيعات", "الشهر")) {
     return `ملخص الشهر الحالي:\n• المبيعات: ${fmt(salesThisMonth)} ج.م\n• التحصيلات: ${fmt(collectionsThisMonth)} ج.م\n• إجمالي المديونيات المفتوحة: ${fmt(data.invoices.reduce((sum, item) => sum + Math.max(0, item.total - item.paid), 0))} ج.م.`;
   }
-  if (normalized.includes("ربح") || normalized.includes("بيتحسن") || normalized.includes("مقارن")) {
+  if (has("ربح", "بيتحسن", "مقارن")) {
     const profit = (isCurrent: (value: string) => boolean) => {
       const invoiceIds = new Set(data.invoices.filter((item) => isCurrent(item.createdAt)).map((item) => item.id));
       const gross = data.invoiceItems.filter((item) => invoiceIds.has(item.invoiceId)).reduce((sum, item) => sum + item.price - item.cost, 0);
@@ -79,14 +110,14 @@ function localAnswer(question: string, data: ReturnType<typeof useDB>, settings:
     const direction = current > previous ? "أفضل" : current < previous ? "أقل" : "مستقر";
     return `صافي الربح المحسوب هذا الشهر ${fmt(current)} ج.م، وكان ${fmt(previous)} ج.م الشهر الماضي. الاتجاه الحالي ${direction}.`;
   }
-  if (normalized.includes("واتساب") || normalized.includes("رسالة")) {
+  if (has("واتساب", "رسالة")) {
     const target = data.customers.find((customer) => normalized.includes(customer.name.replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").toLowerCase()));
     if (!target) return "اكتب اسم العميل مع طلب الرسالة، مثل: اكتب رسالة واتساب لطيفة للعميل أحمد.";
     const risk = analyzeCustomerRisk(target, data.invoices);
     const balance = data.invoices.filter((invoice) => invoice.customerId === target.id).reduce((sum, invoice) => sum + Math.max(0, invoice.total - invoice.paid), target.openingBalance);
     return `أهلًا أستاذ/ة ${target.name}، نتمنى تكون بخير. حابين نفكّرك إن المتبقي على حسابك ${fmt(balance)} ج.م. يهمنا نرتب مع حضرتك موعد مناسب للسداد. شكرًا لتعاونك.\n\nملاحظة: مستوى المتابعة المقترح ${risk.level === "high" ? "عالي" : risk.level === "medium" ? "متوسط" : "عادي"}.`;
   }
-  return "أقدر أساعدك في التنبيهات، العملاء المتأخرين، الأصناف الناقصة، المبيعات والتحصيلات، مقارنة الربح، أو صياغة رسالة واتساب. اختَر سؤالًا محددًا من الاقتراحات أسفل المحادثة.";
+  return "أقدر أساعدك في كل أقسام سِجلّي: العملاء، الفواتير والدفعات، المنتجات والمخزن، الموردين والمشتريات، المصروفات، المنبه، التقارير، الأرشيف، النسخ الاحتياطي، والإعدادات والصلاحيات. اسأل مثلًا: «إزاي أسجل فاتورة؟» أو «فين أغيّر حد المخزون؟».";
 }
 
 export function RasdAssistant() {
@@ -182,7 +213,7 @@ export function RasdAssistant() {
 
             <div className="border-t border-border/70 px-4 pb-4 pt-3">
               <div className="no-scrollbar mb-3 flex gap-2 overflow-x-auto pb-1" dir="rtl">
-                {STARTERS.slice(0, 3).map((starter) => (
+                {STARTERS.map((starter) => (
                   <button key={starter} type="button" disabled={sending} onClick={() => void ask(starter)} className="press shrink-0 rounded-full border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground transition hover:border-primary/45 hover:text-primary disabled:opacity-50">
                     {starter}
                   </button>
@@ -206,7 +237,7 @@ export function RasdAssistant() {
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
-              <p className="mt-2 px-1 text-[10px] leading-5 text-muted-foreground">رَصْد يقدّم تحليلًا واقتراحات، ولا ينشئ أو يعدّل سجلات.</p>
+              <p className="mt-2 px-1 text-[10px] leading-5 text-muted-foreground">اسأل رَصْد عن بيانات المحل أو طريقة استخدام أي قسم. لا ينشئ أو يعدّل سجلات.</p>
             </div>
           </section>
         </div>
