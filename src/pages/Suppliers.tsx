@@ -372,7 +372,7 @@ function SupplierFormDialog({
           <DialogDescription className="text-right">بيانات المورد ومديونيته الافتتاحية.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3 text-right">
-          <div><Label>كود المورد</Label><Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="يُحدد تلقائياً" dir="ltr" maxLength={30} /></div>
+          <div><Label>كود المورد</Label><Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="يُحدد تلقائياً" dir="ltr" maxLength={30} readOnly /></div>
           <div><Label>الاسم</Label><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={100} /></div>
           <div><Label>رقم الهاتف</Label><Input value={contact} onChange={(e) => setContact(e.target.value)} dir="ltr" maxLength={30} /></div>
           <div>

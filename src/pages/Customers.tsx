@@ -1408,7 +1408,7 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
           {/* Code + Name + avatar */}
           <div>
             <Label>كود العميل</Label>
-            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="يُحدد تلقائياً" maxLength={30} dir="ltr" />
+            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="يُحدد تلقائياً" maxLength={30} dir="ltr" readOnly />
           </div>
           <div>
             <Label>الاسم</Label>
