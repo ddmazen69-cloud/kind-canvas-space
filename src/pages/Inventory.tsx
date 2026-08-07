@@ -26,7 +26,7 @@ import { db, useDB, fmt, fetchStockHistory, findStockByBarcode, lowStockThreshol
 import {
   Package, Search, Eye, EyeOff, AlertTriangle, Boxes, Wallet, Pencil, Trash2,
   History, Download, FileSpreadsheet, FileText, ArrowUp, ArrowDown, TrendingUp, TrendingDown,
-  ScanLine, Plus, Sparkles, PackagePlus, Scale, Shirt, Warehouse,
+  ScanLine, Plus, Sparkles, PackagePlus, Scale, Shirt, Warehouse, Sun, Snowflake,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
@@ -75,6 +75,7 @@ function InventoryPage() {
   const [scanOpen, setScanOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addPrefillBarcode, setAddPrefillBarcode] = useState<string | undefined>(undefined);
+  const [warehouseItem, setWarehouseItem] = useState<StockItem | null>(null);
 
   const onScanned = (code: string) => {
     setScanOpen(false);
@@ -117,10 +118,10 @@ function InventoryPage() {
       .sort((a, b) => a.quantity - b.quantity);
   }, [data.stockItems, q, tab]);
 
-  const sendToWarehouse = async (id: string) => {
+  const sendToWarehouse = async (id: string, season: "summer" | "winter" | "general") => {
     try {
-      await db.updateStockItem(id, { location: "warehouse" });
-      toast.success("تم نقل الصنف للمخزن 📦");
+      await db.updateStockItem(id, { location: "warehouse", season });
+      toast.success("تم نقل الصنف للمخزن 📦", { description: "يمكنك إعادته للمحل في أي وقت من صفحة المخزن." });
     } catch (e: any) {
       toast.error(e?.message ?? "تعذرت عملية النقل");
     }
@@ -356,7 +357,7 @@ ${list.map((it) => {
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-warning hover:bg-warning/10" title="تعديل" onClick={() => setEditing(it)}>
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10" title="نقل للمخزن" onClick={() => sendToWarehouse(it.id)}>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10" title="نقل للمخزن" onClick={() => setWarehouseItem(it)}>
                             <Warehouse className="w-4 h-4" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-danger hover:bg-danger/10" title="حذف" onClick={() => setDeleteId(it.id)}>
@@ -383,6 +384,11 @@ ${list.map((it) => {
       />
       <HistoryDialog item={historyItem} onClose={() => setHistoryItem(null)} />
       <BarcodeScanner open={scanOpen} onClose={() => setScanOpen(false)} onDetected={onScanned} title="مسح باركود — بحث في المخزن" />
+      <SendToWarehouseDialog
+        item={warehouseItem}
+        onClose={() => setWarehouseItem(null)}
+        onConfirm={sendToWarehouse}
+      />
 
       <AlertDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)}>
         <AlertDialogContent dir="rtl">
@@ -965,6 +971,84 @@ function AddProductDialog({ open, onOpenChange, prefillBarcode, existingBarcodes
           onDetected={(code) => { setBarcode(code); setScanOpen(false); toast.success("تم التقاط الكود"); }}
           title="مسح باركود الصنف الجديد"
         />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SendToWarehouseDialog — اختيار الموسم قبل نقل الصنف للمخزن
+──────────────────────────────────────────────────────────────── */
+function SendToWarehouseDialog({
+  item,
+  onClose,
+  onConfirm,
+}: {
+  item: StockItem | null;
+  onClose: () => void;
+  onConfirm: (id: string, season: "summer" | "winter" | "general") => Promise<void>;
+}) {
+  const [season, setSeason] = useState<"summer" | "winter" | "general">("general");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!item) return;
+    setBusy(true);
+    try {
+      await onConfirm(item.id, season);
+      onClose();
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Dialog open={!!item} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent dir="rtl" className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-right flex items-center gap-2">
+            <Warehouse className="w-5 h-5 text-blue-400" />
+            نقل للمخزن — {item?.name}
+          </DialogTitle>
+          <DialogDescription className="text-right">
+            اختر موسم هذا الصنف وسيختفي من صفحة المنتجات ويظهر في المخزن.
+            يمكنك إعادته للمحل في أي وقت من صفحة المخزن.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 py-2">
+          <Label>موسم الصنف</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              { value: "summer", label: "صيفي", icon: <Sun className="w-5 h-5 text-amber-400" />, color: "border-amber-400/50 bg-amber-400/10 text-amber-400" },
+              { value: "winter", label: "شتوي", icon: <Snowflake className="w-5 h-5 text-blue-400" />, color: "border-blue-400/50 bg-blue-400/10 text-blue-400" },
+              { value: "general", label: "عام", icon: <Package className="w-5 h-5 text-muted-foreground" />, color: "border-border bg-foreground/5 text-muted-foreground" },
+            ] as const).map((s) => (
+              <button
+                key={s.value}
+                type="button"
+                onClick={() => setSeason(s.value)}
+                className={cn(
+                  "flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 text-sm font-semibold transition-all duration-200",
+                  season === s.value ? s.color : "border-transparent bg-foreground/[0.03] text-muted-foreground hover:bg-foreground/[0.06]",
+                )}
+              >
+                {s.icon}
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={busy}>إلغاء</Button>
+          <Button
+            onClick={submit}
+            disabled={busy}
+            className="gap-1.5 bg-blue-500/15 border border-blue-400/30 text-blue-400 hover:bg-blue-500/25 hover:text-blue-300"
+          >
+            <Warehouse className="w-4 h-4" />
+            {busy ? "جاري النقل..." : "نقل للمخزن 📦"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
