@@ -455,7 +455,7 @@ function AddWarehouseDialog({ open, onOpenChange }: { open: boolean; onOpenChang
               </SelectTrigger>
               <SelectContent>
                 {STOCK_CATEGORY_GROUPS.map((g) =>
-                  g.items.map((item) => (
+                  g.options.map((item) => (
                     <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
                   ))
                 )}
