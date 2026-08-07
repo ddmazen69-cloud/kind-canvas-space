@@ -27,6 +27,7 @@ import {
   Package, Search, Eye, EyeOff, AlertTriangle, Boxes, Wallet, Pencil, Trash2,
   History, Download, FileSpreadsheet, FileText, ArrowUp, ArrowDown, TrendingUp, TrendingDown,
   ScanLine, Plus, Sparkles, PackagePlus, Scale, Shirt, Warehouse, Sun, Snowflake,
+  Barcode as BarcodeIcon,
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
@@ -36,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { usePrivacy } from "@/lib/privacy";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { generateBarcode } from "@/lib/barcode";
+import { BarcodeGenerator } from "@/components/BarcodeGenerator";
 
 
 const LOW_STOCK = lowStockThreshold;
@@ -76,6 +78,7 @@ function InventoryPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [addPrefillBarcode, setAddPrefillBarcode] = useState<string | undefined>(undefined);
   const [warehouseItem, setWarehouseItem] = useState<StockItem | null>(null);
+  const [genOpen, setGenOpen] = useState(false);
 
   const onScanned = (code: string) => {
     setScanOpen(false);
@@ -226,6 +229,10 @@ ${list.map((it) => {
             >
               {privacy ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               <span className="hidden sm:inline">إخفاء الأرقام</span>
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setGenOpen(true)}>
+              <BarcodeIcon className="w-4 h-4 text-primary" />
+              <span className="hidden sm:inline">مولد الباركود</span>
             </Button>
             <Button size="sm" className="gap-1.5" onClick={() => { setAddPrefillBarcode(undefined); setAddOpen(true); }}>
               <PackagePlus className="w-4 h-4" />
@@ -384,6 +391,7 @@ ${list.map((it) => {
       />
       <HistoryDialog item={historyItem} onClose={() => setHistoryItem(null)} />
       <BarcodeScanner open={scanOpen} onClose={() => setScanOpen(false)} onDetected={onScanned} title="مسح باركود — بحث في المخزن" />
+      <BarcodeGenerator open={genOpen} onOpenChange={setGenOpen} items={data.stockItems} />
       <SendToWarehouseDialog
         item={warehouseItem}
         onClose={() => setWarehouseItem(null)}
