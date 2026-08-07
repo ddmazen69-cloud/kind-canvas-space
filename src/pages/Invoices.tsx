@@ -414,7 +414,7 @@ function InvoicesPage() {
       </div>
 
       <HistoryDialog customer={historyFor} onClose={() => setHistoryFor(null)} invoices={data.invoices} payments={data.payments} items={data.invoiceItems} blurCls={blurCls} invoicePrefix={shopSettings.invoicePrefix} onEditInvoice={(i) => { setHistoryFor(null); setEditInv(i); }} onViewInvoice={(i) => { setHistoryFor(null); setViewInv(i); }} />
-      <ViewInvoiceDialog inv={viewInv} customer={viewInv ? findCustomer(viewInv.customerId) ?? null : null} invoiceNo={viewInv ? invoiceNumber(data.invoices, viewInv.id, shopSettings.invoicePrefix) : ""} onClose={() => setViewInv(null)} />
+      <ViewInvoiceDialog inv={viewInv} customer={viewInv ? findCustomer(viewInv.customerId) ?? null : null} invoiceNo={viewInv ? invoiceNumber(data.invoices, viewInv.id, shopSettings.invoicePrefix) : ""} items={data.invoiceItems} onClose={() => setViewInv(null)} />
       <EditInvoiceDialog inv={editInv} invoiceNo={editInv ? invoiceNumber(data.invoices, editInv.id, shopSettings.invoicePrefix) : ""} onClose={() => setEditInv(null)} />
       <ReminderDialog inv={reminderInv} customer={reminderInv ? findCustomer(reminderInv.customerId) ?? null : null} invoiceNo={reminderInv ? invoiceNumber(data.invoices, reminderInv.id, shopSettings.invoicePrefix) : ""} onClose={() => setReminderInv(null)} />
       <BarcodeScanner
@@ -678,10 +678,11 @@ function EditInvoiceItemDialog({ item, onClose }: { item: import("@/lib/store").
   );
 }
 
-function ViewInvoiceDialog({ inv, customer, invoiceNo, onClose }: { inv: Invoice | null; customer: Customer | null; invoiceNo: string; onClose: () => void }) {
+function ViewInvoiceDialog({ inv, customer, invoiceNo, items, onClose }: { inv: Invoice | null; customer: Customer | null; invoiceNo: string; items: import("@/lib/store").InvoiceItem[]; onClose: () => void }) {
   if (!inv) return null;
   const remaining = inv.total - inv.paid;
   const late = daysLate(inv);
+  const invItems = items.filter((it) => it.invoiceId === inv.id);
   const rows: [string, string, boolean?][] = [
     ["العميل", customer?.name ?? "—"],
     ["الهاتف", customer?.phone ?? "—", true],
@@ -697,11 +698,10 @@ function ViewInvoiceDialog({ inv, customer, invoiceNo, onClose }: { inv: Invoice
     ["تاريخ أول قسط", isoToDDMMYYYY(inv.firstDueDate), true],
     ["تاريخ الإنشاء", format(new Date(inv.createdAt), "dd/MM/yyyy"), true],
     ["الحالة", remaining === 0 ? "مسددة" : late > 0 ? `متأخرة ${late} يوم` : "نشطة"],
-    ["ملاحظات", inv.notes || "—"],
   ];
   return (
     <Dialog open={!!inv} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-w-md max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-right">تفاصيل الفاتورة {invoiceNo}</DialogTitle>
           <DialogDescription className="text-right">{customer?.name ?? "—"}</DialogDescription>
@@ -713,6 +713,23 @@ function ViewInvoiceDialog({ inv, customer, invoiceNo, onClose }: { inv: Invoice
               <span className="text-muted-foreground">{k}</span>
             </div>
           ))}
+          <div className="pt-1">
+            <div className="mb-1 text-sm font-bold">المنتجات</div>
+            {invItems.length === 0 ? (
+              <div className="text-xs text-muted-foreground py-2 text-center">
+                لا توجد منتجات مفصّلة لهذه الفاتورة (قد تكون فاتورة قديمة).
+              </div>
+            ) : (
+              <div className="divide-y divide-[var(--hairline)]">
+                {invItems.map((it) => (
+                  <div key={it.id} className="flex items-center justify-between py-1.5 text-sm">
+                    <span className="font-medium">{it.name}</span>
+                    <span className="font-bold tabular-nums">{fmt(it.price)} ج.م</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" className="w-full" onClick={onClose}>إغلاق</Button>
