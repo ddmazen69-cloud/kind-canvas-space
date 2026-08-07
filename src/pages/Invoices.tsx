@@ -83,16 +83,26 @@ function InvoicesPage() {
     let activeSalesTotal = 0;
     let monthCollections = 0;
     let overdueCount = 0;
+    let totalSales = 0;
+    let totalCollected = 0;
+    let monthSales = 0;
     for (const i of data.invoices) {
       const remaining = i.total - i.paid;
       if (remaining > 0) activeSalesTotal += remaining;
       if (remaining > 0 && daysLate(i) > 0) overdueCount++;
+      totalSales += i.total;
+      totalCollected += i.paid;
+      const created = new Date(i.createdAt);
+      if (created >= monthStart && created <= monthEnd) monthSales += i.total;
     }
     for (const p of data.payments) {
       const d = new Date(p.paidAt);
       if (d >= monthStart && d <= monthEnd) monthCollections += p.amount;
     }
-    return { activeSalesTotal, monthCollections, overdueCount };
+    const invoiceCount = data.invoices.length;
+    const avgInvoiceValue = invoiceCount > 0 ? totalSales / invoiceCount : 0;
+    const collectionRate = totalSales > 0 ? (totalCollected / totalSales) * 100 : 0;
+    return { activeSalesTotal, monthCollections, overdueCount, totalSales, totalCollected, monthSales, avgInvoiceValue, collectionRate };
   }, [data.invoices, data.payments]);
 
   const list = useMemo(() => {
@@ -203,10 +213,16 @@ function InvoicesPage() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <StatCard icon={<TrendingUp className="w-5 h-5" />} label="إجمالي المبيعات النشطة" value={`${fmt(stats.activeSalesTotal)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <StatCard icon={<FileText className="w-5 h-5" />} label="عدد الفواتير" value={String(counts.all)} tone="primary" trend="up" valueClassName={blurCls} />
+        <StatCard icon={<TrendingUp className="w-5 h-5" />} label="إجمالي المبيعات" value={`${fmt(stats.totalSales)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
+        <StatCard icon={<Banknote className="w-5 h-5" />} label="إجمالي المسدد" value={`${fmt(stats.totalCollected)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
+        <StatCard icon={<Wallet className="w-5 h-5" />} label="إجمالي المبيعات النشطة" value={`${fmt(stats.activeSalesTotal)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
         <StatCard icon={<CalendarDays className="w-5 h-5" />} label="تحصيلات الشهر الحالي" value={`${fmt(stats.monthCollections)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
         <StatCard icon={<AlertCircle className="w-5 h-5" />} label="الفواتير المتعثرة" value={String(stats.overdueCount)} tone="danger" trend="down" valueClassName={blurCls} />
+        <StatCard icon={<CalendarDays className="w-5 h-5" />} label="مبيعات الشهر الحالي" value={`${fmt(stats.monthSales)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
+        <StatCard icon={<FileText className="w-5 h-5" />} label="متوسط قيمة الفاتورة" value={`${fmt(Math.round(stats.avgInvoiceValue))} ج.م`} tone="primary" valueClassName={blurCls} />
+        <StatCard icon={<Percent className="w-5 h-5" />} label="نسبة التحصيل" value={`${stats.collectionRate.toFixed(1)}%`} tone="success" trend="up" valueClassName={blurCls} />
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="mb-4">
