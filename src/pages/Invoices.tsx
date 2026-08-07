@@ -753,34 +753,39 @@ function EditInvoiceDialog({ inv, onClose }: { inv: Invoice | null; onClose: () 
     setProducts((p) => p.map((x) => x.id === id ? { ...x, ...patch } : x));
 
   const submit = async () => {
-    const valid = products.filter((p) => p.name.trim() && Number(p.price) > 0);
-    if (valid.length === 0) return toast.error("أضف منتج واحد على الأقل");
-    if (!isCash && (!Number(monthly) || !date)) return toast.error("املأ بيانات الأقساط");
-    const iso = isCash ? format(new Date(), "yyyy-MM-dd") : format(date as Date, "yyyy-MM-dd");
+    try {
+      const valid = products.filter((p) => p.name.trim() && Number(p.price) > 0);
+      if (valid.length === 0) return toast.error("أضف منتج واحد على الأقل");
+      if (!isCash && (!Number(monthly) || !date)) return toast.error("املأ بيانات الأقساط");
+      if (profit < 0) return toast.error("صافي الربح سالب بعد الخصم — قلل الخصم أو ارفع سعر البيع");
+      const iso = isCash ? format(new Date(), "yyyy-MM-dd") : format(date as Date, "yyyy-MM-dd");
 
-    // Update invoice header
-    await db.updateInvoice(inv.id, {
-      total: netTotal,
-      discountAmount: discountValue,
-      discountPercent: totalPrice > 0 ? +((discountValue / totalPrice) * 100).toFixed(2) : 0,
-      downPayment: isCash ? netTotal : Number(down || 0),
-      monthlyInstallment: isCash ? 0 : Number(monthly),
-      firstDueDate: iso,
-      notes,
-    });
+      // Update invoice header
+      await db.updateInvoice(inv.id, {
+        total: netTotal,
+        discountAmount: discountValue,
+        discountPercent: totalPrice > 0 ? +((discountValue / totalPrice) * 100).toFixed(2) : 0,
+        downPayment: isCash ? netTotal : Number(down || 0),
+        monthlyInstallment: isCash ? 0 : Number(monthly),
+        firstDueDate: iso,
+        notes,
+      });
 
-    // Sync items: remove old that aren't kept, update existing, insert new
-    const existingIds = new Set(data.invoiceItems.filter((it) => it.invoiceId === inv.id).map((it) => it.id));
-    const keptIds = new Set(valid.filter((p) => existingIds.has(p.id)).map((p) => p.id));
-    for (const oldId of existingIds) if (!keptIds.has(oldId)) await db.removeInvoiceItem(oldId);
-    for (const p of valid) {
-      const payload = { name: p.name.trim(), cost: Number(p.cost || 0), price: Number(p.price || 0) };
-      if (existingIds.has(p.id)) await db.updateInvoiceItem(p.id, payload);
-      else await db.addInvoiceItem(inv.id, payload);
+      // Sync items: remove old that aren't kept, update existing, insert new
+      const existingIds = new Set(data.invoiceItems.filter((it) => it.invoiceId === inv.id).map((it) => it.id));
+      const keptIds = new Set(valid.filter((p) => existingIds.has(p.id)).map((p) => p.id));
+      for (const oldId of existingIds) if (!keptIds.has(oldId)) await db.removeInvoiceItem(oldId);
+      for (const p of valid) {
+        const payload = { name: p.name.trim(), cost: Number(p.cost || 0), price: Number(p.price || 0) };
+        if (existingIds.has(p.id)) await db.updateInvoiceItem(p.id, payload);
+        else await db.addInvoiceItem(inv.id, payload);
+      }
+
+      toast.success("تم تحديث الفاتورة");
+      onClose();
+    } catch (e: any) {
+      toast.error(e?.message ?? "تعذّر حفظ التعديلات، حاول مرة أخرى");
     }
-
-    toast.success("تم تحديث الفاتورة");
-    onClose();
   };
 
   return (
@@ -884,9 +889,14 @@ function EditInvoiceDialog({ inv, onClose }: { inv: Invoice | null; onClose: () 
             <span className={cn("font-extrabold", blurCls, profit >= 0 ? "text-success" : "text-danger")}>{fmt(profit)} ج.م</span>
             <span className="text-muted-foreground">صافي الربح المتوقع:</span>
           </div>
+          {profit < 0 && (
+            <div className="rounded-2xl bg-danger/10 px-3 py-2 text-xs font-bold text-danger">
+              صافي الربح سالب — لا يمكن حفظ الفاتورة بخصم أكبر من الربح. قلل الخصم أو ارفع سعر البيع.
+            </div>
+          )}
         </div>
         <DialogFooter>
-          <Button onClick={submit} className="w-full">حفظ التعديلات</Button>
+          <Button onClick={submit} disabled={profit < 0} className="w-full">حفظ التعديلات</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1226,8 +1236,10 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
         ? "أضف منتج واحد على الأقل بسعر صحيح"
         : !isCashMode && (!monthlyNum || !date)
           ? "أكمل بيانات الأقساط (القسط الشهري وتاريخ أول قسط)"
-          : !isCashMode && customer?.customerType === "cash"
-            ? "العميل فوري (نقدي) — لا يسمح بالتقسيط"
+        : !isCashMode && customer?.customerType === "cash"
+          ? "العميل فوري (نقدي) — لا يسمح بالتقسيط"
+          : profit < 0
+            ? "الخصم يجعل صافي الربح سالبًا — قلل الخصم أو ارفع سعر البيع"
             : null;
 
 
@@ -1287,6 +1299,7 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
     if (customerInfo?.wouldExceed && !isCash) {
       return toast.error(`تجاوز سقف المديونية (${fmt(customerInfo.limit)} ج.م) — عدّل المقدم أو ارفع السقف`);
     }
+    if (profit < 0) return toast.error("الخصم يجعل صافي الربح سالبًا — قلل الخصم أو ارفع سعر البيع");
     const iso = isCash ? format(new Date(), "yyyy-MM-dd") : format(date as Date, "yyyy-MM-dd");
     const summary = validProducts.map((p) => `${p.name.trim()}${Number(p.quantity) > 1 ? ` ×${p.quantity}` : ""}`).join("، ");
     const productNotes = `${summary}${notes ? ` — ${notes}` : ""}`;
