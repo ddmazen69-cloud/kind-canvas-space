@@ -1355,6 +1355,7 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
   const [creditLimit, setCreditLimit] = useState<string>(customer?.creditLimit ? String(customer.creditLimit) : "");
   const [openingBalance, setOpeningBalance] = useState<string>(customer?.openingBalance ? String(customer.openingBalance) : "");
   const [dueDay, setDueDay] = useState<number>(customer?.dueDay ?? 1);
+  const [ledgerNo, setLedgerNo] = useState(customer?.ledgerNo ?? "");
   const [pressed, setPressed] = useState(false);
 
   const phoneValid = EG_PHONE_RE.test(phone);
@@ -1371,6 +1372,7 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
       address: address || null, joiningDate: iso,
       creditLimit: Number(creditLimit) || 0, dueDay,
       openingBalance: Number(openingBalance) || 0,
+      ledgerNo: ledgerNo.trim() || null,
     };
     if (customer) {
       db.updateCustomer(customer.id, payload);
@@ -1511,6 +1513,15 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
                     onChange={(e) => setCreditLimit(e.target.value)}
                     placeholder="0 = بدون حد"
                     dir="ltr"
+                  />
+                </div>
+                <div>
+                  <Label>رقم العميل في الدفتر الورقي (اختياري)</Label>
+                  <Input
+                    value={ledgerNo}
+                    onChange={(e) => setLedgerNo(e.target.value)}
+                    placeholder="رقم العميل في الدفتر القديم..."
+                    maxLength={50}
                   />
                 </div>
               </motion.div>

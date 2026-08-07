@@ -126,6 +126,7 @@ function QuickCustomerForm({ onDone }: { onDone: () => void }) {
         notes: null, frozen: false, address: null,
         joiningDate: new Date().toISOString().slice(0, 10),
         creditLimit: 0, dueDay: 1, openingBalance: Number(opening) || 0,
+        ledgerNo: null,
       });
       toast.success("تمت إضافة العميل");
       onDone();

@@ -20,6 +20,7 @@ export interface Customer {
   creditLimit: number;
   dueDay: number;
   openingBalance: number;
+  ledgerNo: string | null;
   createdAt: string;
 }
 
@@ -178,6 +179,7 @@ async function fetchAll() {
       address: r.address, joiningDate: r.joining_date,
       creditLimit: Number(r.credit_limit ?? 0), dueDay: r.due_day ?? 1,
       openingBalance: Number(r.opening_balance ?? 0),
+      ledgerNo: r.ledger_no ?? null,
       createdAt: r.created_at,
     })),
     invoices: (i.data ?? []).map((r: any) => ({
@@ -333,6 +335,7 @@ export const db = {
       address: c.address, joining_date: c.joiningDate,
       credit_limit: c.creditLimit, due_day: c.dueDay,
       opening_balance: c.openingBalance,
+      ledger_no: c.ledgerNo,
     });
     if (error) throw error;
     await fetchAll();
@@ -351,6 +354,7 @@ export const db = {
     if (patch.creditLimit !== undefined) upd.credit_limit = patch.creditLimit;
     if (patch.dueDay !== undefined) upd.due_day = patch.dueDay;
     if (patch.openingBalance !== undefined) upd.opening_balance = patch.openingBalance;
+    if (patch.ledgerNo !== undefined) upd.ledger_no = patch.ledgerNo;
     if (patch.joiningDate !== undefined) upd.joining_date = patch.joiningDate;
     const { error } = await supabase.from("customers").update(upd).eq("id", id);
     if (error) throw error;
