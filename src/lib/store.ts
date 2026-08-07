@@ -113,6 +113,8 @@ export interface StockItem {
   customBarcode?: string | null;
   /** نوع الصنف (قسم الملابس/المفروشات) */
   category: string;
+  location: "shop" | "warehouse";
+  season: "summer" | "winter" | "general";
   createdAt: string;
   updatedAt: string;
 }
@@ -221,6 +223,8 @@ async function fetchAll() {
       minQuantity: r.min_quantity ?? null,
       customBarcode: r.custom_barcode ?? null,
       category: r.category ?? "other",
+      location: r.location ?? "shop",
+      season: r.season ?? "general",
       createdAt: r.created_at, updatedAt: r.updated_at,
     })),
   };
@@ -655,7 +659,7 @@ export const db = {
 
   async updateStockItem(
     id: string,
-    patch: Partial<{ name: string; quantity: number; lastUnitCost: number; salePrice: number; barcode: string | null; category: string; minQuantity?: number | null; customBarcode?: string | null }>,
+    patch: Partial<{ name: string; quantity: number; lastUnitCost: number; salePrice: number; barcode: string | null; category: string; minQuantity?: number | null; customBarcode?: string | null; location?: "shop" | "warehouse"; season?: "summer" | "winter" | "general" }>,
     adjustment?: { delta: number; reason: string; notes?: string },
   ) {
     const upd: any = {};
@@ -667,6 +671,8 @@ export const db = {
     if (patch.minQuantity !== undefined) upd.min_quantity = patch.minQuantity;
     if (patch.customBarcode !== undefined) upd.custom_barcode = patch.customBarcode || null;
     if (patch.category !== undefined) upd.category = patch.category;
+    if (patch.location !== undefined) upd.location = patch.location;
+    if (patch.season !== undefined) upd.season = patch.season;
     const { error } = await supabase.from("stock_items").update(upd).eq("id", id);
     if (error) throw error;
     if (adjustment && adjustment.delta !== 0) {
@@ -702,7 +708,7 @@ export const db = {
     await fetchAll();
     return next;
   },
-  async addStockItem(item: { name: string; quantity?: number; lastUnitCost?: number; salePrice?: number; barcode?: string | null; category?: string; minQuantity?: number | null; customBarcode?: string | null }) {
+  async addStockItem(item: { name: string; quantity?: number; lastUnitCost?: number; salePrice?: number; barcode?: string | null; category?: string; minQuantity?: number | null; customBarcode?: string | null; location?: "shop" | "warehouse"; season?: "summer" | "winter" | "general" }) {
     const user_id = await uid();
     const payload: any = {
       user_id,
@@ -712,6 +718,8 @@ export const db = {
       sale_price: item.salePrice ?? 0,
       barcode: item.barcode ?? null,
       category: item.category ?? "other",
+      location: item.location ?? "shop",
+      season: item.season ?? "general",
     };
     if (item.minQuantity !== undefined) payload.min_quantity = item.minQuantity;
     if (item.customBarcode !== undefined) payload.custom_barcode = item.customBarcode ?? null;

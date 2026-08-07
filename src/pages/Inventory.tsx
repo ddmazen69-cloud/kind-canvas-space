@@ -26,8 +26,9 @@ import { db, useDB, fmt, fetchStockHistory, findStockByBarcode, lowStockThreshol
 import {
   Package, Search, Eye, EyeOff, AlertTriangle, Boxes, Wallet, Pencil, Trash2,
   History, Download, FileSpreadsheet, FileText, ArrowUp, ArrowDown, TrendingUp, TrendingDown,
-  ScanLine, Plus, Sparkles, PackagePlus, Scale, Shirt,
+  ScanLine, Plus, Sparkles, PackagePlus, Scale, Shirt, Warehouse,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { pdfDocument, openPdfDocument, esc } from "@/lib/pdf-doc";
 import { toast } from "sonner";
@@ -102,8 +103,11 @@ function InventoryPage() {
     return { totalItems, value, low, avgCost };
   }, [data.stockItems]);
 
+  const navigate = useNavigate();
+
   const list = useMemo(() => {
     return data.stockItems
+      .filter((it) => it.location !== "warehouse")
       .filter((it) => {
         if (tab === "out") return it.quantity <= 0;
         if (tab === "low") return it.quantity > 0 && it.quantity < LOW_STOCK();
@@ -112,6 +116,15 @@ function InventoryPage() {
       .filter((it) => (q ? (it.name.includes(q) || (it.barcode ?? "").includes(q)) : true))
       .sort((a, b) => a.quantity - b.quantity);
   }, [data.stockItems, q, tab]);
+
+  const sendToWarehouse = async (id: string) => {
+    try {
+      await db.updateStockItem(id, { location: "warehouse" });
+      toast.success("تم نقل الصنف للمخزن 📦");
+    } catch (e: any) {
+      toast.error(e?.message ?? "تعذرت عملية النقل");
+    }
+  };
 
   const exportExcel = async () => {
     try {
@@ -342,6 +355,9 @@ ${list.map((it) => {
                           </Button>
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-warning hover:bg-warning/10" title="تعديل" onClick={() => setEditing(it)}>
                             <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10" title="نقل للمخزن" onClick={() => sendToWarehouse(it.id)}>
+                            <Warehouse className="w-4 h-4" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-danger hover:bg-danger/10" title="حذف" onClick={() => setDeleteId(it.id)}>
                             <Trash2 className="w-4 h-4" />
