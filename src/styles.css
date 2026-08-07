@@ -203,6 +203,11 @@
   }
 }
 
+[data-sonner-toaster],
+[data-sonner-toaster] * {
+  font-family: 'Cairo', system-ui, sans-serif !important;
+}
+
 @layer utilities {
   @keyframes fade-in {
     from { opacity: 0; transform: translateY(8px); }
