@@ -443,7 +443,7 @@ function BlockedCustomersPage() {
                 const initial = c.name.trim().slice(0, 1) || "؟";
                 const waMessage = blockedWhatsAppMessage(c, m.balance, m.worstLate);
                 const waPhone = c.phone.replace(/^0/, "20");
-                const waUrl = \`https://wa.me/\${waPhone}?text=\${encodeURIComponent(waMessage)}\`;
+                const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(waMessage)}`;
 
                 return (
                   <motion.div
