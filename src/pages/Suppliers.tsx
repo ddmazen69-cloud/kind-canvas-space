@@ -18,7 +18,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  db, useDB, fmt, supplierBalance, findStockByBarcode,
+  db, useDB, fmt, supplierBalance, findStockByBarcode, nextEntityCode,
   type Supplier, type Purchase, type PurchasePaymentType, type SupplierPayment,
 } from "@/lib/store";
 import {
@@ -319,6 +319,8 @@ function StatBox({
 function SupplierFormDialog({
   open, onOpenChange, editing,
 }: { open: boolean; onOpenChange: (v: boolean) => void; editing: Supplier | null }) {
+  const data = useDB();
+  const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [notes, setNotes] = useState("");
@@ -328,6 +330,7 @@ function SupplierFormDialog({
 
   // Reset on open
   useMemoOnOpen(open, () => {
+    setCode(editing?.code ?? nextEntityCode(data.suppliers, "S"));
     setName(editing?.name ?? "");
     setContact(editing?.contact ?? "");
     setNotes(editing?.notes ?? "");
@@ -341,6 +344,7 @@ function SupplierFormDialog({
     try {
       if (editing) {
         await db.updateSupplier(editing.id, {
+          code: code.trim() || null,
           name: name.trim(), contact: contact.trim(),
           notes: notes.trim() || null, openingBalance: Number(opening) || 0,
           joiningDate,
@@ -348,6 +352,7 @@ function SupplierFormDialog({
         toast.success("تم تحديث المورد");
       } else {
         await db.addSupplier({
+          code: code.trim() || null,
           name: name.trim(), contact: contact.trim(),
           notes: notes.trim() || null, openingBalance: Number(opening) || 0,
           joiningDate,
@@ -367,6 +372,7 @@ function SupplierFormDialog({
           <DialogDescription className="text-right">بيانات المورد ومديونيته الافتتاحية.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3 text-right">
+          <div><Label>كود المورد</Label><Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="يُحدد تلقائياً" dir="ltr" maxLength={30} /></div>
           <div><Label>الاسم</Label><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={100} /></div>
           <div><Label>رقم الهاتف</Label><Input value={contact} onChange={(e) => setContact(e.target.value)} dir="ltr" maxLength={30} /></div>
           <div>

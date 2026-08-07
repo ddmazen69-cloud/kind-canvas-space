@@ -3,14 +3,14 @@ import { Users } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { Reveal } from "@/components/Reveal";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { StarRating } from "@/components/StarRating";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CustomerTypeBadge } from "@/components/CustomerTypeBadge";
-import { useDB, db, fmt, aiScript, daysLate, analyzeCustomerRisk, type Customer, type CustomerStatus, type CustomerType, type Invoice } from "@/lib/store";
+import { useDB, db, fmt, aiScript, daysLate, analyzeCustomerRisk, nextEntityCode, type Customer, type CustomerStatus, type CustomerType, type Invoice } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -1342,7 +1342,9 @@ function DeleteTimelineEntry({ kind, id }: { kind: "invoice" | "payment"; id: st
 
 function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: React.ReactNode }) {
   const today = new Date().toISOString().slice(0, 10);
+  const data = useDB();
   const [open, setOpen] = useState(false);
+  const [code, setCode] = useState(customer?.code ?? "");
   const [name, setName] = useState(customer?.name ?? "");
   const [phone, setPhone] = useState(customer?.phone ?? "");
   const [rating, setRating] = useState<number>(customer?.rating ?? 3);
@@ -1358,6 +1360,13 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
   const [ledgerNo, setLedgerNo] = useState(customer?.ledgerNo ?? "");
   const [pressed, setPressed] = useState(false);
 
+  useEffect(() => {
+    if (!open) return;
+    if (customer) setCode(customer.code ?? "");
+    else setCode(nextEntityCode(data.customers, "C"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, customer]);
+
   const phoneValid = EG_PHONE_RE.test(phone);
   const initials = name.trim() ? name.trim().split(/\s+/).slice(0, 2).map((s) => s[0]).join("") : "";
 
@@ -1367,6 +1376,7 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
     const iso = joiningDate;
     if (!iso) return toast.error("اختر تاريخ الانضمام");
     const payload = {
+      code: code.trim() || null,
       name, phone, rating: rating as any, status, customerType,
       notes, frozen,
       address: address || null, joiningDate: iso,
@@ -1395,7 +1405,11 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
           <DialogDescription className="text-right">أدخل تفاصيل العميل والتقييم الائتماني.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          {/* Name + avatar */}
+          {/* Code + Name + avatar */}
+          <div>
+            <Label>كود العميل</Label>
+            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="يُحدد تلقائياً" maxLength={30} dir="ltr" />
+          </div>
           <div>
             <Label>الاسم</Label>
             <div className="flex items-center gap-3">

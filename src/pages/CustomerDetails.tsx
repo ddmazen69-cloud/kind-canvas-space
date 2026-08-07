@@ -594,7 +594,7 @@ function CustomerDetailPage() {
                     <table className="w-full min-w-[760px] text-sm">
                       <thead className="bg-foreground/[0.04] text-muted-foreground">
                         <tr>
-                          <th className="p-3 text-right">رقم الفاتورة</th>
+                          <th className="p-3 text-right">كود الفاتورة</th>
                           <th className="p-3 text-right">التاريخ</th>
                           <th className="p-3 text-right">الإجمالي</th>
                           <th className="p-3 text-right">المسدد</th>

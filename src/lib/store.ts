@@ -8,6 +8,7 @@ export type CustomerType = "installment" | "cash";
 
 export interface Customer {
   id: string;
+  code: string | null;
   name: string;
   phone: string;
   rating: number;
@@ -65,6 +66,7 @@ export interface Expense {
 
 export interface Supplier {
   id: string;
+  code: string | null;
   name: string;
   contact: string;
   notes: string | null;
@@ -173,7 +175,7 @@ async function fetchAll() {
   ]);
   cache = {
     customers: (c.data ?? []).map((r: any) => ({
-      id: r.id, name: r.name, phone: r.phone, rating: r.rating,
+      id: r.id, code: r.code ?? null, name: r.name, phone: r.phone, rating: r.rating,
       status: r.status as CustomerStatus, customerType: (r.customer_type ?? 'installment') as CustomerType,
       notes: r.notes, frozen: r.frozen,
       address: r.address, joiningDate: r.joining_date,
@@ -199,7 +201,7 @@ async function fetchAll() {
       cost: Number(r.cost ?? 0), price: Number(r.price ?? 0), createdAt: r.created_at,
     })),
     suppliers: (s.data ?? []).map((r: any) => ({
-      id: r.id, name: r.name, contact: r.contact ?? "", notes: r.notes,
+      id: r.id, code: r.code ?? null, name: r.name, contact: r.contact ?? "", notes: r.notes,
       openingBalance: Number(r.opening_balance ?? 0),
       joiningDate: r.joining_date ?? String(r.created_at).slice(0, 10),
       createdAt: r.created_at,
@@ -329,7 +331,7 @@ export const db = {
   async addCustomer(c: Omit<Customer, "id" | "createdAt">) {
     const user_id = await uid();
     const { error } = await supabase.from("customers").insert({
-      user_id, name: c.name, phone: c.phone, rating: c.rating, status: c.status,
+      user_id, code: c.code, name: c.name, phone: c.phone, rating: c.rating, status: c.status,
       customer_type: c.customerType ?? 'installment',
       notes: c.notes, frozen: c.frozen,
       address: c.address, joining_date: c.joiningDate,
@@ -342,6 +344,7 @@ export const db = {
   },
   async updateCustomer(id: string, patch: Partial<Customer>) {
     const upd: any = {};
+    if (patch.code !== undefined) upd.code = patch.code;
     if (patch.name !== undefined) upd.name = patch.name;
     if (patch.phone !== undefined) upd.phone = patch.phone;
     if (patch.rating !== undefined) upd.rating = patch.rating;
@@ -495,7 +498,7 @@ export const db = {
   async addSupplier(s: Omit<Supplier, "id" | "createdAt">) {
     const user_id = await uid();
     const { error } = await supabase.from("suppliers").insert({
-      user_id, name: s.name, contact: s.contact, notes: s.notes,
+      user_id, code: s.code, name: s.name, contact: s.contact, notes: s.notes,
       opening_balance: s.openingBalance, joining_date: s.joiningDate,
     });
     if (error) throw error;
@@ -503,6 +506,7 @@ export const db = {
   },
   async updateSupplier(id: string, patch: Partial<Omit<Supplier, "id" | "createdAt">>) {
     const upd: any = {};
+    if (patch.code !== undefined) upd.code = patch.code;
     if (patch.name !== undefined) upd.name = patch.name;
     if (patch.contact !== undefined) upd.contact = patch.contact;
     if (patch.notes !== undefined) upd.notes = patch.notes;
@@ -891,6 +895,16 @@ export function daysUntilDue(inv: { firstDueDate: string }) {
   const due = new Date(inv.firstDueDate); due.setHours(0, 0, 0, 0);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   return Math.round((due.getTime() - today.getTime()) / 86400000);
+}
+
+/** توليد كود تلقائي متسلسل (مثل C-0001 أو S-0001) حسب الأكواد الموجودة. */
+export function nextEntityCode(entities: Array<{ code: string | null }>, prefix: string): string {
+  const re = new RegExp(`^${prefix}-(\\d+)$`);
+  const max = entities.reduce((mx, e) => {
+    const m = re.exec(e.code ?? "");
+    return m ? Math.max(mx, parseInt(m[1], 10)) : mx;
+  }, 0);
+  return `${prefix}-${String(max + 1).padStart(4, "0")}`;
 }
 
 /**

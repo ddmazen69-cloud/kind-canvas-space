@@ -124,7 +124,7 @@ function InvoicesPage() {
   const findCustomer = (id: string) => data.customers.find((c) => c.id === id);
 
   const exportCSV = () => {
-    const headers = ["رقم الفاتورة", "العميل", "الهاتف", "الإجمالي", "المسدد", "المتبقي", "القسط الشهري", "تاريخ أول قسط", "تاريخ الإنشاء", "الحالة"];
+    const headers = ["كود الفاتورة", "العميل", "الهاتف", "الإجمالي", "المسدد", "المتبقي", "القسط الشهري", "تاريخ أول قسط", "تاريخ الإنشاء", "الحالة"];
     const rows = list.map((inv) => {
       const c = findCustomer(inv.customerId);
       const remaining = inv.total - inv.paid;
@@ -292,7 +292,7 @@ function InvoicesPage() {
           <table className="w-full text-sm">
             <thead className="bg-foreground/[0.04] text-muted-foreground">
               <tr>
-                <th className="text-right p-4 font-medium">رقم الفاتورة</th>
+                <th className="text-right p-4 font-medium">كود الفاتورة</th>
                 <th className="text-right p-4 font-medium">العميل</th>
                 <th className="text-right p-4 font-medium">القيمة / المتبقي</th>
                 <th className="text-right p-4 font-medium">القسط / الاستحقاق</th>
@@ -936,7 +936,7 @@ function printReceipt(
     brandSub: shop.shopName || undefined,
     meta: [
       { label: "تاريخ الإصدار", value: today },
-      { label: "رقم الفاتورة", value: escapeHtml(invNo) },
+      { label: "كود الفاتورة", value: escapeHtml(invNo) },
       ...(shop.phone ? [{ label: "هاتف المحل", value: escapeHtml(shop.phone) }] : []),
       ...(shop.address ? [{ label: "العنوان", value: escapeHtml(shop.address) }] : []),
       ...(shop.taxNumber ? [{ label: "الرقم الضريبي", value: escapeHtml(shop.taxNumber) }] : []),
@@ -1277,7 +1277,7 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
           </DialogDescription>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-3 text-right">
-              <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">رقم الفاتورة</div>
+              <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">كود الفاتورة</div>
               <div className="mt-1 text-lg font-semibold">{nextInvoiceNumber}</div>
             </div>
             <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-3 text-right">
