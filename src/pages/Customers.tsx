@@ -1541,47 +1541,51 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
           </AnimatePresence>
 
 
-          {/* Opening balance */}
-          <div>
-            <Label className="flex items-center gap-1.5 justify-end">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button type="button" aria-label="معلومات">
-                      <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    لتسجيل مديونية قديمة من الدفاتر الورقية بدون إنشاء فاتورة وهمية. يضاف فوراً إلى إجمالي ديون العميل.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <span>رصيد افتتاحي / مديونية سابقة (ج.م)</span>
-            </Label>
-            <Input
-              type="number"
-              min={0}
-              value={openingBalance}
-              onChange={(e) => setOpeningBalance(e.target.value)}
-              placeholder="0"
-              dir="ltr"
-            />
-          </div>
+          {customerType === "installment" && (
+            <>
+              {/* Opening balance */}
+              <div>
+                <Label className="flex items-center gap-1.5 justify-end">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" aria-label="معلومات">
+                          <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        لتسجيل مديونية قديمة من الدفاتر الورقية بدون إنشاء فاتورة وهمية. يضاف فوراً إلى إجمالي ديون العميل.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <span>رصيد افتتاحي / مديونية سابقة (ج.م)</span>
+                </Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={openingBalance}
+                  onChange={(e) => setOpeningBalance(e.target.value)}
+                  placeholder="0"
+                  dir="ltr"
+                />
+              </div>
 
-          {/* Status tabs */}
-          <div>
-            <Label>حالة الالتزام</Label>
-            <Tabs value={status} onValueChange={(v) => setStatus(v as CustomerStatus)}>
-              <TabsList className="grid grid-cols-3 w-full">
-                {STATUS_TABS.map((t) => (
-                  <TabsTrigger key={t.value} value={t.value} className={cn("gap-1.5", t.active)}>
-                    <span className={cn("w-2 h-2 rounded-full", t.dot)} />
-                    {t.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </div>
+              {/* Status tabs */}
+              <div>
+                <Label>حالة الالتزام</Label>
+                <Tabs value={status} onValueChange={(v) => setStatus(v as CustomerStatus)}>
+                  <TabsList className="grid grid-cols-3 w-full">
+                    {STATUS_TABS.map((t) => (
+                      <TabsTrigger key={t.value} value={t.value} className={cn("gap-1.5", t.active)}>
+                        <span className={cn("w-2 h-2 rounded-full", t.dot)} />
+                        {t.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+              </div>
+            </>
+          )}
 
           {/* Star rating */}
           <div>
