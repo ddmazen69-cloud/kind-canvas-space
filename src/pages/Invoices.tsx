@@ -214,15 +214,15 @@ function InvoicesPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <StatCard icon={<FileText className="w-5 h-5" />} label="عدد الفواتير" value={String(counts.all)} tone="primary" trend="up" valueClassName={blurCls} />
-        <StatCard icon={<TrendingUp className="w-5 h-5" />} label="إجمالي المبيعات" value={`${fmt(stats.totalSales)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
-        <StatCard icon={<Banknote className="w-5 h-5" />} label="إجمالي المسدد" value={`${fmt(stats.totalCollected)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
-        <StatCard icon={<Wallet className="w-5 h-5" />} label="إجمالي المبيعات النشطة" value={`${fmt(stats.activeSalesTotal)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
-        <StatCard icon={<CalendarDays className="w-5 h-5" />} label="تحصيلات الشهر الحالي" value={`${fmt(stats.monthCollections)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
-        <StatCard icon={<AlertCircle className="w-5 h-5" />} label="الفواتير المتعثرة" value={String(stats.overdueCount)} tone="danger" trend="down" valueClassName={blurCls} />
-        <StatCard icon={<CalendarDays className="w-5 h-5" />} label="مبيعات الشهر الحالي" value={`${fmt(stats.monthSales)} ج.م`} tone="success" trend="up" valueClassName={blurCls} />
-        <StatCard icon={<FileText className="w-5 h-5" />} label="متوسط قيمة الفاتورة" value={`${fmt(Math.round(stats.avgInvoiceValue))} ج.م`} tone="primary" valueClassName={blurCls} />
-        <StatCard icon={<Percent className="w-5 h-5" />} label="نسبة التحصيل" value={`${stats.collectionRate.toFixed(1)}%`} tone="success" trend="up" valueClassName={blurCls} />
+        <StatCard icon={<FileText className="w-5 h-5" />} label="عدد الفواتير" value={String(counts.all)} tone="primary" trend="up" valueClassName={blurCls} onClick={() => setTab("all")} />
+        <StatCard icon={<TrendingUp className="w-5 h-5" />} label="إجمالي المبيعات" value={`${fmt(stats.totalSales)} ج.م`} tone="success" trend="up" valueClassName={blurCls} onClick={() => setTab("all")} />
+        <StatCard icon={<Banknote className="w-5 h-5" />} label="إجمالي المسدد" value={`${fmt(stats.totalCollected)} ج.م`} tone="success" trend="up" valueClassName={blurCls} onClick={() => setTab("settled")} />
+        <StatCard icon={<Wallet className="w-5 h-5" />} label="إجمالي المبيعات النشطة" value={`${fmt(stats.activeSalesTotal)} ج.م`} tone="success" trend="up" valueClassName={blurCls} onClick={() => setTab("active")} />
+        <StatCard icon={<CalendarDays className="w-5 h-5" />} label="تحصيلات الشهر الحالي" value={`${fmt(stats.monthCollections)} ج.م`} tone="success" trend="up" valueClassName={blurCls} onClick={() => setTab("settled")} />
+        <StatCard icon={<AlertCircle className="w-5 h-5" />} label="الفواتير المتعثرة" value={String(stats.overdueCount)} tone="danger" trend="down" valueClassName={blurCls} onClick={() => setTab("overdue")} />
+        <StatCard icon={<CalendarDays className="w-5 h-5" />} label="مبيعات الشهر الحالي" value={`${fmt(stats.monthSales)} ج.م`} tone="success" trend="up" valueClassName={blurCls} onClick={() => setTab("all")} />
+        <StatCard icon={<FileText className="w-5 h-5" />} label="متوسط قيمة الفاتورة" value={`${fmt(Math.round(stats.avgInvoiceValue))} ج.م`} tone="primary" valueClassName={blurCls} onClick={() => setTab("all")} />
+        <StatCard icon={<Percent className="w-5 h-5" />} label="نسبة التحصيل" value={`${stats.collectionRate.toFixed(1)}%`} tone="success" trend="up" valueClassName={blurCls} onClick={() => setTab("settled")} />
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="mb-4">
@@ -436,11 +436,17 @@ function InvoicesPage() {
   );
 }
 
-function StatCard({ icon, label, value, tone, trend, valueClassName }: { icon: React.ReactNode; label: string; value: string; tone: "primary" | "success" | "danger"; trend?: "up" | "down"; valueClassName?: string }) {
+function StatCard({ icon, label, value, tone, trend, valueClassName, onClick }: { icon: React.ReactNode; label: string; value: string; tone: "primary" | "success" | "danger"; trend?: "up" | "down"; valueClassName?: string; onClick?: () => void }) {
   const toneCls = tone === "primary" ? "bg-primary/10 text-primary border-primary/30" : tone === "success" ? "bg-success/10 text-success border-success/30" : "bg-danger/10 text-danger border-danger/30";
   const valueCls = tone === "success" ? "text-success" : tone === "danger" ? "text-danger" : "";
+  const interactive = onClick ? "cursor-pointer group-hover:border-primary/60 w-full text-start" : "w-full";
   return (
-    <div className={cn("flex min-h-[150px] flex-col justify-between rounded-[1.5rem] bg-card/70 p-6 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 animate-[fade-in_0.4s_ease-out] md:p-7", tone === "success" ? "border-success/30 hover:border-success/60" : tone === "danger" ? "border-danger/30 hover:border-danger/60" : "border-border hover:border-primary/40")}>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={cn("group flex min-h-[150px] flex-col justify-between rounded-[1.5rem] bg-card/70 p-6 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] animate-[fade-in_0.4s_ease-out] md:p-7", tone === "success" ? "border-success/30 hover:border-success/60" : tone === "danger" ? "border-danger/30 hover:border-danger/60" : "border-border hover:border-primary/40", interactive, onClick ? "hover:-translate-y-0.5" : "cursor-default")}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 text-xs text-muted-foreground flex items-center gap-1">
           {label}
@@ -449,8 +455,8 @@ function StatCard({ icon, label, value, tone, trend, valueClassName }: { icon: R
         </div>
         <div className={cn("w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0", toneCls)}>{icon}</div>
       </div>
-      <div className={cn("mt-4 text-3xl font-extrabold leading-none tabular-nums truncate md:text-4xl", valueCls, valueClassName)}>{value}</div>
-    </div>
+      <div className={cn("mt-4 text-3xl font-extrabold leading-[1.3] tabular-nums truncate pb-1 md:text-4xl", valueCls, valueClassName)}>{value}</div>
+    </button>
   );
 }
 
