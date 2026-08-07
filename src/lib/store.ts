@@ -731,18 +731,10 @@ export const db = {
     if (patch.season !== undefined) upd.season = patch.season;
     const hasLocationSeason = patch.location !== undefined || patch.season !== undefined;
     let { error } = await supabase.from("stock_items").update(upd).eq("id", id);
-    if (error && hasLocationSeason) {
-      // Columns might not exist yet — retry without location/season (migration pending)
-      const safeUpd = { ...upd };
-      delete safeUpd.location;
-      delete safeUpd.season;
-      if (Object.keys(safeUpd).length > 0) {
-        const retry = await supabase.from("stock_items").update(safeUpd).eq("id", id);
-        if (retry.error) throw retry.error;
-        error = null;
-      } else {
-        error = null; // nothing else to update
-      }
+    if (error && hasLocationSeason && /column .*\.(location|season).* does not exist/i.test(error.message)) {
+      // Column missing in the database — migration not applied. Surface it clearly
+      // instead of silently succeeding (the old fallback showed a false success toast).
+      throw new Error("ميزة المخزن تحتاج تحديث قاعدة البيانات: أعد تفعيل النشر من Lovable لتطبيق الـ migration، أو أضف عمودي location وseason لجدول stock_items");
     } else if (error) {
       throw error;
     }
