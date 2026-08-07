@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "@/lib/router-compat";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "@/lib/router-compat";
 import { BezelCard } from "@/components/BezelCard";
 import { DateField } from "@/components/DateField";
 import { AppShell } from "@/components/AppShell";
@@ -14,6 +14,8 @@ import {
   ChevronDown,
   CircleDollarSign,
   Download,
+  Eye,
+  EyeOff,
   FileText,
   FileDown,
   Plus,
@@ -27,9 +29,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { db, useDB, fmt, EXPENSE_CATEGORIES, expenseCategoryLabel, type ExpenseCategory } from "@/lib/store";
+import { useDB, fmt, expenseCategoryLabel } from "@/lib/store";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
 import { toast } from "sonner";
+import { usePrivacy } from "@/lib/privacy";
 
 function escapeHtml(s: string) {
   return String(s || "").replace(/[&<>"']/g, (c) => ({
@@ -60,7 +63,9 @@ function invoiceStatusKey(inv: { total: number; paid: number }) {
 }
 
 export default function DailyLog() {
-  const { invoices, customers, expenses, loading } = useDB();
+  const { invoices, customers, expenses, payments } = useDB();
+  const navigate = useNavigate();
+  const { privacy, toggle } = usePrivacy();
   const today = new Date().toISOString().slice(0, 10);
   const [selectedDate, setSelectedDate] = useState(today);
   const [customerFilter, setCustomerFilter] = useState("");
@@ -69,11 +74,6 @@ export default function DailyLog() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dailyNote, setDailyNote] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
-  const [expenseAmount, setExpenseAmount] = useState("");
-  const [expenseCategory, setExpenseCategory] = useState<ExpenseCategory>("other");
-  const [expenseNotes, setExpenseNotes] = useState("");
-  const [savingExpense, setSavingExpense] = useState(false);
-  const expenseFormRef = useRef<HTMLDivElement>(null);
 
   const noteStorageKey = `daily-log-note:${selectedDate}`;
 
@@ -133,7 +133,32 @@ export default function DailyLog() {
   }, [filteredInvoices]);
 
   const expenseTotal = todaysExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const netCash = totals.totalPaid - expenseTotal;
+  const paymentTotals = useMemo(() => {
+    const invoiceById = new Map(invoices.map((invoice) => [invoice.id, invoice]));
+    const paymentsToday = payments.filter((payment) => (payment.paidAt || "").slice(0, 10) === selectedDate);
+    const followUpPaid = paymentsToday.reduce(
+      (result, payment) => {
+        const invoice = invoiceById.get(payment.invoiceId);
+        if (!invoice) return result;
+        if (invoice.monthlyInstallment > 0) result.installment += payment.amount;
+        else result.cash += payment.amount;
+        return result;
+      },
+      { cash: 0, installment: 0 },
+    );
+    const downPaymentsToday = todaysInvoices.reduce(
+      (result, invoice) => {
+        if (invoice.monthlyInstallment > 0) result.installment += invoice.downPayment;
+        else result.cash += invoice.downPayment;
+        return result;
+      },
+      { cash: 0, installment: 0 },
+    );
+    const cash = followUpPaid.cash + downPaymentsToday.cash;
+    const installment = followUpPaid.installment + downPaymentsToday.installment;
+    return { cash, installment, total: cash + installment };
+  }, [invoices, payments, selectedDate, todaysInvoices]);
+  const netCash = paymentTotals.total - expenseTotal;
   const hasFilters = Boolean(customerFilter || typeFilter !== "all" || statusFilter !== "all" || searchQuery.trim());
   const selectedDateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString("ar-EG", {
     weekday: "long",
@@ -148,10 +173,7 @@ export default function DailyLog() {
     setSearchQuery("");
   };
 
-  const focusExpenseForm = () => {
-    expenseFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    window.setTimeout(() => document.getElementById("daily-expense-amount")?.focus(), 450);
-  };
+  const goToExpenses = () => navigate("/expenses");
 
   const customersOptions = useMemo(
     () => customers.map((customer) => ({ value: customer.id, label: customer.name })),
@@ -276,30 +298,6 @@ export default function DailyLog() {
     }
   };
 
-  const addExpense = async () => {
-    const amount = Number(expenseAmount);
-    if (!amount || amount <= 0) {
-      toast.error("أدخل مبلغ مصروف صحيح");
-      return;
-    }
-    setSavingExpense(true);
-    try {
-      await db.addExpense({
-        amount,
-        category: expenseCategory,
-        expenseDate: selectedDate,
-        notes: expenseNotes.trim() || null,
-      });
-      setExpenseAmount("");
-      setExpenseNotes("");
-      toast.success("تم إضافة المصروف");
-    } catch (error: any) {
-      toast.error(error?.message ?? "فشل إضافة المصروف");
-    } finally {
-      setSavingExpense(false);
-    }
-  };
-
   const PageContent = () => (
     <div className="pb-8">
       <header className="mb-7 flex flex-col gap-5 border-b border-white/[0.07] pb-6 lg:flex-row lg:items-end lg:justify-between">
@@ -327,7 +325,11 @@ export default function DailyLog() {
               <DropdownMenuItem onSelect={exportCSV} className="cursor-pointer rounded-xl px-3 py-2.5"><FileText className="h-4 w-4" strokeWidth={1.4} /> تصدير CSV</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button onClick={focusExpenseForm} className="group h-11 gap-2 px-2 pr-5">
+          <Button variant={privacy ? "default" : "outline"} onClick={toggle} aria-pressed={privacy} className="h-11 gap-2 px-4" title={privacy ? "إظهار الأرقام" : "إخفاء الأرقام"}>
+            {privacy ? <EyeOff className="h-4 w-4" strokeWidth={1.4} /> : <Eye className="h-4 w-4" strokeWidth={1.4} />}
+            <span className="hidden sm:inline">{privacy ? "إظهار الأرقام" : "إخفاء الأرقام"}</span>
+          </Button>
+          <Button onClick={goToExpenses} className="group h-11 gap-2 px-2 pr-5">
             <span>إضافة مصروف</span><span className="grid h-7 w-7 place-items-center rounded-full bg-primary-foreground/15 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:-translate-x-0.5 group-hover:scale-105"><Plus className="h-4 w-4" strokeWidth={1.5} /></span>
           </Button>
         </div>
@@ -339,12 +341,9 @@ export default function DailyLog() {
             <div className="flex items-center gap-2 text-sm font-semibold"><Search className="h-4 w-4 text-primary" strokeWidth={1.4} /> فلترة اليومية</div>
             {hasFilters && <button type="button" onClick={resetFilters} className="text-xs font-semibold text-muted-foreground transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-primary">مسح الفلاتر</button>}
           </div>
-          <div className="grid gap-3 lg:grid-cols-[minmax(230px,.95fr)_minmax(260px,1.25fr)_repeat(3,minmax(0,.7fr))]">
-            <div className="rounded-2xl bg-foreground/[0.035] px-3 py-2.5 ring-1 ring-white/[0.05]">
-              <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" strokeWidth={1.4} /> التاريخ</div>
-              <DateField value={selectedDate} onChange={setSelectedDate} placeholder="اختر تاريخ" quickActions={[{ label: "اليوم", date: () => new Date() }, { label: "أمس", date: () => new Date(Date.now() - 86400000) }]} />
-            </div>
-            <div className="relative self-end"><Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.4} /><Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-11 border-white/[0.06] bg-foreground/[0.035] pr-10 shadow-none" placeholder="ابحث باسم العميل أو رقم الفاتورة" /></div>
+          <div className="grid items-center gap-3 lg:grid-cols-[minmax(230px,.95fr)_minmax(260px,1.25fr)_repeat(3,minmax(0,.7fr))]">
+            <div className="relative"><CalendarDays className="pointer-events-none absolute right-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.4} /><DateField value={selectedDate} onChange={setSelectedDate} placeholder="التاريخ" className="[&_button]:h-11 [&_button]:border-white/[0.06] [&_button]:bg-foreground/[0.035] [&_button]:pr-10 [&_button]:shadow-none" /></div>
+            <div className="relative"><Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.4} /><Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-11 border-white/[0.06] bg-foreground/[0.035] pr-10 shadow-none" placeholder="ابحث باسم العميل أو رقم الفاتورة" /></div>
             <Select value={customerFilter} onValueChange={setCustomerFilter}><SelectTrigger className="h-11 border-white/[0.06] bg-foreground/[0.035] shadow-none"><SelectValue placeholder="كل العملاء" /></SelectTrigger><SelectContent><SelectItem value="">كل العملاء</SelectItem>{customersOptions.map((customer) => <SelectItem key={customer.value} value={customer.value}>{customer.label}</SelectItem>)}</SelectContent></Select>
             <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as typeof typeFilter)}><SelectTrigger className="h-11 border-white/[0.06] bg-foreground/[0.035] shadow-none"><SelectValue placeholder="كل الأنواع" /></SelectTrigger><SelectContent><SelectItem value="all">كل الأنواع</SelectItem><SelectItem value="cash">فوري</SelectItem><SelectItem value="installment">قسط</SelectItem></SelectContent></Select>
             <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}><SelectTrigger className="h-11 border-white/[0.06] bg-foreground/[0.035] shadow-none"><SelectValue placeholder="كل الحالات" /></SelectTrigger><SelectContent><SelectItem value="all">كل الحالات</SelectItem><SelectItem value="paid">مدفوعة</SelectItem><SelectItem value="partial">مدفوعة جزئياً</SelectItem><SelectItem value="unpaid">غير مدفوعة</SelectItem></SelectContent></Select>
@@ -352,16 +351,20 @@ export default function DailyLog() {
         </div>
       </BezelCard>
 
-      <div key={selectedDate} className="stagger mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-4">
         {[
           { label: "الفواتير", value: String(totals.invoiceCount), hint: totals.invoiceCount ? `${totals.invoiceCount} حركة اليوم` : "لا توجد حركة اليوم", icon: ReceiptText, tone: "text-muted-foreground", chip: "bg-white/[0.06]" },
           { label: "إجمالي المبيعات", value: fmtMoney(totals.totalSales), hint: totals.totalSales ? "إجمالي قيمة الفواتير" : "لا توجد مبيعات اليوم", icon: CircleDollarSign, tone: "text-amber-300", chip: "bg-amber-300/10" },
-          { label: "المدفوع", value: fmtMoney(totals.totalPaid), hint: totals.totalPaid ? "تحصيلات مسجلة اليوم" : "لا توجد تحصيلات اليوم", icon: CheckCircle2, tone: "text-emerald-400", chip: "bg-emerald-400/10" },
+          { label: "مبيعات الفوري", value: fmtMoney(totals.cashSales), hint: totals.cashSales ? "فواتير فورية اليوم" : "لا توجد مبيعات فورية", icon: CircleDollarSign, tone: "text-amber-200", chip: "bg-amber-200/10" },
+          { label: "مبيعات القسط", value: fmtMoney(totals.installmentSales), hint: totals.installmentSales ? "فواتير تقسيط اليوم" : "لا توجد مبيعات بالأقساط", icon: CircleDollarSign, tone: "text-amber-400", chip: "bg-amber-400/10" },
+          { label: "المدفوع", value: fmtMoney(paymentTotals.total), hint: paymentTotals.total ? "كل تحصيلات اليوم" : "لا توجد تحصيلات اليوم", icon: CheckCircle2, tone: "text-emerald-400", chip: "bg-emerald-400/10" },
+          { label: "مدفوع الفوري", value: fmtMoney(paymentTotals.cash), hint: paymentTotals.cash ? "تحصيلات الفوري اليوم" : "لا يوجد تحصيل فوري", icon: CheckCircle2, tone: "text-emerald-300", chip: "bg-emerald-300/10" },
+          { label: "مدفوع القسط", value: fmtMoney(paymentTotals.installment), hint: paymentTotals.installment ? "أقساط مُحصّلة اليوم" : "لا توجد أقساط مُحصّلة", icon: CheckCircle2, tone: "text-emerald-500", chip: "bg-emerald-500/10" },
           { label: "المتبقي", value: fmtMoney(totals.totalRemaining), hint: totals.totalRemaining ? "يحتاج إلى متابعة" : "لا توجد مستحقات اليوم", icon: Wallet, tone: "text-primary", chip: "bg-primary/10" },
         ].map(({ label, value, hint, icon: Icon, tone, chip }) => (
           <section key={label} className="rounded-[1.45rem] bg-card/70 px-4 py-4 ring-1 ring-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,.06)] sm:px-5">
             <div className="flex items-start justify-between gap-2"><span className="text-[11px] font-semibold text-muted-foreground">{label}</span><span className={`grid h-8 w-8 place-items-center rounded-full ${chip} ${tone}`}><Icon className="h-4 w-4" strokeWidth={1.35} /></span></div>
-            <div className={`text-numeric mt-4 text-xl font-extrabold leading-none sm:text-2xl ${tone}`}>{value}</div>
+            <div className={`text-numeric mt-4 text-xl font-extrabold leading-none sm:text-2xl ${tone} ${privacy ? "privacy-blur" : "privacy-clear"}`}>{value}</div>
             <p className="mt-2 text-[11px] text-muted-foreground">{hint}</p>
           </section>
         ))}
@@ -396,7 +399,7 @@ export default function DailyLog() {
                         <span className="grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/15"><ReceiptText className="h-6 w-6" strokeWidth={1.25} /></span>
                         <h3 className="mt-5 text-lg font-bold">لا توجد حركة مسجلة لهذا اليوم</h3>
                         <p className="mt-2 max-w-xs text-xs leading-6 text-muted-foreground">غيّر التاريخ أو أزل الفلاتر، أو ابدأ بتسجيل مصروف جديد لليوم.</p>
-                        <Button size="sm" onClick={focusExpenseForm} className="mt-5 gap-2"><Plus className="h-3.5 w-3.5" strokeWidth={1.5} /> إضافة مصروف</Button>
+                        <Button size="sm" onClick={goToExpenses} className="mt-5 gap-2"><Plus className="h-3.5 w-3.5" strokeWidth={1.5} /> إضافة مصروف</Button>
                       </div>
                     </td>
                   </tr>
@@ -413,9 +416,9 @@ export default function DailyLog() {
                       <td className="py-4 pr-5 font-mono text-xs sm:pr-6">{inv.id.slice(0, 8)}</td>
                       <td className="py-3 pr-4">{time}</td>
                       <td className="py-3 pr-4">{name}</td>
-                      <td className="py-3 pr-4">{fmtMoney(inv.total)}</td>
-                      <td className="py-4 pr-4 text-emerald-400">{fmtMoney(inv.paid)}</td>
-                      <td className="py-4 pr-4 text-primary">{fmtMoney(remaining)}</td>
+                      <td className={`py-3 pr-4 ${privacy ? "privacy-blur" : "privacy-clear"}`}>{fmtMoney(inv.total)}</td>
+                      <td className={`py-4 pr-4 text-emerald-400 ${privacy ? "privacy-blur" : "privacy-clear"}`}>{fmtMoney(inv.paid)}</td>
+                      <td className={`py-4 pr-4 text-primary ${privacy ? "privacy-blur" : "privacy-clear"}`}>{fmtMoney(remaining)}</td>
                       <td className="py-4 pr-4"><span className="rounded-full bg-foreground/[0.05] px-2.5 py-1 text-[11px]">{type}</span></td>
                       <td className="py-4 pr-4"><span className="text-xs">{status}</span></td>
                       <td className="py-4 pr-4">
@@ -429,14 +432,14 @@ export default function DailyLog() {
           </div>
         </BezelCard>
 
-        <aside ref={expenseFormRef} className="xl:sticky xl:top-6 xl:self-start">
+        <aside className="xl:sticky xl:top-6 xl:self-start">
           <BezelCard innerClassName="p-5 sm:p-6">
             <div className="space-y-6">
               <section>
                 <div className="mb-4 flex items-center justify-between"><h2 className="text-base font-bold">نبذة اليوم</h2><span className="text-xs text-muted-foreground">{selectedDate}</span></div>
                 <div className="grid grid-cols-2 gap-2.5">
-                  <div className="rounded-2xl bg-foreground/[0.035] p-3.5 ring-1 ring-white/[0.05]"><div className="text-[11px] text-muted-foreground">مصروفات اليوم</div><div className="text-numeric mt-2 text-lg font-extrabold text-amber-300">{fmtMoney(expenseTotal)}</div></div>
-                  <div className="rounded-2xl bg-foreground/[0.035] p-3.5 ring-1 ring-white/[0.05]"><div className="text-[11px] text-muted-foreground">الصافي</div><div className="text-numeric mt-2 text-lg font-extrabold text-emerald-400">{fmtMoney(netCash)}</div></div>
+                  <div className="rounded-2xl bg-foreground/[0.035] p-3.5 ring-1 ring-white/[0.05]"><div className="text-[11px] text-muted-foreground">مصروفات اليوم</div><div className={`text-numeric mt-2 text-lg font-extrabold text-amber-300 ${privacy ? "privacy-blur" : "privacy-clear"}`}>{fmtMoney(expenseTotal)}</div></div>
+                  <div className="rounded-2xl bg-foreground/[0.035] p-3.5 ring-1 ring-white/[0.05]"><div className="text-[11px] text-muted-foreground">الصافي</div><div className={`text-numeric mt-2 text-lg font-extrabold text-emerald-400 ${privacy ? "privacy-blur" : "privacy-clear"}`}>{fmtMoney(netCash)}</div></div>
                 </div>
               </section>
               <div className="h-px bg-white/[0.06]" />
@@ -452,41 +455,6 @@ export default function DailyLog() {
               <div className="flex items-center justify-between gap-3">
                 <Button size="sm" variant={noteSaved ? "outline" : "secondary"} onClick={saveNote} disabled={noteSaved}>
                   {noteSaved ? "محفوظ" : "حفظ الملاحظة"}
-                </Button>
-              </div>
-              </section>
-              <div className="h-px bg-white/[0.06]" />
-              <section className="space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-bold">إضافة مصروف</div>
-                <span className="text-xs text-muted-foreground">التاريخ: {selectedDate}</span>
-              </div>
-              <div className="grid gap-3">
-                <Input
-                  id="daily-expense-amount"
-                  value={expenseAmount}
-                  onChange={(e) => setExpenseAmount(e.target.value)}
-                  className="h-11 border-white/[0.06] bg-foreground/[0.035] shadow-none"
-                  placeholder="المبلغ"
-                  inputMode="decimal"
-                />
-                <Select value={expenseCategory} onValueChange={(value) => setExpenseCategory(value as ExpenseCategory)}>
-                  <SelectTrigger className="h-11 w-full border-white/[0.06] bg-foreground/[0.035] shadow-none"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {EXPENSE_CATEGORIES.map((category) => (
-                      <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Textarea
-                  value={expenseNotes}
-                  onChange={(e) => setExpenseNotes(e.target.value)}
-                  rows={3}
-                  className="border-white/[0.06] bg-foreground/[0.035] shadow-none"
-                  placeholder="ملاحظات المصروف (اختياري)"
-                />
-                <Button onClick={addExpense} disabled={savingExpense} className="h-11 gap-2">
-                  <Plus className="h-4 w-4" strokeWidth={1.5} /> إضافة مصروف
                 </Button>
               </div>
               </section>
