@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  CalendarDays,
   CheckCircle2,
   ChevronDown,
   CircleDollarSign,
@@ -67,7 +66,8 @@ export default function DailyLog() {
   const navigate = useNavigate();
   const { privacy, toggle } = usePrivacy();
   const today = new Date().toISOString().slice(0, 10);
-  const [selectedDate, setSelectedDate] = useState(today);
+  const [fromDate, setFromDate] = useState(today);
+  const [toDate, setToDate] = useState(today);
   const [customerFilter, setCustomerFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "cash" | "installment">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "unpaid" | "partial" | "paid">("all");
@@ -75,7 +75,7 @@ export default function DailyLog() {
   const [dailyNote, setDailyNote] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
 
-  const noteStorageKey = `daily-log-note:${selectedDate}`;
+  const noteStorageKey = `daily-log-note:${fromDate}:${toDate}`;
 
   useEffect(() => {
     try {
@@ -88,19 +88,22 @@ export default function DailyLog() {
     }
   }, [noteStorageKey]);
 
-  const todaysInvoices = useMemo(
-    () => invoices.filter((inv) => (inv.createdAt || "").slice(0, 10) === selectedDate),
-    [invoices, selectedDate],
+  const periodInvoices = useMemo(
+    () => invoices.filter((inv) => {
+      const invoiceDate = (inv.createdAt || "").slice(0, 10);
+      return invoiceDate >= fromDate && invoiceDate <= toDate;
+    }),
+    [invoices, fromDate, toDate],
   );
 
-  const todaysExpenses = useMemo(
-    () => expenses.filter((exp) => exp.expenseDate === selectedDate),
-    [expenses, selectedDate],
+  const periodExpenses = useMemo(
+    () => expenses.filter((exp) => exp.expenseDate >= fromDate && exp.expenseDate <= toDate),
+    [expenses, fromDate, toDate],
   );
 
   const filteredInvoices = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return todaysInvoices.filter((inv) => {
+    return periodInvoices.filter((inv) => {
       if (customerFilter && inv.customerId !== customerFilter) return false;
       if (typeFilter === "cash" && inv.monthlyInstallment && inv.monthlyInstallment > 0) return false;
       if (typeFilter === "installment" && !(inv.monthlyInstallment && inv.monthlyInstallment > 0)) return false;
@@ -111,7 +114,7 @@ export default function DailyLog() {
         String(value ?? "").toLowerCase().includes(query),
       );
     });
-  }, [todaysInvoices, customerFilter, typeFilter, statusFilter, searchQuery, customers]);
+  }, [periodInvoices, customerFilter, typeFilter, statusFilter, searchQuery, customers]);
 
   const totals = useMemo(() => {
     const cashInvoices = filteredInvoices.filter((inv) => !inv.monthlyInstallment || inv.monthlyInstallment === 0);
@@ -132,11 +135,14 @@ export default function DailyLog() {
     };
   }, [filteredInvoices]);
 
-  const expenseTotal = todaysExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const expenseTotal = periodExpenses.reduce((sum, exp) => sum + exp.amount, 0);
   const paymentTotals = useMemo(() => {
     const invoiceById = new Map(invoices.map((invoice) => [invoice.id, invoice]));
-    const paymentsToday = payments.filter((payment) => (payment.paidAt || "").slice(0, 10) === selectedDate);
-    const followUpPaid = paymentsToday.reduce(
+    const paymentsInPeriod = payments.filter((payment) => {
+      const paymentDate = (payment.paidAt || "").slice(0, 10);
+      return paymentDate >= fromDate && paymentDate <= toDate;
+    });
+    const followUpPaid = paymentsInPeriod.reduce(
       (result, payment) => {
         const invoice = invoiceById.get(payment.invoiceId);
         if (!invoice) return result;
@@ -146,7 +152,7 @@ export default function DailyLog() {
       },
       { cash: 0, installment: 0 },
     );
-    const downPaymentsToday = todaysInvoices.reduce(
+    const downPaymentsInPeriod = periodInvoices.reduce(
       (result, invoice) => {
         if (invoice.monthlyInstallment > 0) result.installment += invoice.downPayment;
         else result.cash += invoice.downPayment;
@@ -154,17 +160,30 @@ export default function DailyLog() {
       },
       { cash: 0, installment: 0 },
     );
-    const cash = followUpPaid.cash + downPaymentsToday.cash;
-    const installment = followUpPaid.installment + downPaymentsToday.installment;
+    const cash = followUpPaid.cash + downPaymentsInPeriod.cash;
+    const installment = followUpPaid.installment + downPaymentsInPeriod.installment;
     return { cash, installment, total: cash + installment };
-  }, [invoices, payments, selectedDate, todaysInvoices]);
+  }, [invoices, payments, fromDate, toDate, periodInvoices]);
   const netCash = paymentTotals.total - expenseTotal;
   const hasFilters = Boolean(customerFilter || typeFilter !== "all" || statusFilter !== "all" || searchQuery.trim());
-  const selectedDateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString("ar-EG", {
+  const formatPeriodDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString("ar-EG", {
     weekday: "long",
     day: "numeric",
     month: "long",
   });
+  const selectedDateLabel = fromDate === toDate
+    ? formatPeriodDate(fromDate)
+    : `من ${formatPeriodDate(fromDate)} إلى ${formatPeriodDate(toDate)}`;
+
+  const updateFromDate = (date: string) => {
+    setFromDate(date);
+    if (date > toDate) setToDate(date);
+  };
+
+  const updateToDate = (date: string) => {
+    setToDate(date);
+    if (date < fromDate) setFromDate(date);
+  };
 
   const resetFilters = () => {
     setCustomerFilter("");
@@ -200,7 +219,7 @@ export default function DailyLog() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `daily-${selectedDate}.csv`;
+    a.download = `daily-${fromDate}-to-${toDate}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -230,7 +249,7 @@ export default function DailyLog() {
       })
       .join("");
 
-    const expenseRows = todaysExpenses
+    const expenseRows = periodExpenses
       .map((exp, index) => `
         <tr>
           <td>${index + 1}</td>
@@ -242,7 +261,7 @@ export default function DailyLog() {
       .join("");
 
     const htmlBody = `
-      <h2 class="sec">تقرير اليومية — ${new Date(selectedDate).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}</h2>
+      <h2 class="sec">تقرير اليومية — ${escapeHtml(selectedDateLabel)}</h2>
       <div class="info">
         <div class="box"><b>عدد الفواتير</b> ${totals.invoiceCount}</div>
         <div class="box"><b>إجمالي المبيعات</b> ${fmt(totals.totalSales)} ج.م</div>
@@ -262,12 +281,12 @@ export default function DailyLog() {
     `;
 
     const html = pdfDocument({
-      docTitle: `تقرير اليومية - ${selectedDate}`,
+      docTitle: `تقرير اليومية - ${fromDate} إلى ${toDate}`,
       badge: "اليومية",
       title: "تقرير اليومية",
-      lede: `ملخّص المبيعات والمصروفات لليوم ${new Date(selectedDate).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" })}`,
+      lede: `ملخّص المبيعات والمصروفات للفترة ${selectedDateLabel}`,
       meta: [
-        { label: "التاريخ", value: selectedDate },
+        { label: "الفترة", value: `${fromDate} — ${toDate}` },
         { label: "عدد الفواتير", value: String(totals.invoiceCount) },
         { label: "إجمالي المصروفات", value: `${fmt(expenseTotal)} ج.م` },
       ],
@@ -341,8 +360,14 @@ export default function DailyLog() {
             <div className="flex items-center gap-2 text-sm font-semibold"><Search className="h-4 w-4 text-primary" strokeWidth={1.4} /> فلترة اليومية</div>
             {hasFilters && <button type="button" onClick={resetFilters} className="text-xs font-semibold text-muted-foreground transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-primary">مسح الفلاتر</button>}
           </div>
-          <div className="grid items-center gap-3 lg:grid-cols-[minmax(230px,.95fr)_minmax(260px,1.25fr)_repeat(3,minmax(0,.7fr))]">
-            <div className="relative"><CalendarDays className="pointer-events-none absolute right-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.4} /><DateField value={selectedDate} onChange={setSelectedDate} placeholder="التاريخ" className="[&_button]:h-11 [&_button]:border-white/[0.06] [&_button]:bg-foreground/[0.035] [&_button]:pr-10 [&_button]:shadow-none" /></div>
+          <div className="grid items-center gap-3 lg:grid-cols-[minmax(330px,1.25fr)_minmax(220px,1fr)_repeat(3,minmax(0,.7fr))]">
+            <div className="flex h-11 items-center gap-2 rounded-2xl bg-foreground/[0.035] px-3 ring-1 ring-white/[0.06]">
+              <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">من</span>
+              <DateField value={fromDate} onChange={updateFromDate} placeholder="تاريخ البداية" className="min-w-0 flex-1 [&_button]:h-9 [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-1 [&_button]:shadow-none" />
+              <span className="h-4 w-px shrink-0 bg-white/[0.1]" />
+              <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">إلى</span>
+              <DateField value={toDate} onChange={updateToDate} placeholder="تاريخ النهاية" className="min-w-0 flex-1 [&_button]:h-9 [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-1 [&_button]:shadow-none" />
+            </div>
             <div className="relative"><Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.4} /><Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-11 border-white/[0.06] bg-foreground/[0.035] pr-10 shadow-none" placeholder="ابحث باسم العميل أو رقم الفاتورة" /></div>
             <Select value={customerFilter} onValueChange={setCustomerFilter}><SelectTrigger className="h-11 border-white/[0.06] bg-foreground/[0.035] shadow-none"><SelectValue placeholder="كل العملاء" /></SelectTrigger><SelectContent><SelectItem value="">كل العملاء</SelectItem>{customersOptions.map((customer) => <SelectItem key={customer.value} value={customer.value}>{customer.label}</SelectItem>)}</SelectContent></Select>
             <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as typeof typeFilter)}><SelectTrigger className="h-11 border-white/[0.06] bg-foreground/[0.035] shadow-none"><SelectValue placeholder="كل الأنواع" /></SelectTrigger><SelectContent><SelectItem value="all">كل الأنواع</SelectItem><SelectItem value="cash">فوري</SelectItem><SelectItem value="installment">قسط</SelectItem></SelectContent></Select>
@@ -353,14 +378,14 @@ export default function DailyLog() {
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-4">
         {[
-          { label: "الفواتير", value: String(totals.invoiceCount), hint: totals.invoiceCount ? `${totals.invoiceCount} حركة اليوم` : "لا توجد حركة اليوم", icon: ReceiptText, tone: "text-muted-foreground", chip: "bg-white/[0.06]" },
-          { label: "إجمالي المبيعات", value: fmtMoney(totals.totalSales), hint: totals.totalSales ? "إجمالي قيمة الفواتير" : "لا توجد مبيعات اليوم", icon: CircleDollarSign, tone: "text-amber-300", chip: "bg-amber-300/10" },
-          { label: "مبيعات الفوري", value: fmtMoney(totals.cashSales), hint: totals.cashSales ? "فواتير فورية اليوم" : "لا توجد مبيعات فورية", icon: CircleDollarSign, tone: "text-amber-200", chip: "bg-amber-200/10" },
-          { label: "مبيعات القسط", value: fmtMoney(totals.installmentSales), hint: totals.installmentSales ? "فواتير تقسيط اليوم" : "لا توجد مبيعات بالأقساط", icon: CircleDollarSign, tone: "text-amber-400", chip: "bg-amber-400/10" },
-          { label: "المدفوع", value: fmtMoney(paymentTotals.total), hint: paymentTotals.total ? "كل تحصيلات اليوم" : "لا توجد تحصيلات اليوم", icon: CheckCircle2, tone: "text-emerald-400", chip: "bg-emerald-400/10" },
-          { label: "مدفوع الفوري", value: fmtMoney(paymentTotals.cash), hint: paymentTotals.cash ? "تحصيلات الفوري اليوم" : "لا يوجد تحصيل فوري", icon: CheckCircle2, tone: "text-emerald-300", chip: "bg-emerald-300/10" },
-          { label: "مدفوع القسط", value: fmtMoney(paymentTotals.installment), hint: paymentTotals.installment ? "أقساط مُحصّلة اليوم" : "لا توجد أقساط مُحصّلة", icon: CheckCircle2, tone: "text-emerald-500", chip: "bg-emerald-500/10" },
-          { label: "المتبقي", value: fmtMoney(totals.totalRemaining), hint: totals.totalRemaining ? "يحتاج إلى متابعة" : "لا توجد مستحقات اليوم", icon: Wallet, tone: "text-primary", chip: "bg-primary/10" },
+          { label: "الفواتير", value: String(totals.invoiceCount), hint: totals.invoiceCount ? `${totals.invoiceCount} حركة في الفترة` : "لا توجد حركة في الفترة", icon: ReceiptText, tone: "text-muted-foreground", chip: "bg-white/[0.06]" },
+          { label: "إجمالي المبيعات", value: fmtMoney(totals.totalSales), hint: totals.totalSales ? "إجمالي قيمة الفواتير" : "لا توجد مبيعات في الفترة", icon: CircleDollarSign, tone: "text-amber-300", chip: "bg-amber-300/10" },
+          { label: "مبيعات الفوري", value: fmtMoney(totals.cashSales), hint: totals.cashSales ? "فواتير فورية في الفترة" : "لا توجد مبيعات فورية", icon: CircleDollarSign, tone: "text-amber-200", chip: "bg-amber-200/10" },
+          { label: "مبيعات القسط", value: fmtMoney(totals.installmentSales), hint: totals.installmentSales ? "فواتير تقسيط في الفترة" : "لا توجد مبيعات بالأقساط", icon: CircleDollarSign, tone: "text-amber-400", chip: "bg-amber-400/10" },
+          { label: "المدفوع", value: fmtMoney(paymentTotals.total), hint: paymentTotals.total ? "كل تحصيلات الفترة" : "لا توجد تحصيلات في الفترة", icon: CheckCircle2, tone: "text-emerald-400", chip: "bg-emerald-400/10" },
+          { label: "مدفوع الفوري", value: fmtMoney(paymentTotals.cash), hint: paymentTotals.cash ? "تحصيلات الفوري في الفترة" : "لا يوجد تحصيل فوري", icon: CheckCircle2, tone: "text-emerald-300", chip: "bg-emerald-300/10" },
+          { label: "مدفوع القسط", value: fmtMoney(paymentTotals.installment), hint: paymentTotals.installment ? "أقساط مُحصّلة في الفترة" : "لا توجد أقساط مُحصّلة", icon: CheckCircle2, tone: "text-emerald-500", chip: "bg-emerald-500/10" },
+          { label: "المتبقي", value: fmtMoney(totals.totalRemaining), hint: totals.totalRemaining ? "يحتاج إلى متابعة" : "لا توجد مستحقات في الفترة", icon: Wallet, tone: "text-primary", chip: "bg-primary/10" },
         ].map(({ label, value, hint, icon: Icon, tone, chip }) => (
           <section key={label} className="rounded-[1.45rem] bg-card/70 px-4 py-4 ring-1 ring-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,.06)] sm:px-5">
             <div className="flex items-start justify-between gap-2"><span className="text-[11px] font-semibold text-muted-foreground">{label}</span><span className={`grid h-8 w-8 place-items-center rounded-full ${chip} ${tone}`}><Icon className="h-4 w-4" strokeWidth={1.35} /></span></div>
@@ -373,7 +398,7 @@ export default function DailyLog() {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,7fr)_minmax(290px,3fr)]">
         <BezelCard innerClassName="overflow-hidden">
           <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-5 py-4 sm:px-6">
-            <div><h2 className="text-base font-bold">حركة اليوم</h2><p className="mt-1 text-xs text-muted-foreground">{filteredInvoices.length} من {todaysInvoices.length} فاتورة مطابقة</p></div>
+            <div><h2 className="text-base font-bold">حركة الفترة</h2><p className="mt-1 text-xs text-muted-foreground">{filteredInvoices.length} من {periodInvoices.length} فاتورة مطابقة</p></div>
             <span className="rounded-full bg-foreground/[0.05] px-3 py-1 text-[11px] font-semibold text-muted-foreground">{selectedDateLabel}</span>
           </div>
           <div className="overflow-x-auto">
@@ -397,8 +422,8 @@ export default function DailyLog() {
                     <td colSpan={9} className="py-0">
                       <div className="flex min-h-[330px] flex-col items-center justify-center px-6 text-center">
                         <span className="grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/15"><ReceiptText className="h-6 w-6" strokeWidth={1.25} /></span>
-                        <h3 className="mt-5 text-lg font-bold">لا توجد حركة مسجلة لهذا اليوم</h3>
-                        <p className="mt-2 max-w-xs text-xs leading-6 text-muted-foreground">غيّر التاريخ أو أزل الفلاتر، أو ابدأ بتسجيل مصروف جديد لليوم.</p>
+                        <h3 className="mt-5 text-lg font-bold">لا توجد حركة مسجلة في هذه الفترة</h3>
+                        <p className="mt-2 max-w-xs text-xs leading-6 text-muted-foreground">غيّر نطاق التاريخ أو أزل الفلاتر، أو ابدأ بتسجيل مصروف جديد.</p>
                         <Button size="sm" onClick={goToExpenses} className="mt-5 gap-2"><Plus className="h-3.5 w-3.5" strokeWidth={1.5} /> إضافة مصروف</Button>
                       </div>
                     </td>
@@ -436,9 +461,9 @@ export default function DailyLog() {
           <BezelCard innerClassName="p-5 sm:p-6">
             <div className="space-y-6">
               <section>
-                <div className="mb-4 flex items-center justify-between"><h2 className="text-base font-bold">نبذة اليوم</h2><span className="text-xs text-muted-foreground">{selectedDate}</span></div>
+                <div className="mb-4 flex items-center justify-between"><h2 className="text-base font-bold">نبذة الفترة</h2><span className="text-xs text-muted-foreground">{fromDate} — {toDate}</span></div>
                 <div className="grid grid-cols-2 gap-2.5">
-                  <div className="rounded-2xl bg-foreground/[0.035] p-3.5 ring-1 ring-white/[0.05]"><div className="text-[11px] text-muted-foreground">مصروفات اليوم</div><div className={`text-numeric mt-2 text-lg font-extrabold text-amber-300 ${privacy ? "privacy-blur" : "privacy-clear"}`}>{fmtMoney(expenseTotal)}</div></div>
+                  <div className="rounded-2xl bg-foreground/[0.035] p-3.5 ring-1 ring-white/[0.05]"><div className="text-[11px] text-muted-foreground">مصروفات الفترة</div><div className={`text-numeric mt-2 text-lg font-extrabold text-amber-300 ${privacy ? "privacy-blur" : "privacy-clear"}`}>{fmtMoney(expenseTotal)}</div></div>
                   <div className="rounded-2xl bg-foreground/[0.035] p-3.5 ring-1 ring-white/[0.05]"><div className="text-[11px] text-muted-foreground">الصافي</div><div className={`text-numeric mt-2 text-lg font-extrabold text-emerald-400 ${privacy ? "privacy-blur" : "privacy-clear"}`}>{fmtMoney(netCash)}</div></div>
                 </div>
               </section>
