@@ -182,8 +182,8 @@ ${list.map((it) => {
   return (
     <>
       <PageHeader
-        title="المخزن"
-        subtitle="إدارة الأصناف والكميات وأسعار الشراء والبيع."
+        title="المنتجات"
+        subtitle="إدارة المنتجات والكميات وأسعار الشراء والبيع."
         icon={<Package className="w-7 h-7" />}
         action={
           <div className="flex items-center gap-2">

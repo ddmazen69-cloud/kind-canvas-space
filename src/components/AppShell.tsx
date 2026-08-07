@@ -19,7 +19,7 @@ const nav = [
   { to: "/customers", label: "العملاء", icon: Users },
   { to: "/invoices", label: "الفواتير", icon: FileText },
   { to: "/suppliers", label: "الموردين", icon: Truck },
-  { to: "/inventory", label: "المخزن", icon: Package },
+  { to: "/inventory", label: "المنتجات", icon: Package },
   { to: "/expenses", label: "المصروفات", icon: Receipt },
   { to: "/alerts", label: "المنبه", icon: Bell, alertKey: true as const },
   { to: "/reports", label: "التقارير", icon: BarChart3 },
