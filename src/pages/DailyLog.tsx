@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@/lib/router-compat";
-import { PageHeader } from "@/components/PageHeader";
-import { MetricCard } from "@/components/MetricCard";
 import { BezelCard } from "@/components/BezelCard";
 import { DateField } from "@/components/DateField";
 import { AppShell } from "@/components/AppShell";
@@ -10,7 +8,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, Wallet, Filter } from "lucide-react";
+import {
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  CircleDollarSign,
+  Download,
+  FileText,
+  FileDown,
+  Plus,
+  ReceiptText,
+  Search,
+  Wallet,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { db, useDB, fmt, EXPENSE_CATEGORIES, expenseCategoryLabel, type ExpenseCategory } from "@/lib/store";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
 import { toast } from "sonner";
@@ -57,6 +73,7 @@ export default function DailyLog() {
   const [expenseCategory, setExpenseCategory] = useState<ExpenseCategory>("other");
   const [expenseNotes, setExpenseNotes] = useState("");
   const [savingExpense, setSavingExpense] = useState(false);
+  const expenseFormRef = useRef<HTMLDivElement>(null);
 
   const noteStorageKey = `daily-log-note:${selectedDate}`;
 
@@ -117,6 +134,24 @@ export default function DailyLog() {
 
   const expenseTotal = todaysExpenses.reduce((sum, exp) => sum + exp.amount, 0);
   const netCash = totals.totalPaid - expenseTotal;
+  const hasFilters = Boolean(customerFilter || typeFilter !== "all" || statusFilter !== "all" || searchQuery.trim());
+  const selectedDateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString("ar-EG", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+  const resetFilters = () => {
+    setCustomerFilter("");
+    setTypeFilter("all");
+    setStatusFilter("all");
+    setSearchQuery("");
+  };
+
+  const focusExpenseForm = () => {
+    expenseFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => document.getElementById("daily-expense-amount")?.focus(), 450);
+  };
 
   const customersOptions = useMemo(
     () => customers.map((customer) => ({ value: customer.id, label: customer.name })),
@@ -266,131 +301,104 @@ export default function DailyLog() {
   };
 
   const PageContent = () => (
-    <div>
-      <PageHeader
-        title="اليومية"
-        subtitle="لوحة التحكم اليومية للمبيعات، المصروفات، والملاحظات"
-        action={
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button size="sm" onClick={exportCSV} className="gap-2"><FileText className="w-4 h-4" /> CSV</Button>
-            <Button size="sm" onClick={exportPDF} className="gap-2"><Wallet className="w-4 h-4" /> PDF</Button>
+    <div className="pb-8">
+      <header className="mb-7 flex flex-col gap-5 border-b border-white/[0.07] pb-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0 text-right">
+          <div className="mb-3 flex flex-wrap items-center justify-start gap-2 text-xs text-muted-foreground">
+            <span className="eyebrow bg-primary/[0.08] text-primary shadow-none">تشغيل يومي</span>
+            <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-success" /> آخر تحديث الآن</span>
           </div>
-        }
-      />
-
-      <div className="grid gap-4 lg:grid-cols-[minmax(320px,1fr)_320px] mb-6">
-        <BezelCard className="p-5">
-          <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">التاريخ</div>
-                <DateField
-                  value={selectedDate}
-                  onChange={(iso) => setSelectedDate(iso)}
-                  placeholder="اختر تاريخ"
-                  quickActions={[
-                    { label: "اليوم", date: () => new Date() },
-                    { label: "أمس", date: () => new Date(Date.now() - 86400000) },
-                  ]}
-                />
-              </div>
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">بحث</div>
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="بحث بالعميل أو رقم الفاتورة"
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Select value={customerFilter} onValueChange={setCustomerFilter}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="كل العملاء" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">كل العملاء</SelectItem>
-                  {customersOptions.map((customer) => (
-                    <SelectItem key={customer.value} value={customer.value}>{customer.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as any)}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="نوع الفاتورة" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">كل الأنواع</SelectItem>
-                  <SelectItem value="cash">فوري</SelectItem>
-                  <SelectItem value="installment">قسط</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="حالة السداد" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">كل الحالات</SelectItem>
-                  <SelectItem value="paid">مدفوعة</SelectItem>
-                  <SelectItem value="partial">مدفوعة جزئياً</SelectItem>
-                  <SelectItem value="unpaid">غير مدفوعة</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="flex flex-wrap items-baseline justify-start gap-x-4 gap-y-1">
+            <h1 className="text-display text-4xl font-extrabold text-foreground sm:text-5xl">اليومية</h1>
+            <p className="text-sm font-medium text-muted-foreground">{selectedDateLabel}</p>
           </div>
-        </BezelCard>
+          <p className="mt-2 text-sm text-muted-foreground">ملخص الحركة المالية والملاحظات في مكان واحد.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="group h-11 gap-2 px-4">
+                <Download className="h-4 w-4" strokeWidth={1.4} />
+                تصدير <ChevronDown className="h-3.5 w-3.5 opacity-60" strokeWidth={1.4} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-40 rounded-2xl border-white/[0.09] bg-popover p-1.5 shadow-[0_20px_45px_-28px_rgba(0,0,0,.9)]">
+              <DropdownMenuItem onSelect={exportPDF} className="cursor-pointer rounded-xl px-3 py-2.5"><FileDown className="h-4 w-4" strokeWidth={1.4} /> تصدير PDF</DropdownMenuItem>
+              <DropdownMenuItem onSelect={exportCSV} className="cursor-pointer rounded-xl px-3 py-2.5"><FileText className="h-4 w-4" strokeWidth={1.4} /> تصدير CSV</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={focusExpenseForm} className="group h-11 gap-2 px-2 pr-5">
+            <span>إضافة مصروف</span><span className="grid h-7 w-7 place-items-center rounded-full bg-primary-foreground/15 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:-translate-x-0.5 group-hover:scale-105"><Plus className="h-4 w-4" strokeWidth={1.5} /></span>
+          </Button>
+        </div>
+      </header>
 
-        <BezelCard className="p-5">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <Filter className="w-4 h-4 text-primary" />
-              <span>فلترة السجلات الحالية</span>
-            </div>
-            <div className="grid gap-3 rounded-3xl border border-border bg-background/80 p-4 text-sm">
-              <div className="flex items-center justify-between gap-3">
-                <span>الفواتير المحددة</span>
-                <span className="font-semibold">{filteredInvoices.length}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span>الفواتير الإجمالية لهذا التاريخ</span>
-                <span className="font-semibold">{todaysInvoices.length}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span>إجمالي المصروفات</span>
-                <span className="font-semibold">{fmtMoney(expenseTotal)}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <span>صافي التحصيل</span>
-                <span className="font-semibold">{fmtMoney(netCash)}</span>
-              </div>
-            </div>
+      <BezelCard className="mb-6" innerClassName="p-4 sm:p-5">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm font-semibold"><Search className="h-4 w-4 text-primary" strokeWidth={1.4} /> فلترة اليومية</div>
+            {hasFilters && <button type="button" onClick={resetFilters} className="text-xs font-semibold text-muted-foreground transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-primary">مسح الفلاتر</button>}
           </div>
-        </BezelCard>
+          <div className="grid gap-3 lg:grid-cols-[minmax(230px,.95fr)_minmax(260px,1.25fr)_repeat(3,minmax(0,.7fr))]">
+            <div className="rounded-2xl bg-foreground/[0.035] px-3 py-2.5 ring-1 ring-white/[0.05]">
+              <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" strokeWidth={1.4} /> التاريخ</div>
+              <DateField value={selectedDate} onChange={setSelectedDate} placeholder="اختر تاريخ" quickActions={[{ label: "اليوم", date: () => new Date() }, { label: "أمس", date: () => new Date(Date.now() - 86400000) }]} />
+            </div>
+            <div className="relative self-end"><Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" strokeWidth={1.4} /><Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-11 border-white/[0.06] bg-foreground/[0.035] pr-10 shadow-none" placeholder="ابحث باسم العميل أو رقم الفاتورة" /></div>
+            <Select value={customerFilter} onValueChange={setCustomerFilter}><SelectTrigger className="h-11 border-white/[0.06] bg-foreground/[0.035] shadow-none"><SelectValue placeholder="كل العملاء" /></SelectTrigger><SelectContent><SelectItem value="">كل العملاء</SelectItem>{customersOptions.map((customer) => <SelectItem key={customer.value} value={customer.value}>{customer.label}</SelectItem>)}</SelectContent></Select>
+            <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as typeof typeFilter)}><SelectTrigger className="h-11 border-white/[0.06] bg-foreground/[0.035] shadow-none"><SelectValue placeholder="كل الأنواع" /></SelectTrigger><SelectContent><SelectItem value="all">كل الأنواع</SelectItem><SelectItem value="cash">فوري</SelectItem><SelectItem value="installment">قسط</SelectItem></SelectContent></Select>
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}><SelectTrigger className="h-11 border-white/[0.06] bg-foreground/[0.035] shadow-none"><SelectValue placeholder="كل الحالات" /></SelectTrigger><SelectContent><SelectItem value="all">كل الحالات</SelectItem><SelectItem value="paid">مدفوعة</SelectItem><SelectItem value="partial">مدفوعة جزئياً</SelectItem><SelectItem value="unpaid">غير مدفوعة</SelectItem></SelectContent></Select>
+          </div>
+        </div>
+      </BezelCard>
+
+      <div key={selectedDate} className="stagger mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {[
+          { label: "الفواتير", value: String(totals.invoiceCount), hint: totals.invoiceCount ? `${totals.invoiceCount} حركة اليوم` : "لا توجد حركة اليوم", icon: ReceiptText, tone: "text-muted-foreground", chip: "bg-white/[0.06]" },
+          { label: "إجمالي المبيعات", value: fmtMoney(totals.totalSales), hint: totals.totalSales ? "إجمالي قيمة الفواتير" : "لا توجد مبيعات اليوم", icon: CircleDollarSign, tone: "text-amber-300", chip: "bg-amber-300/10" },
+          { label: "المدفوع", value: fmtMoney(totals.totalPaid), hint: totals.totalPaid ? "تحصيلات مسجلة اليوم" : "لا توجد تحصيلات اليوم", icon: CheckCircle2, tone: "text-emerald-400", chip: "bg-emerald-400/10" },
+          { label: "المتبقي", value: fmtMoney(totals.totalRemaining), hint: totals.totalRemaining ? "يحتاج إلى متابعة" : "لا توجد مستحقات اليوم", icon: Wallet, tone: "text-primary", chip: "bg-primary/10" },
+        ].map(({ label, value, hint, icon: Icon, tone, chip }) => (
+          <section key={label} className="rounded-[1.45rem] bg-card/70 px-4 py-4 ring-1 ring-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,.06)] sm:px-5">
+            <div className="flex items-start justify-between gap-2"><span className="text-[11px] font-semibold text-muted-foreground">{label}</span><span className={`grid h-8 w-8 place-items-center rounded-full ${chip} ${tone}`}><Icon className="h-4 w-4" strokeWidth={1.35} /></span></div>
+            <div className={`text-numeric mt-4 text-xl font-extrabold leading-none sm:text-2xl ${tone}`}>{value}</div>
+            <p className="mt-2 text-[11px] text-muted-foreground">{hint}</p>
+          </section>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-4 mb-6">
-        <MetricCard label="الفواتير" value={totals.invoiceCount} format={(n) => String(Math.round(n))} icon={FileText} tone="neutral" isMoney={false} />
-        <MetricCard label="إجمالي المبيعات" value={totals.totalSales} format={fmtMoney} icon={Wallet} tone="positive" />
-        <MetricCard label="المدفوع" value={totals.totalPaid} format={fmtMoney} icon={Wallet} tone="positive" />
-        <MetricCard label="المتبقي" value={totals.totalRemaining} format={fmtMoney} icon={FileText} tone="danger" />
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px] mb-6">
-        <BezelCard>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,7fr)_minmax(290px,3fr)]">
+        <BezelCard innerClassName="overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-5 py-4 sm:px-6">
+            <div><h2 className="text-base font-bold">حركة اليوم</h2><p className="mt-1 text-xs text-muted-foreground">{filteredInvoices.length} من {todaysInvoices.length} فاتورة مطابقة</p></div>
+            <span className="rounded-full bg-foreground/[0.05] px-3 py-1 text-[11px] font-semibold text-muted-foreground">{selectedDateLabel}</span>
+          </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-right text-sm">
+            <table className="w-full min-w-[730px] text-right text-[13px]">
               <thead>
-                <tr className="text-muted-foreground text-[12px]">
-                  <th className="py-3 pr-4">رقم</th>
-                  <th className="py-3 pr-4">الوقت</th>
-                  <th className="py-3 pr-4">العميل</th>
-                  <th className="py-3 pr-4">الإجمالي</th>
-                  <th className="py-3 pr-4">مدفوع</th>
-                  <th className="py-3 pr-4">متبقي</th>
-                  <th className="py-3 pr-4">نوع</th>
-                  <th className="py-3 pr-4">الحالة</th>
-                  <th className="py-3 pr-4">تفاصيل</th>
+                <tr className="bg-foreground/[0.025] text-[11px] font-semibold text-muted-foreground">
+                  <th className="py-3.5 pr-5 sm:pr-6">رقم</th>
+                  <th className="py-3.5 pr-4">الوقت</th>
+                  <th className="py-3.5 pr-4">العميل</th>
+                  <th className="py-3.5 pr-4">الإجمالي</th>
+                  <th className="py-3.5 pr-4">مدفوع</th>
+                  <th className="py-3.5 pr-4">متبقي</th>
+                  <th className="py-3.5 pr-4">نوع</th>
+                  <th className="py-3.5 pr-4">الحالة</th>
+                  <th className="py-3.5 pr-4">تفاصيل</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredInvoices.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-muted-foreground">لا توجد فواتير تتوافق مع الفلاتر</td>
+                    <td colSpan={9} className="py-0">
+                      <div className="flex min-h-[330px] flex-col items-center justify-center px-6 text-center">
+                        <span className="grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/15"><ReceiptText className="h-6 w-6" strokeWidth={1.25} /></span>
+                        <h3 className="mt-5 text-lg font-bold">لا توجد حركة مسجلة لهذا اليوم</h3>
+                        <p className="mt-2 max-w-xs text-xs leading-6 text-muted-foreground">غيّر التاريخ أو أزل الفلاتر، أو ابدأ بتسجيل مصروف جديد لليوم.</p>
+                        <Button size="sm" onClick={focusExpenseForm} className="mt-5 gap-2"><Plus className="h-3.5 w-3.5" strokeWidth={1.5} /> إضافة مصروف</Button>
+                      </div>
+                    </td>
                   </tr>
                 )}
                 {filteredInvoices.map((inv) => {
@@ -401,17 +409,17 @@ export default function DailyLog() {
                   const remaining = Math.max(0, inv.total - inv.paid);
                   const status = invoiceStatus(inv);
                   return (
-                    <tr key={inv.id} className="border-t border-[var(--hairline)] transition-colors duration-300 hover:bg-foreground/[0.03]">
-                      <td className="py-3 pr-4 font-mono text-xs">{inv.id.slice(0, 8)}</td>
+                    <tr key={inv.id} className="border-t border-white/[0.05] transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-foreground/[0.025]">
+                      <td className="py-4 pr-5 font-mono text-xs sm:pr-6">{inv.id.slice(0, 8)}</td>
                       <td className="py-3 pr-4">{time}</td>
                       <td className="py-3 pr-4">{name}</td>
                       <td className="py-3 pr-4">{fmtMoney(inv.total)}</td>
-                      <td className="py-3 pr-4">{fmtMoney(inv.paid)}</td>
-                      <td className="py-3 pr-4">{fmtMoney(remaining)}</td>
-                      <td className="py-3 pr-4">{type}</td>
-                      <td className="py-3 pr-4">{status}</td>
-                      <td className="py-3 pr-4">
-                        <Link to="/invoices" className="text-primary hover:underline">اذهب للفواتير</Link>
+                      <td className="py-4 pr-4 text-emerald-400">{fmtMoney(inv.paid)}</td>
+                      <td className="py-4 pr-4 text-primary">{fmtMoney(remaining)}</td>
+                      <td className="py-4 pr-4"><span className="rounded-full bg-foreground/[0.05] px-2.5 py-1 text-[11px]">{type}</span></td>
+                      <td className="py-4 pr-4"><span className="text-xs">{status}</span></td>
+                      <td className="py-4 pr-4">
+                        <Link to="/invoices" className="text-xs font-semibold text-primary transition-colors hover:text-primary/75">عرض</Link>
                       </td>
                     </tr>
                   );
@@ -421,56 +429,49 @@ export default function DailyLog() {
           </div>
         </BezelCard>
 
-        <div className="space-y-4">
-          <BezelCard className="p-5">
-            <div className="space-y-4">
-              <div className="text-sm font-semibold">معلومات اليوم</div>
-              <div className="grid gap-3">
-                <div className="rounded-3xl border border-border bg-background/80 p-4">
-                  <div className="text-xs text-muted-foreground">مصروفات اليوم</div>
-                  <div className="mt-2 text-xl font-semibold">{fmtMoney(expenseTotal)}</div>
+        <aside ref={expenseFormRef} className="xl:sticky xl:top-6 xl:self-start">
+          <BezelCard innerClassName="p-5 sm:p-6">
+            <div className="space-y-6">
+              <section>
+                <div className="mb-4 flex items-center justify-between"><h2 className="text-base font-bold">نبذة اليوم</h2><span className="text-xs text-muted-foreground">{selectedDate}</span></div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="rounded-2xl bg-foreground/[0.035] p-3.5 ring-1 ring-white/[0.05]"><div className="text-[11px] text-muted-foreground">مصروفات اليوم</div><div className="text-numeric mt-2 text-lg font-extrabold text-amber-300">{fmtMoney(expenseTotal)}</div></div>
+                  <div className="rounded-2xl bg-foreground/[0.035] p-3.5 ring-1 ring-white/[0.05]"><div className="text-[11px] text-muted-foreground">الصافي</div><div className="text-numeric mt-2 text-lg font-extrabold text-emerald-400">{fmtMoney(netCash)}</div></div>
                 </div>
-                <div className="rounded-3xl border border-border bg-background/80 p-4">
-                  <div className="text-xs text-muted-foreground">صافي بعد المصروفات</div>
-                  <div className="mt-2 text-xl font-semibold">{fmtMoney(netCash)}</div>
-                </div>
-              </div>
-            </div>
-          </BezelCard>
-
-          <BezelCard className="p-5">
-            <div className="space-y-4">
-              <div className="text-sm font-semibold">ملاحظة اليوم</div>
+              </section>
+              <div className="h-px bg-white/[0.06]" />
+              <section className="space-y-3">
+                <div className="flex items-center justify-between gap-3"><h2 className="text-sm font-bold">ملاحظة اليوم</h2><span className="text-[11px] text-muted-foreground">تُحفظ تلقائيًا حسب التاريخ</span></div>
               <Textarea
                 value={dailyNote}
                 onChange={(e) => { setDailyNote(e.target.value); setNoteSaved(false); }}
-                rows={6}
+                rows={4}
+                className="border-white/[0.06] bg-foreground/[0.035] shadow-none"
                 placeholder="سجل ملاحظات أو أحداث اليوم هنا..."
               />
               <div className="flex items-center justify-between gap-3">
-                <Button size="sm" onClick={saveNote} disabled={noteSaved}>
+                <Button size="sm" variant={noteSaved ? "outline" : "secondary"} onClick={saveNote} disabled={noteSaved}>
                   {noteSaved ? "محفوظ" : "حفظ الملاحظة"}
                 </Button>
-                <span className="text-xs text-muted-foreground">يمكنك العودة للملاحظة بعد تغيير التاريخ</span>
               </div>
-            </div>
-          </BezelCard>
-
-          <BezelCard className="p-5">
-            <div className="space-y-4">
+              </section>
+              <div className="h-px bg-white/[0.06]" />
+              <section className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-sm font-semibold">إضافة مصروف</div>
+                <div className="text-sm font-bold">إضافة مصروف</div>
                 <span className="text-xs text-muted-foreground">التاريخ: {selectedDate}</span>
               </div>
               <div className="grid gap-3">
                 <Input
+                  id="daily-expense-amount"
                   value={expenseAmount}
                   onChange={(e) => setExpenseAmount(e.target.value)}
+                  className="h-11 border-white/[0.06] bg-foreground/[0.035] shadow-none"
                   placeholder="المبلغ"
                   inputMode="decimal"
                 />
                 <Select value={expenseCategory} onValueChange={(value) => setExpenseCategory(value as ExpenseCategory)}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-11 w-full border-white/[0.06] bg-foreground/[0.035] shadow-none"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {EXPENSE_CATEGORIES.map((category) => (
                       <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
@@ -481,15 +482,17 @@ export default function DailyLog() {
                   value={expenseNotes}
                   onChange={(e) => setExpenseNotes(e.target.value)}
                   rows={3}
+                  className="border-white/[0.06] bg-foreground/[0.035] shadow-none"
                   placeholder="ملاحظات المصروف (اختياري)"
                 />
-                <Button size="sm" onClick={addExpense} disabled={savingExpense}>
-                  إضافة مصروف
+                <Button onClick={addExpense} disabled={savingExpense} className="h-11 gap-2">
+                  <Plus className="h-4 w-4" strokeWidth={1.5} /> إضافة مصروف
                 </Button>
               </div>
+              </section>
             </div>
           </BezelCard>
-        </div>
+        </aside>
       </div>
     </div>
   );
