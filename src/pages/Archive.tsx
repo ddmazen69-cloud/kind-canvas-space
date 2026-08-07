@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useArchive, restoreArchived, restoreMany, purgeArchived, purgeAllArchived, getArchiveRetention, saveArchiveRetention,
   getArchiveAccess, getArchiveAuditLog,
@@ -6,11 +6,10 @@ import {
   ENTITY_LABELS, type ArchiveEntity, type ArchivedRecord,
 } from "@/lib/archive";
 import { useDB } from "@/lib/store";
-import { dataMeta, dataCounts, downloadJsonBackup, downloadExcelBackup, readImportFile, importBackup } from "@/lib/backup";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { PageTransition } from "@/components/PageTransition";
-import { Users, FileText, Truck, Package, Receipt, RotateCcw, Trash2, Search, Archive as ArchiveIcon, ArrowUpRight, CalendarDays, Database, Eye, ShieldAlert, SlidersHorizontal, CheckSquare, FileDown, Download, Upload, ShieldCheck, Layers3 } from "lucide-react";
+import { Users, FileText, Truck, Package, Receipt, RotateCcw, Trash2, Search, Archive as ArchiveIcon, ArrowUpRight, CalendarDays, Database, Eye, ShieldAlert, SlidersHorizontal, CheckSquare, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -85,17 +84,10 @@ export default function Archive() {
   const [access, setAccess] = useState<ArchiveAccess | null>(null);
   const [auditEntries, setAuditEntries] = useState<ArchiveAuditEntry[]>([]);
   const [batchRestoreConfirm, setBatchRestoreConfirm] = useState<{ records: ArchivedRecord[]; reason: string } | null>(null);
-  const [backupMeta, setBackupMeta] = useState<{ bytes: number; latest: string | null; userId: string } | null>(null);
-  const [backupCounts, setBackupCounts] = useState<Record<string, number>>({});
-  const importRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { getArchiveRetention().then(setRetention).catch(() => undefined); }, []);
   useEffect(() => { getArchiveAccess().then(setAccess).catch(() => setAccess(null)); }, []);
   useEffect(() => { getArchiveAuditLog().then(setAuditEntries).catch(() => setAuditEntries([])); }, []);
-  useEffect(() => {
-    dataMeta().then(setBackupMeta).catch(() => setBackupMeta(null));
-    dataCounts().then(setBackupCounts).catch(() => setBackupCounts({}));
-  }, []);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: records.length };
@@ -212,38 +204,8 @@ export default function Archive() {
     toast.success("تم تجهيز ملف PDF الخاص بالأرشيف");
   };
 
-  const onExportBackup = async (format: "json" | "xlsx") => {
-    try {
-      if (format === "json") {
-        await downloadJsonBackup();
-        toast.success("تم تصدير النسخة الاحتياطية JSON");
-      } else {
-        await downloadExcelBackup();
-        toast.success("تم تصدير النسخة الاحتياطية Excel");
-      }
-    } catch (error: any) {
-      toast.error(error?.message ?? "تعذر تصدير النسخة الاحتياطية");
-    }
-  };
-
-  const onImportBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try {
-      const backup = await readImportFile(file);
-      const imported = await importBackup(backup, Object.keys(backup.tables));
-      await Promise.all([refresh(), refreshDB()]);
-      toast.success(`تم استيراد ${imported} صفًا من النسخة الاحتياطية`);
-    } catch (error: any) {
-      toast.error(error?.message ?? "تعذر استيراد النسخة الاحتياطية");
-    } finally {
-      event.target.value = "";
-    }
-  };
-
   const activeCount = counts[tab] ?? 0;
   const totalValue = useMemo(() => records.reduce((sum, record) => sum + record.amount, 0), [records]);
-  const backupBytes = backupMeta ? `${Math.max(1, Math.round(backupMeta.bytes / 1024))} KB` : "—";
 
   return (
     <AppShell><PageTransition>
@@ -255,78 +217,6 @@ export default function Archive() {
           <ArchiveMetric icon={<Database className="w-4 h-4" />} label="القيمة المؤرشفة" value={money(totalValue)} />
           <ArchiveMetric icon={<CalendarDays className="w-4 h-4" />} label="آخر حذف" value={records[0] ? when(records[0].deletedAt) : "لا توجد سجلات"} />
           <ArchiveMetric icon={<ShieldAlert className="w-4 h-4" />} label="الصلاحية الحالية" value={access?.isOwner ? "مالك" : access?.role ?? "غير محدد"} />
-        </div>
-
-        <div className="mb-8 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-          <Bezel tone="accent">
-            <div className="p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold">النسخ الاحتياطي التلقائي</p>
-                  <p className="mt-1 text-xs text-muted-foreground">توفر نسخة من بياناتك جاهزة للاسترجاع عند الحاجة.</p>
-                </div>
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <Layers3 className="h-5 w-5" />
-                </span>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button onClick={() => onExportBackup("json")} className="flex items-center justify-between rounded-2xl bg-foreground/[0.04] p-4 text-right transition-transform duration-500 hover:-translate-y-0.5">
-                  <span>
-                    <span className="block text-sm font-bold">تصدير JSON</span>
-                    <span className="mt-1 block text-xs text-muted-foreground">نسخة نصية قابلة للاسترجاع</span>
-                  </span>
-                  <Download className="h-4 w-4 text-primary" />
-                </button>
-                <button onClick={() => onExportBackup("xlsx")} className="flex items-center justify-between rounded-2xl bg-foreground/[0.04] p-4 text-right transition-transform duration-500 hover:-translate-y-0.5">
-                  <span>
-                    <span className="block text-sm font-bold">تصدير Excel</span>
-                    <span className="mt-1 block text-xs text-muted-foreground">ملف جاهز للتخزين</span>
-                  </span>
-                  <FileDown className="h-4 w-4 text-primary" />
-                </button>
-              </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl bg-foreground/[0.04] p-3 text-xs text-muted-foreground">
-                  <div className="font-bold text-foreground">الحجم</div>
-                  <div className="mt-1">{backupBytes}</div>
-                </div>
-                <div className="rounded-2xl bg-foreground/[0.04] p-3 text-xs text-muted-foreground">
-                  <div className="font-bold text-foreground">آخر تحديث</div>
-                  <div className="mt-1">{backupMeta?.latest ? new Date(backupMeta.latest).toLocaleDateString("ar-EG") : "—"}</div>
-                </div>
-                <div className="rounded-2xl bg-foreground/[0.04] p-3 text-xs text-muted-foreground">
-                  <div className="font-bold text-foreground">عدد الصفوف</div>
-                  <div className="mt-1">{Object.values(backupCounts).reduce((sum, count) => sum + count, 0)}</div>
-                </div>
-              </div>
-            </div>
-          </Bezel>
-
-          <Bezel>
-            <div className="p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold">استيراد النسخة الاحتياطية</p>
-                  <p className="mt-1 text-xs text-muted-foreground">اختر ملف JSON أو Excel ثم أعد بياناتك فورًا.</p>
-                </div>
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-success/10 text-success">
-                  <ShieldCheck className="h-5 w-5" />
-                </span>
-              </div>
-
-              <input ref={importRef} type="file" accept=".json,.xlsx,.xls" className="hidden" onChange={onImportBackup} />
-              <button onClick={() => importRef.current?.click()} className="flex w-full items-center justify-between rounded-2xl border border-dashed border-border/70 bg-foreground/[0.02] p-4 text-right transition-transform duration-500 hover:-translate-y-0.5">
-                <span>
-                  <span className="block text-sm font-bold">استيراد نسخة احتياطية</span>
-                  <span className="mt-1 block text-xs text-muted-foreground">اختر الملف من جهازك</span>
-                </span>
-                <Upload className="h-4 w-4 text-primary" />
-              </button>
-              <div className="mt-4 rounded-2xl bg-foreground/[0.04] p-3 text-xs text-muted-foreground">
-                لو كانت نسخة الأرشيف معك في ملف خارجي، يمكنك استعادتها مباشرة هنا. سيؤدي الاستيراد إلى إعادة بيانات التطبيق لحالتها من الملف المحدد.
-              </div>
-            </div>
-          </Bezel>
         </div>
 
         {/* Filters */}
