@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from "@/lib/router-compat";
 import type { ReactNode } from "react";
 import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutGrid, Users, FileText, Bell, Receipt, Truck, Package, BarChart3, Settings, Archive, BookOpen, Warehouse } from "lucide-react";
+import { LayoutGrid, Users, FileText, Bell, Receipt, Truck, Package, BarChart3, Settings, Archive, BookOpen, Warehouse, Sparkles, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDB, lowStockCount, useShopSettings, isDueSoonOrOverdue } from "@/lib/store";
 import { UserChip } from "@/components/UserChip";
@@ -12,6 +12,7 @@ import { applyTheme, storeColorTheme } from "@/lib/theme";
 import { useEffect, useMemo } from "react";
 import { PENDING_INVITE_KEY } from "@/pages/Join";
 import { useRoleAbilities } from "@/lib/roles";
+import { useRasdAssistant, RasdButton } from "@/components/RasdAssistant";
 
 const nav = [
   { to: "/", label: "لوحة التحكم", icon: LayoutGrid },
@@ -41,6 +42,30 @@ function routeAllowed(pathname: string, allowed: Set<string>) {
     if (route !== "/" && pathname.startsWith(route)) return true;
   }
   return false;
+}
+
+function RasdSidebarButton() {
+  const { open, setOpen } = useRasdAssistant();
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen(!open)}
+      className={cn(
+        "group relative flex items-center justify-between gap-2 rounded-full px-4 py-3 text-sm transition-[transform,box-shadow,background-color,color] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+        open
+          ? "bg-primary font-semibold text-primary-foreground shadow-[0_18px_40px_-18px_hsl(var(--primary)/0.95)]"
+          : "text-white/70 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground hover:translate-x-[-3px] hover:shadow-[inset_0_0_0_1px_var(--hairline)]",
+      )}
+    >
+      <span className="flex items-center gap-2">
+        <Sparkles className="w-4 h-4" />
+        رَصْد
+      </span>
+      <span className="relative">
+        <Bot className="w-4 h-4" />
+      </span>
+    </button>
+  );
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -103,6 +128,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
         </div>
         <nav className="no-scrollbar -mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-1">
+          <RasdSidebarButton />
           {visibleNav.map((n) => {
             const active = n.to === "/" ? location.pathname === "/" : location.pathname.startsWith(n.to);
             const Icon = n.icon;
@@ -169,7 +195,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       {/* علامة القمر — ظاهرة دايماً على الموبايل */}
-      <div className="fixed left-3 top-3 z-40 md:hidden">
+      <div className="fixed left-3 top-3 z-40 flex items-center gap-2 md:hidden">
+        <RasdButton className="grid h-10 w-10 place-items-center rounded-full bg-card/80 text-primary ring-1 ring-primary/35 backdrop-blur-xl" />
         <ThemeToggle className="h-10 w-10 backdrop-blur-xl" />
       </div>
 

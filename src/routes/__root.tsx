@@ -18,7 +18,7 @@ import { AmbientBackground } from "@/components/AmbientBackground";
 import { useAuth } from "@/lib/store";
 import { useHydrated } from "@/lib/hydrated";
 import { ArabicNumerals } from "@/lib/arabic-digits";
-import { RasdAssistant } from "@/components/RasdAssistant";
+import { RasdAssistant, RasdProvider } from "@/components/RasdAssistant";
 
 function NotFoundComponent() {
   return (
@@ -169,7 +169,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RasdIfAuthed() {
   const { user } = useAuth();
   if (!user) return null;
-  return <RasdAssistant />;
+  return <RasdProvider><RasdAssistant /></RasdProvider>;
 }
 
 function RootComponent() {

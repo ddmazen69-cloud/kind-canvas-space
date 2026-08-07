@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Bot, Send, Sparkles, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,20 @@ import { cn } from "@/lib/utils";
 import { analyzeCustomerRisk, fmt, isDueSoonOrOverdue, useDB, useShopSettings } from "@/lib/store";
 
 type Message = { role: "user" | "assistant"; content: string };
+
+const RasdContext = createContext<{ open: boolean; setOpen: (open: boolean) => void }>({
+  open: false,
+  setOpen: () => {},
+});
+
+export function RasdProvider({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return <RasdContext.Provider value={{ open, setOpen }}>{children}</RasdContext.Provider>;
+}
+
+export function useRasdAssistant() {
+  return useContext(RasdContext);
+}
 
 const WELCOME: Message = {
   role: "assistant",
@@ -121,7 +136,7 @@ function localAnswer(question: string, data: ReturnType<typeof useDB>, settings:
 }
 
 export function RasdAssistant() {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useRasdAssistant();
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [sending, setSending] = useState(false);
@@ -161,15 +176,6 @@ export function RasdAssistant() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="فتح رَصْد، المساعد التحليلي"
-        className="press fixed bottom-36 left-6 z-40 grid h-14 w-14 place-items-center rounded-full bg-card text-primary shadow-[0_18px_42px_-16px_hsl(var(--primary)/0.8)] ring-1 ring-primary/35 transition hover:-translate-y-1 hover:bg-primary hover:text-primary-foreground md:bottom-28"
-      >
-        <Sparkles className="h-5 w-5" strokeWidth={1.9} />
-      </button>
-
       {open && (
         <div className="fixed inset-0 z-50" dir="rtl" role="dialog" aria-modal="true" aria-label="رَصْد، المساعد التحليلي">
           <button type="button" aria-label="إغلاق رَصْد" className="absolute inset-0 bg-background/55 backdrop-blur-sm" onClick={() => setOpen(false)} />
@@ -236,5 +242,20 @@ export function RasdAssistant() {
         </div>
       )}
     </>
+  );
+}
+
+export function RasdButton({ className }: { className?: string }) {
+  const { open, setOpen } = useRasdAssistant();
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen(!open)}
+      aria-label="فتح رَصْد، المساعد التحليلي"
+      aria-expanded={open}
+      className={cn("press", className)}
+    >
+      <Sparkles className="h-5 w-5" strokeWidth={1.9} />
+    </button>
   );
 }
