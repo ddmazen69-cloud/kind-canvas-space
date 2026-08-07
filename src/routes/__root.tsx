@@ -19,6 +19,7 @@ import { useAuth } from "@/lib/store";
 import { useHydrated } from "@/lib/hydrated";
 import { ArabicNumerals } from "@/lib/arabic-digits";
 import { QuickActionsFab } from "@/components/QuickActionsFab";
+import { RasdAssistant } from "@/components/RasdAssistant";
 
 function NotFoundComponent() {
   return (
@@ -172,6 +173,12 @@ function FabIfAuthed() {
   return <QuickActionsFab />;
 }
 
+function RasdIfAuthed() {
+  const { user } = useAuth();
+  if (!user) return null;
+  return <RasdAssistant />;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const hydrated = useHydrated();
@@ -190,6 +197,8 @@ function RootComponent() {
           ) : (
             <Outlet />
           )}
+          <FabIfAuthed />
+          <RasdIfAuthed />
         </PrivacyProvider>
       </TooltipProvider>
     </QueryClientProvider>
