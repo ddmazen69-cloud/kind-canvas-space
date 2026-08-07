@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StarRating } from "@/components/StarRating";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CustomerTypeBadge } from "@/components/CustomerTypeBadge";
-import { useDB, db, fmt, aiScript, daysLate, analyzeCustomerRisk, nextEntityCode, type Customer, type CustomerStatus, type CustomerType, type Invoice } from "@/lib/store";
+import { useDB, db, fmt, aiScript, daysLate, analyzeCustomerRisk, nextEntityCode, invoiceNumber, type Customer, type CustomerStatus, type CustomerType, type Invoice } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -913,7 +913,7 @@ function buildTimeline(c: Customer, invoices: Invoice[], payments: Payment[]): T
       id: `pay-${p.id}`,
       date: p.paidAt,
       kind: "payment",
-      description: `سداد على فاتورة ${inv?.notes ? `«${inv.notes}»` : `#${p.invoiceId.slice(0, 6)}`}`,
+      description: `سداد على فاتورة ${inv?.notes ? `«${inv.notes}»` : `${invoiceNumber(invoices, p.invoiceId)}`}`,
       amount: p.amount,
     });
   }

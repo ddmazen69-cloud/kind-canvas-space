@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CustomerTypeBadge } from "@/components/CustomerTypeBadge";
 import { StarRating } from "@/components/StarRating";
-import { useDB, db, type Customer, type Invoice, type Payment, fmt, daysLate, analyzeCustomerRisk } from "@/lib/store";
+import { useDB, db, type Customer, type Invoice, type Payment, fmt, daysLate, analyzeCustomerRisk, invoiceNumber } from "@/lib/store";
 import { usePrivacy } from "@/lib/privacy";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -89,7 +89,7 @@ function buildTimeline(c: Customer, invoices: Invoice[], payments: Payment[]) {
 
   for (const p of payments) {
     const inv = invoices.find((i) => i.id === p.invoiceId);
-    raw.push({ id: `pay-${p.id}`, date: p.paidAt, kind: "payment", description: `سداد على فاتورة ${inv?.notes ? `«${inv.notes}»` : `#${p.invoiceId.slice(0, 6)}`}`, amount: p.amount });
+    raw.push({ id: `pay-${p.id}`, date: p.paidAt, kind: "payment", description: `سداد على فاتورة ${inv?.notes ? `«${inv.notes}»` : `${invoiceNumber(invoices, p.invoiceId)}`}`, amount: p.amount });
   }
 
   raw.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());

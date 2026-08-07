@@ -130,7 +130,7 @@ function InvoicesPage() {
       const remaining = inv.total - inv.paid;
       const late = daysLate(inv);
       const status = remaining === 0 ? "مسددة" : late > 0 ? `متأخرة ${late} يوم` : "نشطة";
-      return [inv.id.slice(0, 6), c?.name ?? "—", c?.phone ?? "—", inv.total, inv.paid, remaining, inv.monthlyInstallment, isoToDDMMYYYY(inv.firstDueDate), format(new Date(inv.createdAt), "dd/MM/yyyy"), status];
+      return [invoiceNumber(data.invoices, inv.id, shopSettings.invoicePrefix), c?.name ?? "—", c?.phone ?? "—", inv.total, inv.paid, remaining, inv.monthlyInstallment, isoToDDMMYYYY(inv.firstDueDate), format(new Date(inv.createdAt), "dd/MM/yyyy"), status];
     });
     const csv = "\uFEFF" + [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -152,7 +152,7 @@ function InvoicesPage() {
       if (remaining > 0 && late > 0) lateCount++;
       const status = remaining === 0 ? "مسددة" : late > 0 ? `متأخرة ${late} يوم` : "نشطة";
       const tag = remaining === 0 ? "payment" : late > 0 ? "purchase" : "opening";
-      return `<tr><td>#${escapeHtml(inv.id.slice(0,6))}</td><td>${escapeHtml(c?.name ?? "—")}</td><td class="num">${fmt(inv.total)}</td><td class="num ok">${fmt(inv.paid)}</td><td class="num ${remaining > 0 ? "due" : ""}">${fmt(remaining)}</td><td dir="ltr">${escapeHtml(isoToDDMMYYYY(inv.firstDueDate))}</td><td><span class="tag ${tag}">${escapeHtml(status)}</span></td></tr>`;
+      return `<tr><td>${escapeHtml(invoiceNumber(data.invoices, inv.id, shopSettings.invoicePrefix))}</td><td>${escapeHtml(c?.name ?? "—")}</td><td class="num">${fmt(inv.total)}</td><td class="num ok">${fmt(inv.paid)}</td><td class="num ${remaining > 0 ? "due" : ""}">${fmt(remaining)}</td><td dir="ltr">${escapeHtml(isoToDDMMYYYY(inv.firstDueDate))}</td><td><span class="tag ${tag}">${escapeHtml(status)}</span></td></tr>`;
     }).join("");
     const body = `
 <h2 class="sec">قائمة الفواتير</h2>
@@ -398,9 +398,9 @@ function InvoicesPage() {
       </div>
 
       <HistoryDialog customer={historyFor} onClose={() => setHistoryFor(null)} invoices={data.invoices} payments={data.payments} items={data.invoiceItems} blurCls={blurCls} onEditInvoice={(i) => { setHistoryFor(null); setEditInv(i); }} />
-      <ViewInvoiceDialog inv={viewInv} customer={viewInv ? findCustomer(viewInv.customerId) ?? null : null} onClose={() => setViewInv(null)} />
-      <EditInvoiceDialog inv={editInv} onClose={() => setEditInv(null)} />
-      <ReminderDialog inv={reminderInv} customer={reminderInv ? findCustomer(reminderInv.customerId) ?? null : null} onClose={() => setReminderInv(null)} />
+      <ViewInvoiceDialog inv={viewInv} customer={viewInv ? findCustomer(viewInv.customerId) ?? null : null} invoiceNo={viewInv ? invoiceNumber(data.invoices, viewInv.id, shopSettings.invoicePrefix) : ""} onClose={() => setViewInv(null)} />
+      <EditInvoiceDialog inv={editInv} invoiceNo={editInv ? invoiceNumber(data.invoices, editInv.id, shopSettings.invoicePrefix) : ""} onClose={() => setEditInv(null)} />
+      <ReminderDialog inv={reminderInv} customer={reminderInv ? findCustomer(reminderInv.customerId) ?? null : null} invoiceNo={reminderInv ? invoiceNumber(data.invoices, reminderInv.id, shopSettings.invoicePrefix) : ""} onClose={() => setReminderInv(null)} />
       <BarcodeScanner
         open={searchScanOpen}
         onClose={() => setSearchScanOpen(false)}
@@ -653,7 +653,7 @@ function EditInvoiceItemDialog({ item, onClose }: { item: import("@/lib/store").
   );
 }
 
-function ViewInvoiceDialog({ inv, customer, onClose }: { inv: Invoice | null; customer: Customer | null; onClose: () => void }) {
+function ViewInvoiceDialog({ inv, customer, invoiceNo, onClose }: { inv: Invoice | null; customer: Customer | null; invoiceNo: string; onClose: () => void }) {
   if (!inv) return null;
   const remaining = inv.total - inv.paid;
   const late = daysLate(inv);
@@ -678,7 +678,7 @@ function ViewInvoiceDialog({ inv, customer, onClose }: { inv: Invoice | null; cu
     <Dialog open={!!inv} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-right">تفاصيل الفاتورة #{inv.id.slice(0, 6)}</DialogTitle>
+          <DialogTitle className="text-right">تفاصيل الفاتورة {invoiceNo}</DialogTitle>
           <DialogDescription className="text-right">{customer?.name ?? "—"}</DialogDescription>
         </DialogHeader>
         <div className="space-y-1 text-right text-sm">
@@ -697,7 +697,7 @@ function ViewInvoiceDialog({ inv, customer, onClose }: { inv: Invoice | null; cu
   );
 }
 
-function EditInvoiceDialog({ inv, onClose }: { inv: Invoice | null; onClose: () => void }) {
+function EditInvoiceDialog({ inv, invoiceNo, onClose }: { inv: Invoice | null; invoiceNo: string; onClose: () => void }) {
   const data = useDB();
   const { privacy } = usePrivacy();
   const blurCls = privacy ? "privacy-blur" : "privacy-clear";
@@ -792,7 +792,7 @@ function EditInvoiceDialog({ inv, onClose }: { inv: Invoice | null; onClose: () 
     <Dialog open={!!inv} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-right">تعديل الفاتورة #{inv.id.slice(0, 6)}</DialogTitle>
+          <DialogTitle className="text-right">تعديل الفاتورة {invoiceNo}</DialogTitle>
           <DialogDescription className="text-right">تحديث بيانات الفاتورة والمنتجات.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 text-right">
@@ -903,14 +903,14 @@ function EditInvoiceDialog({ inv, onClose }: { inv: Invoice | null; onClose: () 
   );
 }
 
-function ReminderDialog({ inv, customer, onClose }: { inv: Invoice | null; customer: Customer | null; onClose: () => void }) {
+function ReminderDialog({ inv, customer, invoiceNo, onClose }: { inv: Invoice | null; customer: Customer | null; invoiceNo: string; onClose: () => void }) {
   if (!inv || !customer) return null;
   const remaining = inv.total - inv.paid;
   const late = daysLate(inv);
   const overdueAmount = Math.min(inv.monthlyInstallment, remaining);
   const message =
     `مرحباً ${customer.name}،\n` +
-    `نود تذكيرك بقسط الفاتورة رقم #${inv.id.slice(0, 6)} المستحق منذ ${late} يوم.\n\n` +
+    `نود تذكيرك بقسط الفاتورة رقم ${invoiceNo} المستحق منذ ${late} يوم.\n\n` +
     `• قيمة القسط المتأخر: ${fmt(overdueAmount)} ج.م\n` +
     `• إجمالي المتبقي على الفاتورة: ${fmt(remaining)} ج.م\n` +
     `• تاريخ الاستحقاق: ${isoToDDMMYYYY(inv.firstDueDate)}\n\n` +
