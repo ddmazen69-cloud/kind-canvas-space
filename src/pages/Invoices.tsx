@@ -413,7 +413,7 @@ function InvoicesPage() {
         </div>
       </div>
 
-      <HistoryDialog customer={historyFor} onClose={() => setHistoryFor(null)} invoices={data.invoices} payments={data.payments} items={data.invoiceItems} blurCls={blurCls} onEditInvoice={(i) => { setHistoryFor(null); setEditInv(i); }} />
+      <HistoryDialog customer={historyFor} onClose={() => setHistoryFor(null)} invoices={data.invoices} payments={data.payments} items={data.invoiceItems} blurCls={blurCls} invoicePrefix={shopSettings.invoicePrefix} onEditInvoice={(i) => { setHistoryFor(null); setEditInv(i); }} onViewInvoice={(i) => { setHistoryFor(null); setViewInv(i); }} />
       <ViewInvoiceDialog inv={viewInv} customer={viewInv ? findCustomer(viewInv.customerId) ?? null : null} invoiceNo={viewInv ? invoiceNumber(data.invoices, viewInv.id, shopSettings.invoicePrefix) : ""} onClose={() => setViewInv(null)} />
       <EditInvoiceDialog inv={editInv} invoiceNo={editInv ? invoiceNumber(data.invoices, editInv.id, shopSettings.invoicePrefix) : ""} onClose={() => setEditInv(null)} />
       <ReminderDialog inv={reminderInv} customer={reminderInv ? findCustomer(reminderInv.customerId) ?? null : null} invoiceNo={reminderInv ? invoiceNumber(data.invoices, reminderInv.id, shopSettings.invoicePrefix) : ""} onClose={() => setReminderInv(null)} />
@@ -460,7 +460,7 @@ function StatCard({ icon, label, value, tone, trend, valueClassName, onClick }: 
   );
 }
 
-function HistoryDialog({ customer, onClose, invoices, payments, items, blurCls, onEditInvoice }: { customer: Customer | null; onClose: () => void; invoices: Invoice[]; payments: { id: string; invoiceId: string; amount: number; paidAt: string }[]; items: import("@/lib/store").InvoiceItem[]; blurCls: string; onEditInvoice: (inv: Invoice) => void }) {
+function HistoryDialog({ customer, onClose, invoices, payments, items, blurCls, invoicePrefix, onEditInvoice, onViewInvoice }: { customer: Customer | null; onClose: () => void; invoices: Invoice[]; payments: { id: string; invoiceId: string; amount: number; paidAt: string }[]; items: import("@/lib/store").InvoiceItem[]; blurCls: string; invoicePrefix: string; onEditInvoice: (inv: Invoice) => void; onViewInvoice: (inv: Invoice) => void }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [editing, setEditing] = useState<import("@/lib/store").InvoiceItem | null>(null);
   if (!customer) return null;
@@ -508,6 +508,9 @@ function HistoryDialog({ customer, onClose, invoices, payments, items, blurCls, 
                     <div key={inv.id}>
                       <div className="w-full flex items-center justify-between p-3 hover:bg-foreground/[0.035] transition text-right gap-2">
                         <div className="flex items-center gap-1">
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10" title="عرض تفاصيل الفاتورة" onClick={(e) => { e.stopPropagation(); onViewInvoice(inv); }}>
+                            <Eye className="w-3.5 h-3.5" />
+                          </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-warning hover:bg-warning/10" title="تعديل الفاتورة" onClick={(e) => { e.stopPropagation(); onEditInvoice(inv); }}>
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
@@ -537,7 +540,7 @@ function HistoryDialog({ customer, onClose, invoices, payments, items, blurCls, 
                         >
                           <span className="text-xs text-muted-foreground" dir="ltr">{format(new Date(inv.createdAt), "dd/MM/yyyy")}</span>
                           <span className={cn("font-bold tabular-nums", blurCls)}>{fmt(inv.total)} ج.م</span>
-                          <span className="font-mono text-xs text-muted-foreground">#{inv.id.slice(0, 4)}</span>
+                          <span className="font-mono text-xs text-muted-foreground">{invoiceNumber(invoices, inv.id, invoicePrefix)}</span>
                         </button>
                       </div>
                       <AnimatePresence initial={false}>
