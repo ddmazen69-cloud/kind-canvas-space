@@ -22,7 +22,6 @@ import {
 import { QuickActionsFab } from "@/components/QuickActionsFab";
 import {
   Users,
-  AlertCircle,
   Wallet,
   TrendingUp,
   FileText,
@@ -1028,10 +1027,9 @@ export function Dashboard() {
         </BezelCard>
       </Reveal>
 
-      {/* ============ مستحق اليوم + روابط ============ */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <Reveal className="h-full lg:col-span-2" delay={0}>
-          <BezelCard className="h-full" innerClassName="flex h-full flex-col p-6 sm:p-8">
+      {/* ============ مستحق اليوم ============ */}
+      <Reveal className="h-full" delay={0}>
+        <BezelCard className="h-full" innerClassName="flex h-full flex-col p-6 sm:p-8">
             <SectionHead
               title="يستحق التحصيل اليوم"
               icon={<CalendarCheck className="h-5 w-5 text-warning" />}
@@ -1114,75 +1112,8 @@ export function Dashboard() {
           </BezelCard>
         </Reveal>
 
-        <Reveal className="h-full" delay={90}>
-          <BezelCard className="h-full" innerClassName="h-full p-6 sm:p-8">
-            <SectionHead title="روابط سريعة" />
-            <div className="space-y-2.5">
-              <QuickLink
-                to="/customers"
-                icon={<Users className="h-4 w-4" />}
-                title="العملاء"
-                sub={`${data.customers.length} عميل`}
-              />
-              <QuickLink
-                to="/invoices"
-                icon={<FileText className="h-4 w-4" />}
-                title="الفواتير والمبيعات"
-                sub={`${data.invoices.length} فاتورة`}
-              />
-              <QuickLink
-                to="/alerts"
-                icon={<AlertCircle className="h-4 w-4" />}
-                title="التنبيهات"
-                sub={`${data.invoices.filter((i) => daysLate(i) > 0 && i.paid < i.total).length} متأخر`}
-                tone="danger"
-              />
-            </div>
-          </BezelCard>
-        </Reveal>
-      </section>
-
       <QuickActionsFab />
     </>
   );
 }
 
-function QuickLink({
-  to,
-  icon,
-  title,
-  sub,
-  tone = "neutral",
-}: {
-  to: string;
-  icon: React.ReactNode;
-  title: string;
-  sub: string;
-  tone?: "neutral" | "danger";
-}) {
-  return (
-    <Link
-      to={to as never}
-      className="group grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-2xl bg-foreground/[0.03] p-3.5 ring-1 ring-border/70 transition-all duration-500 hover:bg-foreground/[0.06] active:scale-[0.99]"
-      style={{ transitionTimingFunction: "var(--ease-fluid)" }}
-    >
-      <ArrowLeft className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-transform duration-500 group-hover:-translate-x-1" />
-      <div className="flex min-w-0 items-center justify-end gap-3">
-        <div className="min-w-0 text-right">
-          <div className="truncate text-sm font-bold">{title}</div>
-          <div className="text-[11px] text-muted-foreground">{sub}</div>
-        </div>
-        <span
-          className={cn(
-            "grid h-9 w-9 shrink-0 place-items-center rounded-full ring-1",
-            tone === "danger"
-              ? "bg-danger/10 text-danger ring-danger/25"
-              : "bg-foreground/[0.06] text-muted-foreground ring-foreground/10",
-          )}
-        >
-          {icon}
-        </span>
-      </div>
-    </Link>
-  );
-}
