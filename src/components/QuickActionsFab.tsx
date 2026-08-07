@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { db, useDB } from "@/lib/store";
+import { db, useDB, nextEntityCode } from "@/lib/store";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ExpenseFormDialog } from "@/pages/Expenses";
@@ -110,6 +110,7 @@ function TypeToggle({ value, onChange }: { value: "installment" | "cash"; onChan
 }
 
 function QuickCustomerForm({ onDone }: { onDone: () => void }) {
+  const { customers } = useDB();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [opening, setOpening] = useState("");
@@ -121,11 +122,13 @@ function QuickCustomerForm({ onDone }: { onDone: () => void }) {
     setBusy(true);
     try {
       await db.addCustomer({
+        code: nextEntityCode(customers, "C"),
         name: name.trim(), phone: phone.trim(), rating: 3, status: "neutral",
         customerType,
         notes: null, frozen: false, address: null,
         joiningDate: new Date().toISOString().slice(0, 10),
         creditLimit: 0, dueDay: 1, openingBalance: Number(opening) || 0,
+        ledgerNo: null,
       });
       toast.success("تمت إضافة العميل");
       onDone();

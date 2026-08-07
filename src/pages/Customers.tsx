@@ -3,14 +3,14 @@ import { Users } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { Reveal } from "@/components/Reveal";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { StarRating } from "@/components/StarRating";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CustomerTypeBadge } from "@/components/CustomerTypeBadge";
-import { useDB, db, fmt, aiScript, daysLate, analyzeCustomerRisk, type Customer, type CustomerStatus, type CustomerType, type Invoice } from "@/lib/store";
+import { useDB, db, fmt, aiScript, daysLate, analyzeCustomerRisk, nextEntityCode, type Customer, type CustomerStatus, type CustomerType, type Invoice } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -1342,7 +1342,9 @@ function DeleteTimelineEntry({ kind, id }: { kind: "invoice" | "payment"; id: st
 
 function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: React.ReactNode }) {
   const today = new Date().toISOString().slice(0, 10);
+  const data = useDB();
   const [open, setOpen] = useState(false);
+  const [code, setCode] = useState(customer?.code ?? "");
   const [name, setName] = useState(customer?.name ?? "");
   const [phone, setPhone] = useState(customer?.phone ?? "");
   const [rating, setRating] = useState<number>(customer?.rating ?? 3);
@@ -1355,7 +1357,15 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
   const [creditLimit, setCreditLimit] = useState<string>(customer?.creditLimit ? String(customer.creditLimit) : "");
   const [openingBalance, setOpeningBalance] = useState<string>(customer?.openingBalance ? String(customer.openingBalance) : "");
   const [dueDay, setDueDay] = useState<number>(customer?.dueDay ?? 1);
+  const [ledgerNo, setLedgerNo] = useState(customer?.ledgerNo ?? "");
   const [pressed, setPressed] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    if (customer) setCode(customer.code ?? "");
+    else setCode(nextEntityCode(data.customers, "C"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, customer]);
 
   const phoneValid = EG_PHONE_RE.test(phone);
   const initials = name.trim() ? name.trim().split(/\s+/).slice(0, 2).map((s) => s[0]).join("") : "";
@@ -1366,11 +1376,13 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
     const iso = joiningDate;
     if (!iso) return toast.error("اختر تاريخ الانضمام");
     const payload = {
+      code: code.trim() || null,
       name, phone, rating: rating as any, status, customerType,
       notes, frozen,
       address: address || null, joiningDate: iso,
       creditLimit: Number(creditLimit) || 0, dueDay,
       openingBalance: Number(openingBalance) || 0,
+      ledgerNo: ledgerNo.trim() || null,
     };
     if (customer) {
       db.updateCustomer(customer.id, payload);
@@ -1393,7 +1405,11 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
           <DialogDescription className="text-right">أدخل تفاصيل العميل والتقييم الائتماني.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          {/* Name + avatar */}
+          {/* Code + Name + avatar */}
+          <div>
+            <Label>كود العميل</Label>
+            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="يُحدد تلقائياً" maxLength={30} dir="ltr" readOnly />
+          </div>
           <div>
             <Label>الاسم</Label>
             <div className="flex items-center gap-3">
@@ -1513,6 +1529,15 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
                     dir="ltr"
                   />
                 </div>
+                <div>
+                  <Label>رقم العميل في الدفتر الورقي (اختياري)</Label>
+                  <Input
+                    value={ledgerNo}
+                    onChange={(e) => setLedgerNo(e.target.value)}
+                    placeholder="رقم العميل في الدفتر القديم..."
+                    maxLength={50}
+                  />
+                </div>
               </motion.div>
             ) : (
               <motion.div
@@ -1530,47 +1555,51 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
           </AnimatePresence>
 
 
-          {/* Opening balance */}
-          <div>
-            <Label className="flex items-center gap-1.5 justify-end">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button type="button" aria-label="معلومات">
-                      <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    لتسجيل مديونية قديمة من الدفاتر الورقية بدون إنشاء فاتورة وهمية. يضاف فوراً إلى إجمالي ديون العميل.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <span>رصيد افتتاحي / مديونية سابقة (ج.م)</span>
-            </Label>
-            <Input
-              type="number"
-              min={0}
-              value={openingBalance}
-              onChange={(e) => setOpeningBalance(e.target.value)}
-              placeholder="0"
-              dir="ltr"
-            />
-          </div>
+          {customerType === "installment" && (
+            <>
+              {/* Opening balance */}
+              <div>
+                <Label className="flex items-center gap-1.5 justify-end">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" aria-label="معلومات">
+                          <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        لتسجيل مديونية قديمة من الدفاتر الورقية بدون إنشاء فاتورة وهمية. يضاف فوراً إلى إجمالي ديون العميل.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <span>رصيد افتتاحي / مديونية سابقة (ج.م)</span>
+                </Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={openingBalance}
+                  onChange={(e) => setOpeningBalance(e.target.value)}
+                  placeholder="0"
+                  dir="ltr"
+                />
+              </div>
 
-          {/* Status tabs */}
-          <div>
-            <Label>حالة الالتزام</Label>
-            <Tabs value={status} onValueChange={(v) => setStatus(v as CustomerStatus)}>
-              <TabsList className="grid grid-cols-3 w-full">
-                {STATUS_TABS.map((t) => (
-                  <TabsTrigger key={t.value} value={t.value} className={cn("gap-1.5", t.active)}>
-                    <span className={cn("w-2 h-2 rounded-full", t.dot)} />
-                    {t.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </div>
+              {/* Status tabs */}
+              <div>
+                <Label>حالة الالتزام</Label>
+                <Tabs value={status} onValueChange={(v) => setStatus(v as CustomerStatus)}>
+                  <TabsList className="grid grid-cols-3 w-full">
+                    {STATUS_TABS.map((t) => (
+                      <TabsTrigger key={t.value} value={t.value} className={cn("gap-1.5", t.active)}>
+                        <span className={cn("w-2 h-2 rounded-full", t.dot)} />
+                        {t.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+              </div>
+            </>
+          )}
 
           {/* Star rating */}
           <div>
