@@ -15,10 +15,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { PrivacyProvider } from "@/lib/privacy";
 import { AmbientBackground } from "@/components/AmbientBackground";
-import { useAuth } from "@/lib/store";
 import { useHydrated } from "@/lib/hydrated";
 import { ArabicNumerals } from "@/lib/arabic-digits";
-import { RasdAssistant, RasdProvider } from "@/components/RasdAssistant";
 
 function NotFoundComponent() {
   return (
@@ -166,12 +164,6 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function RasdIfAuthed() {
-  const { user } = useAuth();
-  if (!user) return null;
-  return <RasdAssistant />;
-}
-
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const hydrated = useHydrated();
@@ -183,16 +175,13 @@ function RootComponent() {
         <Sonner richColors position="top-center" dir="rtl" />
         <PrivacyProvider>
           <AmbientBackground />
-          <RasdProvider>
-            {hydrated ? (
-              <AnimatePresence mode="wait">
-                <Outlet />
-              </AnimatePresence>
-            ) : (
+          {hydrated ? (
+            <AnimatePresence mode="wait">
               <Outlet />
-            )}
-            <RasdIfAuthed />
-          </RasdProvider>
+            </AnimatePresence>
+          ) : (
+            <Outlet />
+          )}
         </PrivacyProvider>
       </TooltipProvider>
     </QueryClientProvider>

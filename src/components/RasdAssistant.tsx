@@ -1,34 +1,32 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
-import { Bot, Send, Sparkles, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { analyzeCustomerRisk, fmt, isDueSoonOrOverdue, useDB, useShopSettings } from "@/lib/store";
 
-type Message = { role: "user" | "assistant"; content: string };
+export type NavTarget = { label: string; to: string };
 
-const RasdContext = createContext<{ open: boolean; setOpen: (open: boolean) => void }>({
-  open: false,
-  setOpen: () => {},
-});
+export type Message = {
+  role: "user" | "assistant";
+  content: string;
+  nav?: NavTarget;
+};
 
-export function RasdProvider({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return <RasdContext.Provider value={{ open, setOpen }}>{children}</RasdContext.Provider>;
-}
+export type Answer = { content: string; nav?: NavTarget };
 
-export function useRasdAssistant() {
-  return useContext(RasdContext);
-}
-
-const WELCOME: Message = {
+export const WELCOME: Message = {
   role: "assistant",
   content: "أنا رَصْد، مساعد سِجلّي. أجاوبك عن بيانات محلك وطريقة استخدام التطبيق، وأوضح لك الخطوات بدقة. لن أغيّر أي بيانات من تلقاء نفسي.",
 };
 
-function startsThisMonth(value: string, now = new Date()) {
+export const QUICK_QUESTIONS: string[] = [
+  "ما أهم 3 نقاط في محلي الآن؟",
+  "كم صافي الربح هذا الشهر؟",
+  "إيه الأصناف الناقصة في المخزن؟",
+  "مين أولويات المتابعة مع العملاء؟",
+  "ازاي أسجّل فاتورة بيع جديدة؟",
+];
+
+export const RASD_ROUTE = "/rasd";
+
+export function startsThisMonth(value: string, now = new Date()) {
   const date = new Date(value);
   return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
 }
@@ -40,7 +38,7 @@ function startsLastMonth(value: string, now = new Date()) {
 }
 
 /** Useful answers while the optional cloud AI service is being deployed. */
-function localAnswer(question: string, data: ReturnType<typeof useDB>, settings: { lowStockThreshold: number; reminderDaysBefore: number }) {
+export function localAnswer(question: string, data: ReturnType<typeof useDB>, settings: { lowStockThreshold: number; reminderDaysBefore: number }): Answer {
   const normalized = question.replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").toLowerCase();
   const has = (...terms: string[]) => terms.some((term) => normalized.includes(term));
   const asksHow = has("ازاي", "كيف", "فين", "اين", "اضيف", "اضافة", "اعمل", "استخدم", "مكان", "طريق");
@@ -59,31 +57,31 @@ function localAnswer(question: string, data: ReturnType<typeof useDB>, settings:
 
   // Product help: this makes Rasd useful for every feature even before cloud AI is enabled.
   if (asksHow && has("فاتور", "قسط", "دفع", "دفعة", "تحصيل")) {
-    return "لتسجيل بيع: افتح «الفواتير» ثم أضف فاتورة، واختر العميل وحدد الإجمالي والمقدم والقسط الشهري وموعد أول استحقاق. لتسجيل تحصيل لاحق، افتح الفاتورة أو استخدم «تسجيل دفعة» من زر الإجراءات السريعة. العميل النقدي يجب أن تكون فاتورته مسددة بالكامل.";
+    return { content: "لتسجيل بيع: افتح «الفواتير» ثم أضف فاتورة، واختر العميل وحدد الإجمالي والمقدم والقسط الشهري وموعد أول استحقاق. لتسجيل تحصيل لاحق، افتح الفاتورة أو استخدم «تسجيل دفعة» من زر الإجراءات السريعة. العميل النقدي يجب أن تكون فاتورته مسددة بالكامل.", nav: { label: "الفواتير", to: "/invoices" } };
   }
   if (asksHow && has("عميل", "عملا", "زبون")) {
-    return "من «العملاء» اضغط إضافة عميل، ثم اختر نوعه: قسط أو فوري نقدي. يمكنك تحديد سقف المديونية ويوم الاستحقاق والتقييم. لتجنب البيع لعميل متعثر، جمّده أو حدّث حالته من تفاصيله.";
+    return { content: "من «العملاء» اضغط إضافة عميل، ثم اختر نوعه: قسط أو فوري نقدي. يمكنك تحديد سقف المديونية ويوم الاستحقاق والتقييم. لتجنب البيع لعميل متعثر، جمّده أو حدّث حالته من تفاصيله.", nav: { label: "العملاء", to: "/customers" } };
   }
   if (asksHow && has("منتج", "مخزون", "باركود", "صنف")) {
-    return "من «المنتجات» أضف الصنف وحدد الكمية وسعر الشراء والبيع والحد الأدنى والباركود إن وُجد. استخدم «المخزن» للبضاعة الموسمية أو المخزنة، واختر مكان الصنف وموسمه لتتابعه بشكل أدق.";
+    return { content: "من «المنتجات» أضف الصنف وحدد الكمية وسعر الشراء والبيع والحد الأدنى والباركود إن وُجد. استخدم «المخزن» للبضاعة الموسمية أو المخزنة، واختر مكان الصنف وموسمه لتتابعه بشكل أدق.", nav: { label: "المنتجات", to: "/inventory" } };
   }
   if (asksHow && has("مورد", "شراء", "مشتري")) {
-    return "من «الموردين» أضف المورد أولًا، ثم سجّل فاتورة شراء بنقدي أو آجل. يمكنك متابعة الرصيد المتبقي وتسجيل دفعات المورد من نفس القسم.";
+    return { content: "من «الموردين» أضف المورد أولًا، ثم سجّل فاتورة شراء بنقدي أو آجل. يمكنك متابعة الرصيد المتبقي وتسجيل دفعات المورد من نفس القسم.", nav: { label: "الموردين", to: "/suppliers" } };
   }
   if (asksHow && has("مصروف", "ايجار", "رواتب")) {
-    return "من «المصروفات» اضغط إضافة مصروف، ثم اختر البند والتاريخ والمبلغ وأي ملاحظة. يظهر تأثيره لاحقًا في التقارير وصافي الربح.";
+    return { content: "من «المصروفات» اضغط إضافة مصروف، ثم اختر البند والتاريخ والمبلغ وأي ملاحظة. يظهر تأثيره لاحقًا في التقارير وصافي الربح.", nav: { label: "المصروفات", to: "/expenses" } };
   }
   if (asksHow && has("تقرير", "اكسل", "pdf", "تصدير")) {
-    return "من «التقارير» اختر الفترة ثم راجع المبيعات والتحصيلات والمصروفات والربح وأفضل العملاء والأصناف. تستطيع تصدير التقرير إلى Excel أو PDF من أزرار التصدير.";
+    return { content: "من «التقارير» اختر الفترة ثم راجع المبيعات والتحصيلات والمصروفات والربح وأفضل العملاء والأصناف. تستطيع تصدير التقرير إلى Excel أو PDF من أزرار التصدير.", nav: { label: "التقارير", to: "/reports" } };
   }
   if (asksHow && has("نسخ", "باك", "احتياطي", "ارشيف", "حذف")) {
-    return "قسم «الأرشيف» يحتفظ بالسجلات المحذوفة لتستعيدها حسب الصلاحية. ومن «الإعدادات» ثم تبويب البيانات تستطيع تصدير نسخة احتياطية أو استيرادها. راجع البيانات قبل المسح النهائي.";
+    return { content: "قسم «الأرشيف» يحتفظ بالسجلات المحذوفة لتستعيدها حسب الصلاحية. ومن «الإعدادات» ثم تبويب البيانات تستطيع تصدير نسخة احتياطية أو استيرادها. راجع البيانات قبل المسح النهائي.", nav: { label: "الإعدادات", to: "/settings" } };
   }
   if (asksHow && has("صلاح", "فريق", "عضو", "مدير", "بايع")) {
-    return "من «الإعدادات» ثم «الفريق» يستطيع المالك دعوة أعضاء وتحديد دورهم: مالك أو مدير أو بايع. المالك فقط يغيّر الصلاحيات، ويُظهر التطبيق لكل دور الأقسام المسموح بها.";
+    return { content: "من «الإعدادات» ثم «الفريق» يستطيع المالك دعوة أعضاء وتحديد دورهم: مالك أو مدير أو بايع. المالك فقط يغيّر الصلاحيات، ويُظهر التطبيق لكل دور الأقسام المسموح بها.", nav: { label: "الإعدادات", to: "/settings" } };
   }
   if (asksHow && has("تنبيه", "واتساب", "تذكير")) {
-    return "من «المنبه» ستجد الأقساط المستحقة والمتأخرة والأصناف الناقصة. يمكنك تسجيل دفعة مباشرة أو نسخ وإرسال رسالة واتساب مقترحة للعميل. عدد أيام التذكير يتغير من الإعدادات.";
+    return { content: "من «المنبه» ستجد الأقساط المستحقة والمتأخرة والأصناف الناقصة. يمكنك تسجيل دفعة مباشرة أو نسخ وإرسال رسالة واتساب مقترحة للعميل. عدد أيام التذكير يتغير من الإعدادات.", nav: { label: "المنبه", to: "/alerts" } };
   }
   if (has("تنبيه") || has("اهم", "النهارده")) {
     const parts = [
@@ -91,16 +89,16 @@ function localAnswer(question: string, data: ReturnType<typeof useDB>, settings:
       lowStock.length ? `${lowStock.length} صنف يحتاج متابعة في المخزون` : "المخزون فوق الحد الأدنى",
       `تحصيلات الشهر حتى الآن ${fmt(collectionsThisMonth)} ج.م`,
     ];
-    return `أهم 3 نقاط الآن:\n1. ${parts[0]}.\n2. ${parts[1]}.\n3. ${parts[2]}.`;
+    return { content: `أهم 3 نقاط الآن:\n1. ${parts[0]}.\n2. ${parts[1]}.\n3. ${parts[2]}.`, nav: { label: "المنبه", to: "/alerts" } };
   }
   if (has("عميل", "عملا", "زبون") && has("متابع", "متاخر", "محتاج")) {
-    if (!overdue.length) return "لا يوجد عملاء لديهم أقساط مستحقة أو متأخرة حاليًا.";
-    return `الأولوية للمتابعة:\n${overdue.slice(0, 5).map((item, index) => `${index + 1}. ${item.customer?.name ?? "عميل"}: متبقي ${fmt(item.remaining)} ج.م${item.days ? ` ومتأخر ${item.days} يوم` : " ومستحق الآن"}.`).join("\n")}`;
+    if (!overdue.length) return { content: "لا يوجد عملاء لديهم أقساط مستحقة أو متأخرة حاليًا." };
+    return { content: `الأولوية للمتابعة:\n${overdue.slice(0, 5).map((item, index) => `${index + 1}. ${item.customer?.name ?? "عميل"}: متبقي ${fmt(item.remaining)} ج.م${item.days ? ` ومتأخر ${item.days} يوم` : " ومستحق الآن"}.`).join("\n")}`, nav: { label: "العملاء", to: "/customers" } };
   }
   if (has("صنف", "مخزون", "ناقص")) {
     const totalUnits = data.stockItems.reduce((sum, item) => sum + item.quantity, 0);
-    if (!lowStock.length) return `المخزون حاليًا يحتوي على ${data.stockItems.length} صنفًا بإجمالي ${fmt(totalUnits)} وحدة. لا توجد أصناف وصلت للحد الأدنى المحدد في الإعدادات.`;
-    return `ملخص المخزون: ${data.stockItems.length} صنفًا بإجمالي ${fmt(totalUnits)} وحدة.\n\nالأصناف التي تحتاج إعادة طلب:\n${lowStock.slice(0, 8).map((item, index) => `${index + 1}. ${item.name}: المتاح ${fmt(item.quantity)}، والحد الأدنى ${fmt(item.minQuantity ?? settings.lowStockThreshold)}.`).join("\n")}`;
+    if (!lowStock.length) return { content: `المخزون حاليًا يحتوي على ${data.stockItems.length} صنفًا بإجمالي ${fmt(totalUnits)} وحدة. لا توجد أصناف وصلت للحد الأدنى المحدد في الإعدادات.` };
+    return { content: `ملخص المخزون: ${data.stockItems.length} صنفًا بإجمالي ${fmt(totalUnits)} وحدة.\n\nالأصناف التي تحتاج إعادة طلب:\n${lowStock.slice(0, 8).map((item, index) => `${index + 1}. ${item.name}: المتاح ${fmt(item.quantity)}، والحد الأدنى ${fmt(item.minQuantity ?? settings.lowStockThreshold)}.`).join("\n")}`, nav: { label: "المنتجات", to: "/inventory" } };
   }
   if (has("حساب", "رصيد", "مديون", "مستحق")) {
     const totalDue = data.invoices.reduce((sum, item) => sum + Math.max(0, item.total - item.paid), 0);
@@ -108,10 +106,10 @@ function localAnswer(question: string, data: ReturnType<typeof useDB>, settings:
     const supplierDue = data.suppliers.reduce((sum, supplier) => sum + supplier.openingBalance, 0)
       + data.purchases.filter((purchase) => purchase.paymentType === "credit").reduce((sum, purchase) => sum + purchase.total, 0)
       - data.supplierPayments.reduce((sum, payment) => sum + payment.amount, 0);
-    return `ملخص الحسابات الحالية:\n• المستحق من العملاء: ${fmt(totalDue + customerDue)} ج.م\n• المستحق للموردين: ${fmt(Math.max(0, supplierDue))} ج.م\n• التحصيلات هذا الشهر: ${fmt(collectionsThisMonth)} ج.م\n• المبيعات هذا الشهر: ${fmt(salesThisMonth)} ج.م.`;
+    return { content: `ملخص الحسابات الحالية:\n• المستحق من العملاء: ${fmt(totalDue + customerDue)} ج.م\n• المستحق للموردين: ${fmt(Math.max(0, supplierDue))} ج.م\n• التحصيلات هذا الشهر: ${fmt(collectionsThisMonth)} ج.م\n• المبيعات هذا الشهر: ${fmt(salesThisMonth)} ج.م.` };
   }
   if (has("تحصيل", "مبيعات", "الشهر")) {
-    return `ملخص الشهر الحالي:\n• المبيعات: ${fmt(salesThisMonth)} ج.م\n• التحصيلات: ${fmt(collectionsThisMonth)} ج.م\n• إجمالي المديونيات المفتوحة: ${fmt(data.invoices.reduce((sum, item) => sum + Math.max(0, item.total - item.paid), 0))} ج.م.`;
+    return { content: `ملخص الشهر الحالي:\n• المبيعات: ${fmt(salesThisMonth)} ج.م\n• التحصيلات: ${fmt(collectionsThisMonth)} ج.م\n• إجمالي المديونيات المفتوحة: ${fmt(data.invoices.reduce((sum, item) => sum + Math.max(0, item.total - item.paid), 0))} ج.م.`, nav: { label: "الفواتير", to: "/invoices" } };
   }
   if (has("ربح", "بيتحسن", "مقارن")) {
     const profit = (isCurrent: (value: string) => boolean) => {
@@ -123,139 +121,23 @@ function localAnswer(question: string, data: ReturnType<typeof useDB>, settings:
     const current = profit((value) => startsThisMonth(value));
     const previous = profit((value) => startsLastMonth(value));
     const direction = current > previous ? "أفضل" : current < previous ? "أقل" : "مستقر";
-    return `صافي الربح المحسوب هذا الشهر ${fmt(current)} ج.م، وكان ${fmt(previous)} ج.م الشهر الماضي. الاتجاه الحالي ${direction}.`;
+    return { content: `صافي الربح المحسوب هذا الشهر ${fmt(current)} ج.م، وكان ${fmt(previous)} ج.م الشهر الماضي. الاتجاه الحالي ${direction}.`, nav: { label: "التقارير", to: "/reports" } };
   }
   if (has("واتساب", "رسالة")) {
     const target = data.customers.find((customer) => normalized.includes(customer.name.replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").toLowerCase()));
-    if (!target) return "اكتب اسم العميل مع طلب الرسالة، مثل: اكتب رسالة واتساب لطيفة للعميل أحمد.";
+    if (!target) return { content: "اكتب اسم العميل مع طلب الرسالة، مثل: اكتب رسالة واتساب لطيفة للعميل أحمد." };
     const risk = analyzeCustomerRisk(target, data.invoices);
     const balance = data.invoices.filter((invoice) => invoice.customerId === target.id).reduce((sum, invoice) => sum + Math.max(0, invoice.total - invoice.paid), target.openingBalance);
-    return `أهلًا أستاذ/ة ${target.name}، نتمنى تكون بخير. حابين نفكّرك إن المتبقي على حسابك ${fmt(balance)} ج.م. يهمنا نرتب مع حضرتك موعد مناسب للسداد. شكرًا لتعاونك.\n\nملاحظة: مستوى المتابعة المقترح ${risk.level === "high" ? "عالي" : risk.level === "medium" ? "متوسط" : "عادي"}.`;
+    return { content: `أهلًا أستاذ/ة ${target.name}، نتمنى تكون بخير. حابين نفكّرك إن المتبقي على حسابك ${fmt(balance)} ج.م. يهمنا نرتب مع حضرتك موعد مناسب للسداد. شكرًا لتعاونك.\n\nملاحظة: مستوى المتابعة المقترح ${risk.level === "high" ? "عالي" : risk.level === "medium" ? "متوسط" : "عادي"}.`, nav: { label: "العملاء", to: "/customers" } };
   }
-  return "أفهم أسئلة العملاء والفواتير والدفعات والمنتجات والمخزن والموردين والمشتريات والمصروفات والتنبيهات والتقارير والأرشيف والنسخ الاحتياطي والصلاحيات. اكتب سؤالك بصيغة كاملة، وسأعطيك الإجابة أو الخطوات المناسبة.";
+  return { content: "أفهم أسئلة العملاء والفواتير والدفعات والمنتجات والمخزن والموردين والمشتريات والمصروفات والتنبيهات والتقارير والأرشيف والنسخ الاحتياطي والصلاحيات. اكتب سؤالك بصيغة كاملة، وسأعطيك الإجابة أو الخطوات المناسبة." };
 }
 
-export function RasdAssistant() {
-  const { open, setOpen } = useRasdAssistant();
-  const [draft, setDraft] = useState("");
-  const [messages, setMessages] = useState<Message[]>([WELCOME]);
-  const [sending, setSending] = useState(false);
-  const data = useDB();
-  const { settings } = useShopSettings();
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (open) window.setTimeout(() => inputRef.current?.focus(), 120);
-  }, [open]);
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, sending]);
-
-  const ask = async (question: string) => {
-    const content = question.trim();
-    if (!content || sending) return;
-    const next = [...messages, { role: "user" as const, content }];
-    setMessages(next);
-    setDraft("");
-    setSending(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("rasd-assistant", {
-        body: { messages: next.slice(-10) },
-      });
-      if (error) throw error;
-      const answer = typeof data?.answer === "string" ? data.answer : "تعذّر على رَصْد تجهيز إجابة الآن. جرّب مرة أخرى.";
-      setMessages((current) => [...current, { role: "assistant", content: answer }]);
-    } catch (error: any) {
-      setMessages((current) => [...current, { role: "assistant", content: localAnswer(content, data, settings) }]);
-    } finally {
-      setSending(false);
-    }
-  };
-
-  return (
-    <>
-      {open && (
-        <div className="fixed inset-0 z-50" dir="rtl" role="dialog" aria-modal="true" aria-label="رَصْد، المساعد التحليلي">
-          <button type="button" aria-label="إغلاق رَصْد" className="absolute inset-0 bg-background/55 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <section className="absolute inset-x-3 bottom-3 top-3 flex flex-col overflow-hidden rounded-[1.75rem] bg-popover shadow-[0_28px_100px_-35px_hsl(var(--background))] ring-1 ring-white/10 md:bottom-6 md:right-6 md:left-auto md:top-6 md:w-[27rem]">
-            <header className="flex items-center justify-between border-b border-border/70 px-5 py-4">
-              <button type="button" onClick={() => setOpen(false)} className="press grid h-10 w-10 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="إغلاق">
-                <X className="h-5 w-5" />
-              </button>
-              <div className="flex items-center gap-3 text-right">
-                <div>
-                  <h2 className="text-display text-xl font-bold">رَصْد</h2>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">مساعد تحليلي، للقراءة فقط</p>
-                </div>
-                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary/12 text-primary ring-1 ring-primary/25">
-                  <Bot className="h-5 w-5" strokeWidth={1.75} />
-                </span>
-              </div>
-            </header>
-
-            <div ref={scrollRef} className="no-scrollbar flex-1 space-y-4 overflow-y-auto px-4 py-5">
-              {messages.map((message, index) => (
-                <div key={`${message.role}-${index}`} className={cn("flex", message.role === "user" ? "justify-start" : "justify-end")}>
-                  <p className={cn(
-                    "max-w-[88%] whitespace-pre-wrap rounded-[1.35rem] px-4 py-3 text-sm leading-7",
-                    message.role === "user"
-                      ? "rounded-bl-md bg-primary text-primary-foreground"
-                      : "rounded-br-md bg-muted/75 text-foreground ring-1 ring-border/70",
-                  )}>{message.content}</p>
-                </div>
-              ))}
-              {sending && (
-                <div className="flex justify-end" aria-label="رَصْد يكتب الآن">
-                  <div className="flex items-center gap-1.5 rounded-[1.35rem] rounded-br-md bg-muted/75 px-4 py-4 ring-1 ring-border/70">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary [animation-delay:120ms]" />
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary [animation-delay:240ms]" />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-border/70 px-4 pb-4 pt-3">
-              <div className="flex items-end gap-2 rounded-[1.3rem] bg-muted/55 p-2 ring-1 ring-border/70">
-                <Textarea
-                  ref={inputRef}
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void ask(draft); }
-                  }}
-                  disabled={sending}
-                  rows={1}
-                  maxLength={1000}
-                  placeholder="اكتب سؤالك هنا..."
-                  className="min-h-10 max-h-28 resize-none border-0 bg-transparent px-2 py-2.5 text-sm shadow-none focus-visible:ring-0"
-                />
-                <Button type="button" size="icon" disabled={!draft.trim() || sending} onClick={() => void ask(draft)} className="press h-10 w-10 shrink-0 rounded-xl">
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="mt-2 px-1 text-[10px] leading-5 text-muted-foreground">رَصْد يجيب عن بيانات المحل وطريقة استخدام التطبيق، ولا ينشئ أو يعدّل سجلات.</p>
-            </div>
-          </section>
-        </div>
-      )}
-    </>
-  );
-}
-
-export function RasdButton({ className }: { className?: string }) {
-  const { open, setOpen } = useRasdAssistant();
-  return (
-    <button
-      type="button"
-      onClick={() => setOpen(!open)}
-      aria-label="فتح رَصْد، المساعد التحليلي"
-      aria-expanded={open}
-      className={cn("press", className)}
-    >
-      <Sparkles className="h-5 w-5" strokeWidth={1.9} />
-    </button>
-  );
+export async function askRasd(messages: Message[], question: string): Promise<Answer> {
+  const { data, error } = await supabase.functions.invoke("rasd-assistant", {
+    body: { messages: [...messages, { role: "user", content: question }].slice(-10) },
+  });
+  if (error) throw error;
+  const answer = typeof data?.answer === "string" ? data.answer : "تعذّر على رَصْد تجهيز إجابة الآن. جرّب مرة أخرى.";
+  return { content: answer };
 }

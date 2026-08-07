@@ -12,7 +12,7 @@ import { applyTheme, storeColorTheme } from "@/lib/theme";
 import { useEffect, useMemo } from "react";
 import { PENDING_INVITE_KEY } from "@/pages/Join";
 import { useRoleAbilities } from "@/lib/roles";
-import { useRasdAssistant, RasdButton } from "@/components/RasdAssistant";
+import { RASD_ROUTE } from "@/components/RasdAssistant";
 
 const nav = [
   { to: "/", label: "لوحة التحكم", icon: LayoutGrid },
@@ -45,14 +45,14 @@ function routeAllowed(pathname: string, allowed: Set<string>) {
 }
 
 function RasdSidebarButton() {
-  const { open, setOpen } = useRasdAssistant();
+  const location = useLocation();
+  const active = location.pathname === RASD_ROUTE;
   return (
-    <button
-      type="button"
-      onClick={() => setOpen(!open)}
+    <Link
+      to={RASD_ROUTE}
       className={cn(
         "group relative flex items-center justify-between gap-2 rounded-full px-4 py-3 text-sm transition-[transform,box-shadow,background-color,color] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
-        open
+        active
           ? "bg-primary font-semibold text-primary-foreground shadow-[0_18px_40px_-18px_hsl(var(--primary)/0.95)]"
           : "text-white/70 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground hover:translate-x-[-3px] hover:shadow-[inset_0_0_0_1px_var(--hairline)]",
       )}
@@ -64,7 +64,7 @@ function RasdSidebarButton() {
       <span className="relative">
         <Bot className="w-4 h-4" />
       </span>
-    </button>
+    </Link>
   );
 }
 
@@ -99,6 +99,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       navigate(fallback, { replace: true });
     }
   }, [abilitiesLoading, allowedRoutes, location.pathname, navigate, visibleNav]);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.altKey && event.code === "KeyR" && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
+        event.preventDefault();
+        navigate(RASD_ROUTE);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navigate]);
   const overdueCount = settings.alertsEnabled
     ? dueOrOverdueCount(invoices, settings.reminderDaysBefore) +
       lowStockCount(stockItems, settings.lowStockThreshold)
@@ -196,7 +206,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* علامة القمر — ظاهرة دايماً على الموبايل */}
       <div className="fixed left-3 top-3 z-40 flex items-center gap-2 md:hidden">
-        <RasdButton className="grid h-10 w-10 place-items-center rounded-full bg-card/80 text-primary ring-1 ring-primary/35 backdrop-blur-xl" />
+        <Link
+          to={RASD_ROUTE}
+          aria-label="فتح رَصْد، المساعد التحليلي"
+          className="press grid h-10 w-10 place-items-center rounded-full bg-card/80 text-primary ring-1 ring-primary/35 backdrop-blur-xl"
+        >
+          <Sparkles className="h-5 w-5" strokeWidth={1.9} />
+        </Link>
         <ThemeToggle className="h-10 w-10 backdrop-blur-xl" />
       </div>
 
