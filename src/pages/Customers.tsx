@@ -1218,19 +1218,28 @@ function QuickAddPayment({ invoices }: { invoices: Invoice[] }) {
 
 function EditInvoiceDialog({ invoice }: { invoice: Invoice }) {
   const [open, setOpen] = useState(false);
-  const [total, setTotal] = useState(String(invoice.total));
+  const [total, setTotal] = useState(String(invoice.total + invoice.discountAmount));
   const [down, setDown] = useState(String(invoice.downPayment));
   const [monthly, setMonthly] = useState(String(invoice.monthlyInstallment));
   const [dateInput, setDateInput] = useState(isoToDDMMYYYY(invoice.firstDueDate));
   const [notes, setNotes] = useState(invoice.notes ?? "");
+  const [discountAmount, setDiscountAmount] = useState(invoice.discountAmount > 0 ? String(invoice.discountAmount) : "");
+  const [discountPercent, setDiscountPercent] = useState(invoice.discountPercent > 0 ? String(invoice.discountPercent) : "");
 
   const submit = async () => {
-    const t = Number(total), d = Number(down), mo = Number(monthly);
-    if (!t || !mo || !dateInput) return toast.error("املأ كل البيانات");
+    const gross = Number(total), d = Number(down), mo = Number(monthly);
+    if (!gross || !mo || !dateInput) return toast.error("املأ كل البيانات");
     const iso = ddmmyyyyToIso(dateInput);
     if (!iso) return toast.error("صيغة التاريخ يجب أن تكون DD/MM/YYYY");
+    const discountValue = Math.min(Math.max(0, Number(discountAmount || 0)), Math.max(0, gross));
+    const netTotal = Math.max(0, gross - discountValue);
     try {
-      await db.updateInvoice(invoice.id, { total: t, downPayment: d, monthlyInstallment: mo, firstDueDate: iso, notes });
+      await db.updateInvoice(invoice.id, {
+        total: netTotal,
+        discountAmount: discountValue,
+        discountPercent: gross > 0 ? +((discountValue / gross) * 100).toFixed(2) : 0,
+        downPayment: d, monthlyInstallment: mo, firstDueDate: iso, notes,
+      });
       toast.success("تم تحديث الفاتورة");
       setOpen(false);
     } catch (e: any) {
@@ -1254,6 +1263,19 @@ function EditInvoiceDialog({ invoice }: { invoice: Invoice }) {
           <div className="grid grid-cols-2 gap-3">
             <div><Label>سعر المنتج (ج.م)</Label><Input type="number" value={total} onChange={(e) => setTotal(e.target.value)} /></div>
             <div><Label>المقدم (ج.م)</Label><Input type="number" value={down} onChange={(e) => setDown(e.target.value)} /></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>الخصم بالنسبة %</Label><Input type="number" min="0" max="100" value={discountPercent} onChange={(e) => {
+              const pct = Math.min(100, Math.max(0, Number(e.target.value || 0)));
+              setDiscountPercent(pct > 0 ? String(pct) : "");
+              setDiscountAmount(Number(total) > 0 && pct > 0 ? String(Math.round((Number(total) * pct) / 100)) : "");
+            }} placeholder="0" /></div>
+            <div><Label>الخصم بالمبلغ (ج.م)</Label><Input type="number" min="0" value={discountAmount} onChange={(e) => {
+              const val = e.target.value;
+              setDiscountAmount(val);
+              const amt = Math.min(Math.max(0, Number(val || 0)), Math.max(0, Number(total)));
+              setDiscountPercent(Number(total) > 0 && amt > 0 ? String(+(amt / Number(total) * 100).toFixed(2)) : "");
+            }} placeholder="0" /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>القسط الشهري (ج.م)</Label><Input type="number" value={monthly} onChange={(e) => setMonthly(e.target.value)} /></div>

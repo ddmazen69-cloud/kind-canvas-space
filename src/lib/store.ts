@@ -30,6 +30,8 @@ export interface Invoice {
   id: string;
   customerId: string;
   total: number;
+  discountAmount: number;
+  discountPercent: number;
   downPayment: number;
   monthlyInstallment: number;
   firstDueDate: string;
@@ -220,6 +222,7 @@ async function fetchAllFromServer() {
     })),
     invoices: (i.data ?? []).map((r: any) => ({
       id: r.id, customerId: r.customer_id, total: Number(r.total),
+      discountAmount: Number(r.discount_amount ?? 0), discountPercent: Number(r.discount_percent ?? 0),
       downPayment: Number(r.down_payment), monthlyInstallment: Number(r.monthly_installment),
       firstDueDate: r.first_due_date, paid: Number(r.paid), notes: r.notes, createdAt: r.created_at,
     })),
@@ -409,13 +412,19 @@ export const db = {
     if (error) throw error;
     await fetchAll();
   },
-  async addInvoice(inv: Omit<Invoice, "id" | "createdAt" | "paid"> & { paid?: number; items?: Array<{ name: string; cost: number; price: number }> }) {
+  async addInvoice(inv: {
+    customerId: string; total: number; downPayment: number; monthlyInstallment: number;
+    firstDueDate: string; paid?: number; notes: string | null;
+    discountAmount?: number; discountPercent?: number;
+    items?: Array<{ name: string; cost: number; price: number }>;
+  }) {
     const user_id = await uid();
     await assertInvoiceAllowed(inv);
 
     const { data, error } = await supabase.from("invoices").insert({
       user_id, customer_id: inv.customerId, total: inv.total, down_payment: inv.downPayment,
       monthly_installment: inv.monthlyInstallment, first_due_date: inv.firstDueDate,
+      discount_amount: inv.discountAmount ?? 0, discount_percent: inv.discountPercent ?? 0,
       paid: inv.paid ?? inv.downPayment, notes: inv.notes,
     }).select("id").single();
     if (error) throw error;
@@ -463,9 +472,11 @@ export const db = {
     await fetchAll();
   },
 
-  async updateInvoice(id: string, patch: Partial<Pick<Invoice, "total" | "downPayment" | "monthlyInstallment" | "firstDueDate" | "notes">>) {
+  async updateInvoice(id: string, patch: Partial<Pick<Invoice, "total" | "downPayment" | "monthlyInstallment" | "firstDueDate" | "notes" | "discountAmount" | "discountPercent">>) {
     const upd: any = {};
     if (patch.total !== undefined) upd.total = patch.total;
+    if (patch.discountAmount !== undefined) upd.discount_amount = patch.discountAmount;
+    if (patch.discountPercent !== undefined) upd.discount_percent = patch.discountPercent;
     if (patch.downPayment !== undefined) upd.down_payment = patch.downPayment;
     if (patch.monthlyInstallment !== undefined) upd.monthly_installment = patch.monthlyInstallment;
     if (patch.firstDueDate !== undefined) upd.first_due_date = patch.firstDueDate;

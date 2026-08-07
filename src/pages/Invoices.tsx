@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Search, Wallet, AlertTriangle, Printer, ShieldAlert, Eye, Pencil, Trash2, Bell, History, TrendingUp, CalendarDays, AlertCircle, MessageCircle, EyeOff, Download, FileSpreadsheet, FileText, X, ChevronsUpDown, Check, Package, ScanLine } from "lucide-react";
+import { Plus, Search, Wallet, AlertTriangle, Printer, ShieldAlert, Eye, Pencil, Trash2, Bell, History, TrendingUp, CalendarDays, AlertCircle, MessageCircle, EyeOff, Download, FileSpreadsheet, FileText, X, ChevronsUpDown, Check, Package, ScanLine, Percent } from "lucide-react";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { EmptyState } from "@/components/EmptyState";
 import { TableSkeleton } from "@/components/LoadingSkeletons";
@@ -660,6 +660,10 @@ function ViewInvoiceDialog({ inv, customer, onClose }: { inv: Invoice | null; cu
   const rows: [string, string, boolean?][] = [
     ["العميل", customer?.name ?? "—"],
     ["الهاتف", customer?.phone ?? "—", true],
+    ...(inv.discountAmount > 0 ? [
+      ["قبل الخصم", `${fmt(inv.total + inv.discountAmount)} ج.م`],
+      ["الخصم", `- ${fmt(inv.discountAmount)} ج.م${inv.discountPercent > 0 ? ` (${inv.discountPercent}%)` : ""}`],
+    ] as [string, string, boolean?][] : []),
     ["إجمالي الفاتورة", `${fmt(inv.total)} ج.م`],
     ["المقدم", `${fmt(inv.downPayment)} ج.م`],
     ["المسدد", `${fmt(inv.paid)} ج.م`],
@@ -702,6 +706,8 @@ function EditInvoiceDialog({ inv, onClose }: { inv: Invoice | null; onClose: () 
   const [monthly, setMonthly] = useState("");
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [notes, setNotes] = useState("");
+  const [discountAmount, setDiscountAmount] = useState("");
+  const [discountPercent, setDiscountPercent] = useState("");
 
   useEffect(() => {
     if (inv) {
@@ -714,6 +720,8 @@ function EditInvoiceDialog({ inv, onClose }: { inv: Invoice | null; onClose: () 
       setMonthly(String(inv.monthlyInstallment));
       setDate(new Date(inv.firstDueDate));
       setNotes(inv.notes ?? "");
+      setDiscountAmount(inv.discountAmount > 0 ? String(inv.discountAmount) : "");
+      setDiscountPercent(inv.discountPercent > 0 ? String(inv.discountPercent) : "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inv?.id]);
@@ -722,9 +730,22 @@ function EditInvoiceDialog({ inv, onClose }: { inv: Invoice | null; onClose: () 
 
   const totalCost = products.reduce((s, p) => s + Number(p.cost || 0), 0);
   const totalPrice = products.reduce((s, p) => s + Number(p.price || 0), 0);
-  const remaining = Math.max(0, totalPrice - Number(down || 0));
-  const profit = totalPrice - totalCost;
-  const isCash = totalPrice > 0 && Number(down) >= totalPrice;
+  const discountValue = Math.min(Number(discountAmount || 0), Math.max(0, totalPrice));
+  const netTotal = Math.max(0, totalPrice - discountValue);
+  const remaining = Math.max(0, netTotal - Number(down || 0));
+  const profit = netTotal - totalCost;
+  const isCash = netTotal > 0 && Number(down) >= netTotal;
+
+  const onDiscountAmountChange = (val: string) => {
+    setDiscountAmount(val);
+    const amt = Math.min(Math.max(0, Number(val || 0)), Math.max(0, totalPrice));
+    setDiscountPercent(totalPrice > 0 && amt > 0 ? String(+(amt / totalPrice * 100).toFixed(2)) : "");
+  };
+  const onDiscountPercentChange = (val: string) => {
+    const pct = Math.min(100, Math.max(0, Number(val || 0)));
+    setDiscountPercent(pct > 0 ? String(pct) : "");
+    setDiscountAmount(totalPrice > 0 && pct > 0 ? String(Math.round(totalPrice * pct / 100)) : "");
+  };
 
   const addProduct = () => setProducts((p) => [...p, { id: crypto.randomUUID(), name: "", cost: "", price: "", quantity: "1" }]);
   const removeProduct = (id: string) => setProducts((p) => p.length > 1 ? p.filter((x) => x.id !== id) : p);
@@ -739,8 +760,10 @@ function EditInvoiceDialog({ inv, onClose }: { inv: Invoice | null; onClose: () 
 
     // Update invoice header
     await db.updateInvoice(inv.id, {
-      total: totalPrice,
-      downPayment: isCash ? totalPrice : Number(down || 0),
+      total: netTotal,
+      discountAmount: discountValue,
+      discountPercent: totalPrice > 0 ? +((discountValue / totalPrice) * 100).toFixed(2) : 0,
+      downPayment: isCash ? netTotal : Number(down || 0),
       monthlyInstallment: isCash ? 0 : Number(monthly),
       firstDueDate: iso,
       notes,
@@ -802,6 +825,17 @@ function EditInvoiceDialog({ inv, onClose }: { inv: Invoice | null; onClose: () 
               ))}
             </AnimatePresence>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>الخصم بالنسبة %</Label><Input type="number" min="0" max="100" value={discountPercent} onChange={(e) => onDiscountPercentChange(e.target.value)} placeholder="0" className={blurCls} /></div>
+            <div><Label>الخصم بالمبلغ (ج.م)</Label><Input type="number" min="0" value={discountAmount} onChange={(e) => onDiscountAmountChange(e.target.value)} placeholder="0" className={blurCls} /></div>
+          </div>
+          {discountValue > 0 && (
+            <div className="flex items-center justify-between rounded-2xl bg-success/5 px-3 py-2 text-xs font-bold text-success">
+              <span>الخصم: {fmt(discountValue)} ج.م{discountPercent ? ` (${discountPercent}%)` : ""}</span>
+              <span>بعد الخصم: {fmt(netTotal)} ج.م</span>
+            </div>
+          )}
 
           <div><Label>المقدم (ج.م)</Label><Input type="number" value={down} onChange={(e) => setDown(e.target.value)} className={blurCls} /></div>
 
@@ -902,7 +936,7 @@ function ReminderDialog({ inv, customer, onClose }: { inv: Invoice | null; custo
 }
 
 function printReceipt(
-  inv: { id: string; total: number; paid: number; downPayment: number; monthlyInstallment: number; firstDueDate: string; notes: string | null; createdAt: string },
+  inv: { id: string; total: number; paid: number; downPayment: number; monthlyInstallment: number; firstDueDate: string; notes: string | null; createdAt: string; discountAmount?: number; discountPercent?: number },
   customerName: string,
   phone: string,
   allInvoices: import("@/lib/store").Invoice[] = [],
@@ -922,6 +956,7 @@ function printReceipt(
 <div class="t-wrap"><table>
   <tbody>
     <tr><th>تاريخ أول قسط</th><td dir="ltr">${escapeHtml(isoToDDMMYYYY(inv.firstDueDate))}</td><th>القسط الشهري</th><td class="num">${fmt(inv.monthlyInstallment)} ${escapeHtml(cur)}</td></tr>
+    ${inv.discountAmount ? `<tr><th>قبل الخصم</th><td class="num">${fmt(inv.total + inv.discountAmount)} ${escapeHtml(cur)}</td><th>الخصم</th><td class="num">- ${fmt(inv.discountAmount)} ${escapeHtml(cur)}${inv.discountPercent ? ` (${inv.discountPercent}%)` : ""}</td></tr>` : ""}
     <tr><th>إجمالي الفاتورة</th><td class="num">${fmt(inv.total)} ${escapeHtml(cur)}</td><th>المقدم</th><td class="num">${fmt(inv.downPayment)} ${escapeHtml(cur)}</td></tr>
     <tr><th>المسدد حتى تاريخه</th><td class="num ok">${fmt(inv.paid)} ${escapeHtml(cur)}</td><th>المتبقي</th><td class="num ${remaining > 0 ? "due" : "ok"}">${fmt(remaining)} ${escapeHtml(cur)}</td></tr>
   </tbody>
@@ -1073,6 +1108,8 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
   const [scanOpen, setScanOpen] = useState(false);
   const [saleType, setSaleType] = useState<"cash" | "installments">("installments");
   const [cashPaid, setCashPaid] = useState("");
+  const [discountAmount, setDiscountAmount] = useState("");
+  const [discountPercent, setDiscountPercent] = useState("");
 
   /** أول تاريخ استحقاق مقترح = «يوم القسط الافتراضي» من الشهر الجاي. */
   const defaultFirstDue = () => {
@@ -1139,20 +1176,33 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
 
   const totalCost = products.reduce((s, p) => s + Number(p.cost || 0) * Number(p.quantity || 1), 0);
   const totalPrice = products.reduce((s, p) => s + Number(p.price || 0) * Number(p.quantity || 1), 0);
-  const remaining = Math.max(0, totalPrice - Number(down || 0));
-  const profit = totalPrice - totalCost;
+  const discountValue = Math.min(Number(discountAmount || 0), Math.max(0, totalPrice));
+  const netTotal = Math.max(0, totalPrice - discountValue);
+  const remaining = Math.max(0, netTotal - Number(down || 0));
+  const profit = netTotal - totalCost;
   const profitPct = totalCost > 0 ? (profit / totalCost) * 100 : 0;
+
+  const onDiscountAmountChange = (val: string) => {
+    setDiscountAmount(val);
+    const amt = Math.min(Math.max(0, Number(val || 0)), Math.max(0, totalPrice));
+    setDiscountPercent(totalPrice > 0 && amt > 0 ? String(+(amt / totalPrice * 100).toFixed(2)) : "");
+  };
+  const onDiscountPercentChange = (val: string) => {
+    const pct = Math.min(100, Math.max(0, Number(val || 0)));
+    setDiscountPercent(pct > 0 ? String(pct) : "");
+    setDiscountAmount(totalPrice > 0 && pct > 0 ? String(Math.round(totalPrice * pct / 100)) : "");
+  };
 
   const downNum = Number(down || 0);
   const countNum = Number(count || 0);
   const monthlyNum = Number(monthly || 0);
   const cashPaidNum = Number(cashPaid || 0);
-  const change = Math.max(0, cashPaidNum - totalPrice);
-  const cashShort = Math.max(0, totalPrice - cashPaidNum);
-  const isCashMode = saleType === "cash" || (totalPrice > 0 && downNum >= totalPrice);
+  const change = Math.max(0, cashPaidNum - netTotal);
+  const cashShort = Math.max(0, netTotal - cashPaidNum);
+  const isCashMode = saleType === "cash" || (netTotal > 0 && downNum >= netTotal);
   const totalDue = downNum + monthlyNum * countNum;
   const nextInvoiceNumber = invoiceNumber(data.invoices, `new-invoice-${data.invoices.length + 1}`, shop.invoicePrefix);
-  const invoiceStatus = totalPrice > 0 ? (isCashMode ? "مسددة" : "نشطة") : "غير مكتملة";
+  const invoiceStatus = netTotal > 0 ? (isCashMode ? "مسددة" : "نشطة") : "غير مكتملة";
 
   /** جدول الأقساط المتوقّع — عرض فقط قبل الحفظ. */
   const schedule = useMemo(() => {
@@ -1185,7 +1235,7 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
     const n = Number(count);
     if (n > 0 && remaining > 0) setMonthly(String(Math.ceil(remaining / n)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [count, totalPrice, down]);
+  }, [count, totalPrice, discountAmount, down]);
 
   const customerInfo = useMemo(() => {
     if (!customer) return null;
@@ -1208,6 +1258,8 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
     setNotes("");
     setSaleType("installments");
     setCashPaid("");
+    setDiscountAmount("");
+    setDiscountPercent("");
   };
 
   const submit = async () => {
@@ -1224,7 +1276,7 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
       if (stock.quantity <= 0) return toast.error(`المنتج "${stock.name}" نفد من المخزون`);
       if (stock.quantity < qty) return toast.error(`الكمية المتاحة من "${stock.name}" هي ${stock.quantity} فقط`);
     }
-    const t = totalPrice;
+    const t = netTotal;
     const d = Number(down);
     const isCash = saleType === "cash" || (t > 0 && d >= t);
     const m = isCash ? 0 : Number(monthly);
@@ -1240,7 +1292,10 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
     const productNotes = `${summary}${notes ? ` — ${notes}` : ""}`;
     try {
       await db.addInvoice({
-        customerId, total: t, downPayment: isCash ? t : d, monthlyInstallment: m,
+        customerId, total: t,
+        discountAmount: discountValue,
+        discountPercent: totalPrice > 0 ? +((discountValue / totalPrice) * 100).toFixed(2) : 0,
+        downPayment: isCash ? t : d, monthlyInstallment: m,
         firstDueDate: iso, notes: productNotes, paid: isCash ? t : d,
         items: validProducts.flatMap((p) => {
           const qty = Math.max(1, Number(p.quantity || 1));
@@ -1480,6 +1535,36 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
             </AnimatePresence>
           </div>
 
+          {/* الخصم — مبلغ أو نسبة، يتحدد الآخر تلقائيًا */}
+          <div className="rounded-[1.75rem] border border-foreground/10 bg-foreground/[0.02] p-1.5">
+            <div className="rounded-[calc(1.75rem-0.375rem)] bg-background/60 p-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]">
+              <div className="flex items-center justify-between gap-3">
+                <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">الخصم</Label>
+                {discountValue > 0 && (
+                  <Badge className="gap-1.5 border border-success/40 bg-success/15 px-2.5 py-1 text-success">
+                    <Percent className="h-3.5 w-3.5" /> خصم {discountPercent || "0"}%
+                  </Badge>
+                )}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">بالنسبة %</Label>
+                  <Input type="number" min="0" max="100" value={discountPercent} onChange={(e) => onDiscountPercentChange(e.target.value)} placeholder="0" className={blurCls} />
+                </div>
+                <div>
+                  <Label className="text-xs">بالمبلغ (ج.م)</Label>
+                  <Input type="number" min="0" value={discountAmount} onChange={(e) => onDiscountAmountChange(e.target.value)} placeholder="0" className={blurCls} />
+                </div>
+              </div>
+              {discountValue > 0 && (
+                <div className="mt-2.5 flex items-center justify-between rounded-xl bg-success/5 px-3 py-2 text-xs">
+                  <span className="font-bold text-success">بعد الخصم: {fmt(netTotal)} ج.م</span>
+                  <span className="text-muted-foreground">التوفير: {fmt(discountValue)} ج.م</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* لوح الدفع الموحّد — يتبدّل بحركة حسب نوع الفاتورة */}
           <div className="rounded-[1.75rem] border border-foreground/10 bg-foreground/[0.02] p-1.5">
             <div className="rounded-[calc(1.75rem-0.375rem)] bg-background/60 p-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]">
@@ -1501,15 +1586,15 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
                     </div>
 
                     <div className="flex items-baseline justify-between gap-3 rounded-2xl bg-primary/[0.06] px-4 py-3">
-                      <span className={cn("text-[clamp(1.25rem,4vw,1.75rem)] font-extrabold leading-none tracking-tight text-primary", blurCls)}>{fmt(totalPrice)} ج.م</span>
+                      <span className={cn("text-[clamp(1.25rem,4vw,1.75rem)] font-extrabold leading-none tracking-tight text-primary", blurCls)}>{fmt(netTotal)} ج.م</span>
                       <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">المطلوب دفعه الآن</span>
                     </div>
 
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">المبلغ المستلم من العميل (ج.م)</Label>
-                      <Input type="number" value={cashPaid} onChange={(e) => setCashPaid(e.target.value)} placeholder={`${totalPrice || 0}`} className={blurCls} />
+                      <Input type="number" value={cashPaid} onChange={(e) => setCashPaid(e.target.value)} placeholder={`${netTotal || 0}`} className={blurCls} />
                       <div className="flex flex-wrap gap-1.5">
-                        {[totalPrice, 50, 100, 200, 500].filter((v, i, a) => v > 0 && a.indexOf(v) === i).map((v, i) => (
+                        {[netTotal, 50, 100, 200, 500].filter((v, i, a) => v > 0 && a.indexOf(v) === i).map((v, i) => (
                           <button
                             key={`${v}-${i}`}
                             type="button"
@@ -1553,7 +1638,7 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
                           <button
                             key={pct}
                             type="button"
-                            onClick={() => setDown(String(Math.round((totalPrice * pct) / 100)))}
+                            onClick={() => setDown(String(Math.round((netTotal * pct) / 100)))}
                             className="rounded-full bg-foreground/[0.05] px-3 py-1 text-[11px] font-bold text-muted-foreground transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-primary/10 hover:text-primary active:scale-[0.96]"
                           >
                             {pct}%
@@ -1641,10 +1726,10 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
                             </div>
                           ))}
                         </div>
-                        {Math.abs(totalDue - totalPrice) > 1 && (
+                        {Math.abs(totalDue - netTotal) > 1 && (
                           <div className="flex items-center gap-1.5 text-[11px] text-warning">
                             <AlertTriangle className="h-3.5 w-3.5" />
-                            إجمالي المقدم والأقساط لا يساوي إجمالي الفاتورة ({fmt(totalPrice)} ج.م)
+                            إجمالي المقدم والأقساط لا يساوي إجمالي الفاتورة ({fmt(netTotal)} ج.م)
                           </div>
                         )}
                       </div>
@@ -1692,12 +1777,12 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
                 {isCashMode ? "المطلوب الآن" : "المقدم الآن"}
               </span>
               <span className={cn("block text-lg font-extrabold leading-tight text-primary", blurCls)}>
-                {fmt(isCashMode ? totalPrice : downNum)} ج.م
+                {fmt(isCashMode ? netTotal : downNum)} ج.م
               </span>
             </div>
             <div className="min-w-0 text-left">
               <span className="block text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">إجمالي الفاتورة</span>
-              <span className={cn("block text-lg font-extrabold leading-tight text-foreground", blurCls)}>{fmt(totalPrice)} ج.م</span>
+              <span className={cn("block text-lg font-extrabold leading-tight text-foreground", blurCls)}>{fmt(netTotal)} ج.م</span>
             </div>
           </div>
           {blockReason && (
