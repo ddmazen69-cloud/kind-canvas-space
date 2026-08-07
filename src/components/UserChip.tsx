@@ -59,8 +59,8 @@ export function UserChip({ className = "" }: { className?: string }) {
   return (
     <div
       className={cn(
-        "rounded-[1.5rem] bg-transparent p-1.5 ring-1 ring-[var(--hairline)]",
-        "transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]",
+        "min-h-[4.25rem] rounded-[1.5rem] bg-transparent p-1.5 ring-1 ring-[var(--hairline)]",
+        "transition-[background-color,box-shadow] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)]",
         className,
       )}
     >
@@ -70,39 +70,33 @@ export function UserChip({ className = "" }: { className?: string }) {
           <span className="block truncate text-sm font-semibold leading-tight">
             {label || "حسابي"}
           </span>
-          {roleLoading ? (
-            <span className="mt-1.5 block h-3 w-14 animate-pulse rounded-full bg-foreground/10" />
-          ) : (
-            <div className="mt-1 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-semibold text-primary ring-1 ring-primary/20">
-                <ShieldCheck className="h-3 w-3" />
-                {role ? ROLE_LABEL[role] : "بدون صلاحية"}
-              </span>
-              {/* Small team avatars */}
-              {!teamLoading && members.length > 0 && (
-                <div className="flex items-center -space-x-2">
-                  {members.slice(0, 2).map((m) => (
-                    m.avatarUrl ? (
-                      <img
-                        key={m.userId}
-                        src={m.avatarUrl}
-                        alt={m.displayName}
-                        className="h-6 w-6 rounded-full ring-1 ring-[var(--hairline)] object-cover"
-                      />
-                    ) : (
-                      <span
-                        key={m.userId}
-                        className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary ring-1 ring-[var(--hairline)]"
-                        title={m.displayName}
-                      >
-                        {initials(m.displayName, m.email ?? undefined)}
-                      </span>
-                    )
-                  ))}
-                </div>
-              )}
+          <div className="mt-1 flex min-h-6 items-center gap-2">
+            <span className="inline-flex min-w-16 items-center gap-1 rounded-full bg-primary/12 px-2 py-0.5 text-[10px] font-semibold text-primary ring-1 ring-primary/20">
+              <ShieldCheck className="h-3 w-3" strokeWidth={1.4} />
+              {roleLoading ? "جارِ التحميل" : role ? ROLE_LABEL[role] : "بدون صلاحية"}
+            </span>
+            {/* مساحة ثابتة تمنع الكارت من تغيير عرضه عندما تصل بيانات الفريق. */}
+            <div className="flex w-14 items-center justify-end -space-x-2">
+              {!teamLoading && members.slice(0, 2).map((m) => (
+                m.avatarUrl ? (
+                  <img
+                    key={m.userId}
+                    src={m.avatarUrl}
+                    alt={m.displayName}
+                    className="h-6 w-6 rounded-full ring-1 ring-[var(--hairline)] object-cover"
+                  />
+                ) : (
+                  <span
+                    key={m.userId}
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary ring-1 ring-[var(--hairline)]"
+                    title={m.displayName}
+                  >
+                    {initials(m.displayName, m.email ?? undefined)}
+                  </span>
+                )
+              ))}
             </div>
-          )}
+          </div>
         </span>
       </div>
 
