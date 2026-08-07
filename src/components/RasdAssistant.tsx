@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { analyzeCustomerRisk, fmt, isDueSoonOrOverdue, useDB, useShopSettings } from "@/lib/store";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -20,11 +21,81 @@ const WELCOME: Message = {
   content: "أنا رَصْد، مساعدك التحليلي في سِجلّي. أقدر أراجع التحصيلات والمخزون والمصروفات وأقترح الخطوة الأهم، لكن لن أغيّر أي بيانات من تلقاء نفسي.",
 };
 
+function startsThisMonth(value: string, now = new Date()) {
+  const date = new Date(value);
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function startsLastMonth(value: string, now = new Date()) {
+  const date = new Date(value);
+  const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return date.getFullYear() === last.getFullYear() && date.getMonth() === last.getMonth();
+}
+
+/** Useful answers while the optional cloud AI service is being deployed. */
+function localAnswer(question: string, data: ReturnType<typeof useDB>, settings: { lowStockThreshold: number; reminderDaysBefore: number }) {
+  const normalized = question.replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").toLowerCase();
+  const overdue = data.invoices
+    .filter((invoice) => isDueSoonOrOverdue(invoice, settings.reminderDaysBefore))
+    .map((invoice) => {
+      const customer = data.customers.find((item) => item.id === invoice.customerId);
+      const days = Math.max(0, Math.floor((Date.now() - new Date(invoice.firstDueDate).getTime()) / 86400000));
+      return { invoice, customer, remaining: Math.max(0, invoice.total - invoice.paid), days };
+    })
+    .sort((a, b) => b.days - a.days || b.remaining - a.remaining);
+  const lowStock = data.stockItems.filter((item) => item.quantity <= (item.minQuantity ?? settings.lowStockThreshold));
+  const salesThisMonth = data.invoices.filter((item) => startsThisMonth(item.createdAt)).reduce((sum, item) => sum + item.total, 0);
+  const collectionsThisMonth = data.payments.filter((item) => startsThisMonth(item.paidAt)).reduce((sum, item) => sum + item.amount, 0)
+    + data.invoices.filter((item) => startsThisMonth(item.createdAt)).reduce((sum, item) => sum + item.downPayment, 0);
+
+  if (normalized.includes("تنبيه") || normalized.includes("اهم") || normalized.includes("النهارده")) {
+    const parts = [
+      overdue.length ? `${overdue.length} فاتورة مستحقة أو متأخرة` : "لا توجد أقساط مستحقة حاليًا",
+      lowStock.length ? `${lowStock.length} صنف يحتاج متابعة في المخزون` : "المخزون فوق الحد الأدنى",
+      `تحصيلات الشهر حتى الآن ${fmt(collectionsThisMonth)} ج.م`,
+    ];
+    return `أهم 3 نقاط الآن:\n1. ${parts[0]}.\n2. ${parts[1]}.\n3. ${parts[2]}.`;
+  }
+  if (normalized.includes("عميل") && (normalized.includes("متابع") || normalized.includes("متاخر") || normalized.includes("محتاج"))) {
+    if (!overdue.length) return "لا يوجد عملاء لديهم أقساط مستحقة أو متأخرة حاليًا.";
+    return `الأولوية للمتابعة:\n${overdue.slice(0, 5).map((item, index) => `${index + 1}. ${item.customer?.name ?? "عميل"}: متبقي ${fmt(item.remaining)} ج.م${item.days ? ` ومتأخر ${item.days} يوم` : " ومستحق الآن"}.`).join("\n")}`;
+  }
+  if (normalized.includes("صنف") || normalized.includes("مخزون") || normalized.includes("ناقص")) {
+    if (!lowStock.length) return "لا توجد أصناف وصلت للحد الأدنى المحدد في الإعدادات.";
+    return `الأصناف التي تحتاج إعادة طلب:\n${lowStock.slice(0, 8).map((item, index) => `${index + 1}. ${item.name}: المتاح ${fmt(item.quantity)}، والحد الأدنى ${fmt(item.minQuantity ?? settings.lowStockThreshold)}.`).join("\n")}`;
+  }
+  if (normalized.includes("تحصيل") || normalized.includes("مبيعات") || normalized.includes("الشهر")) {
+    return `ملخص الشهر الحالي:\n• المبيعات: ${fmt(salesThisMonth)} ج.م\n• التحصيلات: ${fmt(collectionsThisMonth)} ج.م\n• إجمالي المديونيات المفتوحة: ${fmt(data.invoices.reduce((sum, item) => sum + Math.max(0, item.total - item.paid), 0))} ج.م.`;
+  }
+  if (normalized.includes("ربح") || normalized.includes("بيتحسن") || normalized.includes("مقارن")) {
+    const profit = (isCurrent: (value: string) => boolean) => {
+      const invoiceIds = new Set(data.invoices.filter((item) => isCurrent(item.createdAt)).map((item) => item.id));
+      const gross = data.invoiceItems.filter((item) => invoiceIds.has(item.invoiceId)).reduce((sum, item) => sum + item.price - item.cost, 0);
+      const expenses = data.expenses.filter((item) => isCurrent(item.expenseDate)).reduce((sum, item) => sum + item.amount, 0);
+      return gross - expenses;
+    };
+    const current = profit((value) => startsThisMonth(value));
+    const previous = profit((value) => startsLastMonth(value));
+    const direction = current > previous ? "أفضل" : current < previous ? "أقل" : "مستقر";
+    return `صافي الربح المحسوب هذا الشهر ${fmt(current)} ج.م، وكان ${fmt(previous)} ج.م الشهر الماضي. الاتجاه الحالي ${direction}.`;
+  }
+  if (normalized.includes("واتساب") || normalized.includes("رسالة")) {
+    const target = data.customers.find((customer) => normalized.includes(customer.name.replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").toLowerCase()));
+    if (!target) return "اكتب اسم العميل مع طلب الرسالة، مثل: اكتب رسالة واتساب لطيفة للعميل أحمد.";
+    const risk = analyzeCustomerRisk(target, data.invoices);
+    const balance = data.invoices.filter((invoice) => invoice.customerId === target.id).reduce((sum, invoice) => sum + Math.max(0, invoice.total - invoice.paid), target.openingBalance);
+    return `أهلًا أستاذ/ة ${target.name}، نتمنى تكون بخير. حابين نفكّرك إن المتبقي على حسابك ${fmt(balance)} ج.م. يهمنا نرتب مع حضرتك موعد مناسب للسداد. شكرًا لتعاونك.\n\nملاحظة: مستوى المتابعة المقترح ${risk.level === "high" ? "عالي" : risk.level === "medium" ? "متوسط" : "عادي"}.`;
+  }
+  return "أقدر أساعدك في التنبيهات، العملاء المتأخرين، الأصناف الناقصة، المبيعات والتحصيلات، مقارنة الربح، أو صياغة رسالة واتساب. اختَر سؤالًا محددًا من الاقتراحات أسفل المحادثة.";
+}
+
 export function RasdAssistant() {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [sending, setSending] = useState(false);
+  const data = useDB();
+  const { settings } = useShopSettings();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -51,10 +122,7 @@ export function RasdAssistant() {
       const answer = typeof data?.answer === "string" ? data.answer : "تعذّر على رَصْد تجهيز إجابة الآن. جرّب مرة أخرى.";
       setMessages((current) => [...current, { role: "assistant", content: answer }]);
     } catch (error: any) {
-      const detail = error?.message?.includes("OPENAI_API_KEY")
-        ? "رَصْد يحتاج تفعيل مفتاح الذكاء الاصطناعي من إعدادات الخادم أولًا."
-        : "تعذّر الاتصال برَصْد الآن. تأكد من تفعيل خدمة رَصْد ثم جرّب مجددًا.";
-      setMessages((current) => [...current, { role: "assistant", content: detail }]);
+      setMessages((current) => [...current, { role: "assistant", content: localAnswer(content, data, settings) }]);
     } finally {
       setSending(false);
     }
