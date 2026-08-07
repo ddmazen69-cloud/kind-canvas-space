@@ -8,18 +8,9 @@ import { analyzeCustomerRisk, fmt, isDueSoonOrOverdue, useDB, useShopSettings } 
 
 type Message = { role: "user" | "assistant"; content: string };
 
-const STARTERS = [
-  "إيه أهم 3 تنبيهات النهارده؟",
-  "مين العملاء اللي محتاجين متابعة؟",
-  "إيه الأصناف الناقصة؟",
-  "المبيعات والتحصيلات الشهر ده كام؟",
-  "هل الربح بيتحسن مقارنة بالشهر اللي فات؟",
-  "إزاي أسجل فاتورة أو دفعة؟",
-];
-
 const WELCOME: Message = {
   role: "assistant",
-  content: "أنا رَصْد، مساعدك التحليلي في سِجلّي. أقدر أراجع التحصيلات والمخزون والمصروفات وأقترح الخطوة الأهم، لكن لن أغيّر أي بيانات من تلقاء نفسي.",
+  content: "أنا رَصْد، مساعد سِجلّي. أجاوبك عن بيانات محلك وطريقة استخدام التطبيق، وأوضح لك الخطوات بدقة. لن أغيّر أي بيانات من تلقاء نفسي.",
 };
 
 function startsThisMonth(value: string, now = new Date()) {
@@ -61,7 +52,7 @@ function localAnswer(question: string, data: ReturnType<typeof useDB>, settings:
   if (asksHow && has("منتج", "مخزون", "باركود", "صنف")) {
     return "من «المنتجات» أضف الصنف وحدد الكمية وسعر الشراء والبيع والحد الأدنى والباركود إن وُجد. استخدم «المخزن» للبضاعة الموسمية أو المخزنة، واختر مكان الصنف وموسمه لتتابعه بشكل أدق.";
   }
-  if (asksHow && has("مورد", "شراء")) {
+  if (asksHow && has("مورد", "شراء", "مشتري")) {
     return "من «الموردين» أضف المورد أولًا، ثم سجّل فاتورة شراء بنقدي أو آجل. يمكنك متابعة الرصيد المتبقي وتسجيل دفعات المورد من نفس القسم.";
   }
   if (asksHow && has("مصروف", "ايجار", "رواتب")) {
@@ -92,8 +83,17 @@ function localAnswer(question: string, data: ReturnType<typeof useDB>, settings:
     return `الأولوية للمتابعة:\n${overdue.slice(0, 5).map((item, index) => `${index + 1}. ${item.customer?.name ?? "عميل"}: متبقي ${fmt(item.remaining)} ج.م${item.days ? ` ومتأخر ${item.days} يوم` : " ومستحق الآن"}.`).join("\n")}`;
   }
   if (has("صنف", "مخزون", "ناقص")) {
-    if (!lowStock.length) return "لا توجد أصناف وصلت للحد الأدنى المحدد في الإعدادات.";
-    return `الأصناف التي تحتاج إعادة طلب:\n${lowStock.slice(0, 8).map((item, index) => `${index + 1}. ${item.name}: المتاح ${fmt(item.quantity)}، والحد الأدنى ${fmt(item.minQuantity ?? settings.lowStockThreshold)}.`).join("\n")}`;
+    const totalUnits = data.stockItems.reduce((sum, item) => sum + item.quantity, 0);
+    if (!lowStock.length) return `المخزون حاليًا يحتوي على ${data.stockItems.length} صنفًا بإجمالي ${fmt(totalUnits)} وحدة. لا توجد أصناف وصلت للحد الأدنى المحدد في الإعدادات.`;
+    return `ملخص المخزون: ${data.stockItems.length} صنفًا بإجمالي ${fmt(totalUnits)} وحدة.\n\nالأصناف التي تحتاج إعادة طلب:\n${lowStock.slice(0, 8).map((item, index) => `${index + 1}. ${item.name}: المتاح ${fmt(item.quantity)}، والحد الأدنى ${fmt(item.minQuantity ?? settings.lowStockThreshold)}.`).join("\n")}`;
+  }
+  if (has("حساب", "رصيد", "مديون", "مستحق")) {
+    const totalDue = data.invoices.reduce((sum, item) => sum + Math.max(0, item.total - item.paid), 0);
+    const customerDue = data.customers.reduce((sum, customer) => sum + customer.openingBalance, 0);
+    const supplierDue = data.suppliers.reduce((sum, supplier) => sum + supplier.openingBalance, 0)
+      + data.purchases.filter((purchase) => purchase.paymentType === "credit").reduce((sum, purchase) => sum + purchase.total, 0)
+      - data.supplierPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    return `ملخص الحسابات الحالية:\n• المستحق من العملاء: ${fmt(totalDue + customerDue)} ج.م\n• المستحق للموردين: ${fmt(Math.max(0, supplierDue))} ج.م\n• التحصيلات هذا الشهر: ${fmt(collectionsThisMonth)} ج.م\n• المبيعات هذا الشهر: ${fmt(salesThisMonth)} ج.م.`;
   }
   if (has("تحصيل", "مبيعات", "الشهر")) {
     return `ملخص الشهر الحالي:\n• المبيعات: ${fmt(salesThisMonth)} ج.م\n• التحصيلات: ${fmt(collectionsThisMonth)} ج.م\n• إجمالي المديونيات المفتوحة: ${fmt(data.invoices.reduce((sum, item) => sum + Math.max(0, item.total - item.paid), 0))} ج.م.`;
@@ -117,7 +117,7 @@ function localAnswer(question: string, data: ReturnType<typeof useDB>, settings:
     const balance = data.invoices.filter((invoice) => invoice.customerId === target.id).reduce((sum, invoice) => sum + Math.max(0, invoice.total - invoice.paid), target.openingBalance);
     return `أهلًا أستاذ/ة ${target.name}، نتمنى تكون بخير. حابين نفكّرك إن المتبقي على حسابك ${fmt(balance)} ج.م. يهمنا نرتب مع حضرتك موعد مناسب للسداد. شكرًا لتعاونك.\n\nملاحظة: مستوى المتابعة المقترح ${risk.level === "high" ? "عالي" : risk.level === "medium" ? "متوسط" : "عادي"}.`;
   }
-  return "أقدر أساعدك في كل أقسام سِجلّي: العملاء، الفواتير والدفعات، المنتجات والمخزن، الموردين والمشتريات، المصروفات، المنبه، التقارير، الأرشيف، النسخ الاحتياطي، والإعدادات والصلاحيات. اسأل مثلًا: «إزاي أسجل فاتورة؟» أو «فين أغيّر حد المخزون؟».";
+  return "أفهم أسئلة العملاء والفواتير والدفعات والمنتجات والمخزن والموردين والمشتريات والمصروفات والتنبيهات والتقارير والأرشيف والنسخ الاحتياطي والصلاحيات. اكتب سؤالك بصيغة كاملة، وسأعطيك الإجابة أو الخطوات المناسبة.";
 }
 
 export function RasdAssistant() {
@@ -212,13 +212,6 @@ export function RasdAssistant() {
             </div>
 
             <div className="border-t border-border/70 px-4 pb-4 pt-3">
-              <div className="no-scrollbar mb-3 flex gap-2 overflow-x-auto pb-1" dir="rtl">
-                {STARTERS.map((starter) => (
-                  <button key={starter} type="button" disabled={sending} onClick={() => void ask(starter)} className="press shrink-0 rounded-full border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground transition hover:border-primary/45 hover:text-primary disabled:opacity-50">
-                    {starter}
-                  </button>
-                ))}
-              </div>
               <div className="flex items-end gap-2 rounded-[1.3rem] bg-muted/55 p-2 ring-1 ring-border/70">
                 <Textarea
                   ref={inputRef}
@@ -230,14 +223,14 @@ export function RasdAssistant() {
                   disabled={sending}
                   rows={1}
                   maxLength={1000}
-                  placeholder="اسأل رَصْد عن وضع المحل..."
+                  placeholder="اكتب سؤالك هنا..."
                   className="min-h-10 max-h-28 resize-none border-0 bg-transparent px-2 py-2.5 text-sm shadow-none focus-visible:ring-0"
                 />
                 <Button type="button" size="icon" disabled={!draft.trim() || sending} onClick={() => void ask(draft)} className="press h-10 w-10 shrink-0 rounded-xl">
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
-              <p className="mt-2 px-1 text-[10px] leading-5 text-muted-foreground">اسأل رَصْد عن بيانات المحل أو طريقة استخدام أي قسم. لا ينشئ أو يعدّل سجلات.</p>
+              <p className="mt-2 px-1 text-[10px] leading-5 text-muted-foreground">رَصْد يجيب عن بيانات المحل وطريقة استخدام التطبيق، ولا ينشئ أو يعدّل سجلات.</p>
             </div>
           </section>
         </div>
