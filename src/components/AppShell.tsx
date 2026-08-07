@@ -86,7 +86,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div dir="rtl" className="min-h-screen text-foreground flex">
       {/* Sidebar */}
       <aside className="sticky top-0 hidden h-screen w-[17.5rem] shrink-0 flex-col gap-8 p-4 md:flex">
-        <div className="glass flex h-full min-h-0 flex-col gap-6 overflow-hidden rounded-[1.75rem] p-5 bg-[#2b0f14]/80 shadow-2xl backdrop-blur-md">
+        <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden rounded-[1.75rem] bg-[#16080c] p-5 ring-1 ring-white/[0.07] shadow-[inset_0_1px_0_rgba(255,255,255,.05),0_24px_60px_-38px_rgba(0,0,0,.85)]">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/10 ring-1 ring-primary/20">
             <img src={logoMark} alt="" width={28} height={28} className="h-7 w-7 object-contain" />
@@ -102,7 +102,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           </Link>
         </div>
-        <nav className="stagger no-scrollbar -mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-1">
+        <nav className="no-scrollbar -mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-1">
           {visibleNav.map((n) => {
             const active = n.to === "/" ? location.pathname === "/" : location.pathname.startsWith(n.to);
             const Icon = n.icon;
