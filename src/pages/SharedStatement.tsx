@@ -180,6 +180,8 @@ function SharedStatement({ token }: { token: string }) {
                     <div className="mt-1 font-bold text-warning">{statement.metrics.worstLate > 0 ? `${statement.metrics.worstLate} يوم` : "—"}</div>
                   </div>
                 </div>
+                  </div>
+                </div>
               </div>
             </div>
 
