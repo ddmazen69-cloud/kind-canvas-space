@@ -67,16 +67,20 @@ const STATUS_TABS: { value: CustomerStatus; label: string; dot: string; active: 
 
 export default function Page() { return (<AppShell><PageTransition><CustomersPage /></PageTransition></AppShell>); }
 
-type FilterTab = "all" | "installment" | "cash" | "overdue" | "bajah" | "settled" | "blocked";
+type FilterTab = "all" | "installment" | "cash" | "overdue" | "stressed" | "nearLimit" | "inactive" | "settled" | "paidThisMonth";
+
+const INACTIVE_DAYS = 30;
 
 const FILTERS: { value: FilterTab; label: string; activeCls: string }[] = [
   { value: "all", label: "الكل", activeCls: "bg-primary text-primary-foreground shadow-[0_12px_30px_-14px_hsl(var(--primary)/0.9)]" },
   { value: "installment", label: "عملاء قسط", activeCls: "bg-primary text-primary-foreground shadow-[0_12px_30px_-14px_hsl(var(--primary)/0.9)]" },
   { value: "cash", label: "عملاء فوري", activeCls: "bg-success text-success-foreground shadow-[0_12px_30px_-14px_hsl(var(--success)/0.9)]" },
   { value: "overdue", label: "المتأخرون", activeCls: "bg-warning text-warning-foreground shadow-[0_12px_30px_-14px_hsl(var(--warning)/0.9)]" },
-  { value: "bajah", label: "عملاء بجحين", activeCls: "bg-danger text-danger-foreground shadow-[0_12px_30px_-14px_hsl(var(--danger)/0.9)]" },
-  { value: "blocked", label: "المحظورون 🛑", activeCls: "bg-danger text-danger-foreground shadow-[0_12px_30px_-14px_hsl(var(--danger)/0.9)]" },
+  { value: "stressed", label: "المتعثرون", activeCls: "bg-danger text-danger-foreground shadow-[0_12px_30px_-14px_hsl(var(--danger)/0.9)]" },
+  { value: "nearLimit", label: "قرب الحظر", activeCls: "bg-danger text-danger-foreground shadow-[0_12px_30px_-14px_hsl(var(--danger)/0.9)]" },
+  { value: "inactive", label: `خاملون (${INACTIVE_DAYS}+ يوم)`, activeCls: "bg-muted-foreground/80 text-muted shadow-[0_12px_30px_-14px_hsl(0_0%_0%/0.4)]" },
   { value: "settled", label: "الخالصون", activeCls: "bg-success text-success-foreground shadow-[0_12px_30px_-14px_hsl(var(--success)/0.9)]" },
+  { value: "paidThisMonth", label: "مدفوع كاملاً هذا الشهر", activeCls: "bg-success text-success-foreground shadow-[0_12px_30px_-14px_hsl(var(--success)/0.9)]" },
 ];
 
 function SortChip({ label, active, dir, onClick }: { label: string; active: boolean; dir: SortDir; onClick: () => void }) {
@@ -109,6 +113,12 @@ function customerMetrics(invoices: Invoice[], c: Customer) {
   return { balance, worstLate, paidPct, totalCharged, totalPaid };
 }
 
+function isThisMonth(iso: string, now = new Date()) {
+  if (!iso) return false;
+  const d = new Date(iso);
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+}
+
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
@@ -134,27 +144,41 @@ function CustomersPage() {
   const { privacy, toggle } = usePrivacy();
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [showBlockedView, setShowBlockedView] = useState(false);
 
   const enriched = useMemo(
-    () => data.customers.map((c) => ({
-      c,
-      m: customerMetrics(data.invoices, c),
-      risk: analyzeCustomerRisk(c, data.invoices),
-    })),
-    [data.customers, data.invoices],
+    () => data.customers.map((c) => {
+      const m = customerMetrics(data.invoices, c);
+      const mine = data.invoices.filter((i) => i.customerId === c.id);
+      let lastPurchaseAt: string | null = null;
+      for (const inv of mine) {
+        if (!lastPurchaseAt || inv.createdAt > lastPurchaseAt) lastPurchaseAt = inv.createdAt;
+      }
+      const paidThisMonth = m.balance <= 0 && (mine.some((i) => isThisMonth(i.createdAt)) || data.payments.some((p) => mine.some((i) => i.id === p.invoiceId) && isThisMonth(p.paidAt)));
+      return {
+        c,
+        m,
+        risk: analyzeCustomerRisk(c, data.invoices),
+        lastPurchaseAt,
+        paidThisMonth,
+      };
+    }),
+    [data.customers, data.invoices, data.payments],
   );
 
   const counts = useMemo(() => {
-    let overdue = 0, bajah = 0, settled = 0, installment = 0, cash = 0, blocked = 0;
-    for (const { c, m } of enriched) {
-      if (c.frozen) blocked++;
+    let overdue = 0, stressed = 0, settled = 0, installment = 0, cash = 0, nearLimit = 0, inactive = 0, paidThisMonth = 0;
+    const nowMs = Date.now();
+    for (const { c, m, lastPurchaseAt, paidThisMonth: paid } of enriched) {
+      if (c.frozen || c.status === "defaulter" || m.worstLate > 30) stressed++;
       if (m.worstLate > 1) overdue++;
-      if (c.status === "defaulter" || m.worstLate > 30) bajah++;
+      if (c.creditLimit > 0 && m.balance >= c.creditLimit * 0.7) nearLimit++;
+      const last = lastPurchaseAt ? new Date(lastPurchaseAt).getTime() : new Date(c.joiningDate).getTime();
+      if (nowMs - last > INACTIVE_DAYS * 86400000) inactive++;
       if (m.balance <= 0) settled++;
+      if (paid) paidThisMonth++;
       if (c.customerType === "cash") cash++; else installment++;
     }
-    return { all: enriched.length, installment, cash, overdue, bajah, settled, blocked };
+    return { all: enriched.length, installment, cash, overdue, stressed, settled, nearLimit, inactive, paidThisMonth };
   }, [enriched]);
 
   const debtStats = useMemo(() => {
@@ -171,14 +195,20 @@ function CustomersPage() {
 
 
   const list = useMemo(() => {
+    const nowMs = Date.now();
     const filtered = enriched
-      .filter(({ c, m }) => {
-        if (filter === "blocked") return c.frozen === true;
+      .filter(({ c, m, lastPurchaseAt, paidThisMonth }) => {
         if (filter === "installment") return c.customerType !== "cash";
         if (filter === "cash") return c.customerType === "cash";
         if (filter === "overdue") return m.worstLate > 1;
-        if (filter === "bajah") return c.status === "defaulter" || m.worstLate > 30;
+        if (filter === "stressed") return c.frozen || c.status === "defaulter" || m.worstLate > 30;
+        if (filter === "nearLimit") return c.creditLimit > 0 && m.balance >= c.creditLimit * 0.7;
+        if (filter === "inactive") {
+          const last = lastPurchaseAt ? new Date(lastPurchaseAt).getTime() : new Date(c.joiningDate).getTime();
+          return nowMs - last > INACTIVE_DAYS * 86400000;
+        }
         if (filter === "settled") return m.balance <= 0;
+        if (filter === "paidThisMonth") return paidThisMonth;
         return true;
       })
       .filter(({ c }) => (q ? c.name.includes(q) || c.phone.includes(q) : true));
@@ -195,7 +225,7 @@ function CustomersPage() {
   };
 
   const exportPDF = () => {
-    const tabLabel: Record<FilterTab, string> = { all: "كل العملاء", installment: "عملاء الأقساط", cash: "العملاء الفوريون", overdue: "العملاء المتأخرون", bajah: "العملاء البجحون", settled: "العملاء الخالصون", blocked: "العملاء المحظورون" };
+    const tabLabel: Record<FilterTab, string> = { all: "كل العملاء", installment: "عملاء الأقساط", cash: "العملاء الفوريون", overdue: "العملاء المتأخرون", stressed: "العملاء المتعثرون", nearLimit: "عملاء قرب الحظر", inactive: "العملاء الخاملون", settled: "العملاء الخالصون", paidThisMonth: "العملاء المدفوعون كاملاً هذا الشهر" };
     const today = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
     const rows = list.map(({ c, m }, i) => `
       <tr>
@@ -329,7 +359,7 @@ function CustomersPage() {
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-danger" />
-                {counts.blocked} محظورون
+                {counts.stressed} متعثرون
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-warning/70" />
@@ -377,16 +407,16 @@ function CustomersPage() {
             </button>
             <button
               type="button"
-              onClick={() => setFilter("blocked")}
-              aria-pressed={filter === "blocked"}
+              onClick={() => setFilter("stressed")}
+              aria-pressed={filter === "stressed"}
               className={cn(
                 "bezel-shell bezel-lift text-right transition-transform duration-300 hover:-translate-y-0.5",
-                filter === "blocked" && "ring-2 ring-danger/40",
+                filter === "stressed" && "ring-2 ring-danger/40",
               )}
             >
               <div className="bezel-core p-4">
-                <div className="text-[11px] font-medium text-muted-foreground">محظورون</div>
-                <div className="text-numeric mt-1 text-xl font-extrabold leading-none text-danger">{counts.blocked}</div>
+                <div className="text-[11px] font-medium text-muted-foreground">متعثرون</div>
+                <div className="text-numeric mt-1 text-xl font-extrabold leading-none text-danger">{counts.stressed}</div>
               </div>
             </button>
             <button
@@ -421,7 +451,23 @@ function CustomersPage() {
                 className="h-11 rounded-full border-0 bg-background/40 pr-11 shadow-[inset_0_0_0_1px_hsl(0_0%_100%/0.06)] focus-visible:ring-1 focus-visible:ring-primary/40"
               />
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 rounded-2xl bg-danger/8 px-3 py-2 ring-1 ring-danger/25">
+                <Wallet className="h-4 w-4 text-danger" />
+                <div>
+                  <div className="text-[10px] font-medium text-muted-foreground">إجمالي المديونية</div>
+                  <div className={cn("text-numeric text-sm font-extrabold leading-none text-danger", privacy && "privacy-blur")}>
+                    {fmt(debtStats.totalDebt)} ج.م
+                  </div>
+                </div>
+              </div>
+              {q.trim() && (
+                <div className="rounded-full bg-primary/10 px-3 py-2 text-[11px] font-bold text-primary ring-1 ring-primary/25">
+                  نتائج مطابقة: {toArabicDigits(String(list.length))} من {toArabicDigits(String(counts.all))}
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 lg:col-span-2">
               {FILTERS.map((f) => {
                 const active = filter === f.value;
                 return (
