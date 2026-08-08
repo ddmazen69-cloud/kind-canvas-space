@@ -273,7 +273,33 @@ async function fetchAllFromServer() {
   loading = false;
   loaded = true;
   notify();
-  if (user) await redisSet(userCacheKey(user.id), JSON.stringify(cache));
+  if (user) {
+    await ensureCustomerCodes();
+    await redisSet(userCacheKey(user.id), JSON.stringify(cache));
+  }
+}
+
+/** تعيين كود تلقائي (C-xxxx) لأي عميل قديم ما زال بدون كود، بترتيب تاريخ الإنشاء. */
+async function ensureCustomerCodes() {
+  const missing = cache.customers.filter((c) => !c.code || c.code.trim() === "");
+  if (missing.length === 0) return;
+  const re = /^C-(\d+)$/;
+  const max = cache.customers.reduce((mx, c) => {
+    const m = c.code ? re.exec(c.code) : null;
+    return m ? Math.max(mx, parseInt(m[1], 10)) : mx;
+  }, 0);
+  const sorted = [...missing].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+  let n = max;
+  for (const c of sorted) {
+    n += 1;
+    const code = `C-${String(n).padStart(4, "0")}`;
+    await supabase.from("customers").update({ code }).eq("id", c.id);
+    const target = cache.customers.find((x) => x.id === c.id);
+    if (target) target.code = code;
+  }
+  notify();
 }
 
 export function useDB(): DBState {
