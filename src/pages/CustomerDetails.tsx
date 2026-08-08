@@ -231,7 +231,8 @@ function CustomerDetailPage() {
       hideFooter: true,
       body: `
         <div class="info">
-          <div class="box"><b>اسم العميل</b> ${customer.code ? `${customer.code} — ` : ""}${customer.name}</div>
+          <div class="box"><b>كود العميل</b> ${customer.code || "—"}</div>
+          <div class="box"><b>اسم العميل</b> ${customer.name}</div>
           <div class="box"><b>الهاتف</b> <span dir="ltr">${customer.phone}</span></div>
           <div class="box"><b>العنوان</b> ${customer.address || "—"}</div>
           <div class="box"><b>حالة العميل</b> ${customer.customerType === "installment" ? "قسط" : "فورى"}</div>
@@ -400,7 +401,7 @@ function CustomerDetailPage() {
                     </Avatar>
                     <div>
                       <div className="text-xl font-extrabold flex items-center gap-2">
-                        {customer.name}
+                        {customer.code ? `${customer.code} — ` : ""}{customer.name}
                         {customer.frozen && (
                           <Badge variant="destructive" className="gap-1 bg-danger/20 text-danger border-danger/30 text-xs font-bold">
                             <Ban className="h-3 w-3" /> محظور

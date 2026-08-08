@@ -464,7 +464,7 @@ function CustomersPage() {
                 const waPhone = c.phone.replace(/^0/, "20");
                 const waUrl = `https://wa.me/${waPhone}`;
                 const overLimit = c.creditLimit > 0 && m.balance >= c.creditLimit;
-                const initial = c.name.trim().slice(0, 1) || "؟";
+                const initial = c.code || c.name.trim().slice(0, 1) || "؟";
                 return (
                   <div
                     key={c.id}
@@ -686,7 +686,7 @@ function CustomersPage() {
                         </div>
                         <span
                           className={cn(
-                            "text-display grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-lg font-bold",
+                            "text-display grid h-11 min-w-11 shrink-0 place-items-center rounded-2xl px-2 text-sm font-bold",
                             c.frozen
                               ? "bg-danger/20 text-danger ring-1 ring-danger/40"
                               : c.status === "defaulter"
