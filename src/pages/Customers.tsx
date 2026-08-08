@@ -286,30 +286,6 @@ function CustomersPage() {
               <FileDown className="w-4 h-4" />
               تصدير كشف حساب (PDF)
             </Button>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 border-danger/40 bg-danger/8 text-danger hover:bg-danger/15 hover:text-danger font-bold"
-                    onClick={() => navigate({ to: "/blocked" })}
-                  >
-                    <ShieldAlert className="w-4 h-4" />
-                    العملاء المحظورون
-                    {counts.blocked > 0 && (
-                      <span className="text-numeric grid h-5 min-w-5 place-items-center rounded-full bg-danger px-1.5 text-[10px] font-bold text-danger-foreground">
-                        {counts.blocked}
-                      </span>
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  فتح مركز إدارة المحظورين والقائمة السوداء والتوصيات الذكية للحظر.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
             <CustomerDialog trigger={<Button className="gap-2"><Plus className="w-4 h-4" /> إضافة عميل</Button>} />
           </div>
         }
