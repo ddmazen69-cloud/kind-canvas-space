@@ -73,8 +73,12 @@ function customerMetrics(invoices: Invoice[], c: Customer) {
   return { balance, worstLate, paidPct, totalCharged, totalPaid };
 }
 
+function escapeHtml(s: string): string {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+}
+
 function buildTimeline(c: Customer, invoices: Invoice[], payments: Payment[]) {
-  type Raw = { id: string; date: string; kind: "opening" | "purchase" | "payment"; description: string; amount: number };
+  type Raw = { id: string; date: string; kind: "opening" | "purchase" | "payment"; description: string; amount: number; invoiceId?: string };
   const raw: Raw[] = [];
 
   if (c.openingBalance && c.openingBalance > 0) {
@@ -82,15 +86,15 @@ function buildTimeline(c: Customer, invoices: Invoice[], payments: Payment[]) {
   }
 
   for (const inv of invoices) {
-    raw.push({ id: `inv-${inv.id}`, date: inv.createdAt, kind: "purchase", description: inv.notes?.trim() ? inv.notes : `فاتورة بتاريخ استحقاق ${isoToDDMMYYYY(inv.firstDueDate)}`, amount: inv.total });
+    raw.push({ id: `inv-${inv.id}`, date: inv.createdAt, kind: "purchase", description: inv.notes?.trim() ? inv.notes : `فاتورة بتاريخ استحقاق ${isoToDDMMYYYY(inv.firstDueDate)}`, amount: inv.total, invoiceId: inv.id });
     if (inv.downPayment > 0) {
-      raw.push({ id: `down-${inv.id}`, date: inv.createdAt, kind: "payment", description: `مقدم على فاتورة (${(inv.notes || "").trim() || "بدون وصف"})`, amount: inv.downPayment });
+      raw.push({ id: `down-${inv.id}`, date: inv.createdAt, kind: "payment", description: `مقدم على فاتورة (${(inv.notes || "").trim() || "بدون وصف"})`, amount: inv.downPayment, invoiceId: inv.id });
     }
   }
 
   for (const p of payments) {
     const inv = invoices.find((i) => i.id === p.invoiceId);
-    raw.push({ id: `pay-${p.id}`, date: p.paidAt, kind: "payment", description: `سداد على فاتورة ${inv?.notes ? `«${inv.notes}»` : `${invoiceNumber(invoices, p.invoiceId)}`}`, amount: p.amount });
+    raw.push({ id: `pay-${p.id}`, date: p.paidAt, kind: "payment", description: `سداد على فاتورة ${inv?.notes ? `«${inv.notes}»` : `${invoiceNumber(invoices, p.invoiceId)}`}`, amount: p.amount, invoiceId: p.invoiceId });
   }
 
   raw.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -194,27 +198,42 @@ function CustomerDetailPage() {
     );
   }
 
-  const exportStatement = (autoPrint = false) => {
+  const exportStatement = () => {
     const today = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
-    const rows = timeline.map((t, i) => {
-      const typeLabel = t.kind === "purchase" ? "مشترى" : t.kind === "opening" ? "رصيد افتتاحي" : "سداد";
+    const ordered = [...timeline].reverse();
+    const rows = ordered.map((t, i) => {
+      const typeLabel = t.kind === "purchase" ? "فاتورة" : t.kind === "opening" ? "رصيد افتتاحي" : "سداد";
       const sign = t.kind === "payment" ? "−" : "+";
+      let detail = `<b>${escapeHtml(t.description)}</b>`;
+      if (t.invoiceId) {
+        const inv = myInvoices.find((x) => x.id === t.invoiceId);
+        detail += `<div class="inv-no">رقم الفاتورة: <b>${invoiceNumber(data.invoices, t.invoiceId)}</b></div>`;
+        if (t.kind === "purchase" && inv) {
+          const items = data.invoiceItems.filter((it) => it.invoiceId === inv.id);
+          if (items.length) {
+            detail += `<div class="items"><div class="items-head">تفاصيل الشراء:</div><table class="sub-table"><thead><tr><th>م</th><th>الصنف</th><th class="num">السعر</th></tr></thead><tbody>` +
+              items.map((it, j) => `<tr><td>${j + 1}</td><td>${escapeHtml(it.name)}</td><td class="num">${fmt(it.price)} ج.م</td></tr>`).join("") +
+              `</tbody></table></div>`;
+            detail += `<div class="detail-line">الإجمالي: <b>${fmt(inv.total)} ج.م</b> — المقدم: ${fmt(inv.downPayment)} ج.م — المسدد: ${fmt(inv.paid)} ج.م — المتبقي: <b>${fmt(Math.max(0, inv.total - inv.paid))}</b> ج.م</div>`;
+          }
+        }
+      }
       return `
         <tr>
           <td>${i + 1}</td>
-          <td dir="ltr">${isoToDDMMYYYY(t.date.slice(0, 10))}</td>
+          <td dir="ltr" class="nowrap">${isoToDDMMYYYY(t.date.slice(0, 10))}</td>
           <td><span class="tag ${t.kind}">${typeLabel}</span></td>
-          <td>${t.description}</td>
+          <td>${detail}</td>
           <td class="num ${t.kind === "payment" ? "pay" : "buy"}">${sign} ${fmt(t.amount)}</td>
           <td class="num ${t.runningBalance > 0 ? "due" : "ok"}">${fmt(t.runningBalance)}</td>
         </tr>`;
     }).join("");
 
     const html = pdfDocument({
-      docTitle: `كشف حساب — ${customer.name}`,
-      badge: "كشف حساب العميل",
-      title: "ملف سلوك العميل",
-      lede: `تاريخ التقرير: ${today}.`,
+      docTitle: `كشف حساب تفصيلي — ${customer.name}`,
+      badge: "كشف حساب تفصيلي",
+      title: "كشف حساب العميل",
+      lede: `سجل تفصيلي بكل الفواتير والمدفوعات بالترتيب الزمني — تاريخ التقرير: ${today}.`,
       meta: [
         { label: "اسم العميل", value: customer.name },
         { label: "الهاتف", value: customer.phone },
@@ -232,6 +251,66 @@ function CustomerDetailPage() {
           <div class="box"><b>العنوان</b> ${customer.address || "—"}</div>
           <div class="box"><b>تاريخ الانضمام</b> <span dir="ltr">${isoToDDMMYYYY(customer.joiningDate)}</span></div>
         </div>
+        <style>
+          .nowrap { white-space: nowrap; }
+          .inv-no { margin-top: 3px; font-size: 10.5px; color: var(--muted); }
+          .items { margin-top: 8px; }
+          .items-head { font-size: 10.5px; font-weight: 700; margin-bottom: 4px; color: #475569; }
+          .sub-table { margin-top: 2px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: 10.5px; width: 100%; border-collapse: collapse; }
+          .sub-table th { background: #f8fafc; color: #475569; font-weight: 600; font-size: 9.5px; padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--line); }
+          .sub-table td { padding: 5px 8px; border-bottom: 1px solid var(--line); }
+          .sub-table tr:last-child td { border-bottom: 0; }
+          .detail-line { margin-top: 6px; font-size: 10.5px; color: #475569; }
+        </style>
+        <h2 class="sec">سجل الحركات التفصيلي (بالترتيب الزمني)</h2>
+        <div class="t-wrap"><table>
+          <thead><tr><th>م</th><th>التاريخ</th><th>النوع</th><th>التفاصيل</th><th class="num">المبلغ</th><th class="num">الرصيد</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="6" class="empty">لا توجد حركات</td></tr>`}</tbody>
+        </table></div>`,
+      page: "A4",
+    });
+
+    if (!openPdfDocument(html, { features: "width=1100,height=800" })) {
+      toast.error("يجب السماح بفتح النوافذ المنبثقة لتصدير PDF");
+      return;
+    }
+    toast.success("تم تجهيز كشف حساب العميل");
+  };
+
+  const exportPrint = () => {
+    const today = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+    const rows = timeline.map((t, i) => {
+      const typeLabel = t.kind === "purchase" ? "مشترى" : t.kind === "opening" ? "رصيد افتتاحي" : "سداد";
+      const sign = t.kind === "payment" ? "−" : "+";
+      return `
+        <tr>
+          <td>${i + 1}</td>
+          <td dir="ltr">${isoToDDMMYYYY(t.date.slice(0, 10))}</td>
+          <td><span class="tag ${t.kind}">${typeLabel}</span></td>
+          <td>${t.description}</td>
+          <td class="num ${t.kind === "payment" ? "pay" : "buy"}">${sign} ${fmt(t.amount)}</td>
+          <td class="num ${t.runningBalance > 0 ? "due" : "ok"}">${fmt(t.runningBalance)}</td>
+        </tr>`;
+    }).join("");
+    const html = pdfDocument({
+      docTitle: `طباعة كشف حساب — ${customer.name}`,
+      badge: "طباعة كشف الحساب",
+      title: "سجل حركات العميل",
+      lede: `سجل مبسط للطباعة — ${today}.`,
+      meta: [
+        { label: "اسم العميل", value: customer.name },
+        { label: "الهاتف", value: customer.phone },
+      ],
+      kpis: [
+        { label: "الرصيد المتبقي", value: `${fmt(m.balance)} ج.م`, tone: m.balance > 0 ? "danger" : "brand" },
+        { label: "عدد الفواتير", value: String(myInvoices.length) },
+        { label: "عدد الدفعات", value: String(myPayments.length) },
+      ],
+      body: `
+        <div class="info">
+          <div class="box"><b>اسم العميل</b> ${customer.name}</div>
+          <div class="box"><b>الهاتف</b> <span dir="ltr">${customer.phone}</span></div>
+        </div>
         <h2 class="sec">سجل الحركات</h2>
         <div class="t-wrap"><table>
           <thead><tr><th>م</th><th>التاريخ</th><th>النوع</th><th>البيان</th><th class="num">المبلغ</th><th class="num">الرصيد</th></tr></thead>
@@ -239,12 +318,11 @@ function CustomerDetailPage() {
         </table></div>`,
       page: "A4",
     });
-
-    if (!openPdfDocument(html, { autoPrint, features: "width=980,height=760" })) {
-      toast.error("يجب السماح بفتح النوافذ المنبثقة لتصدير PDF");
+    if (!openPdfDocument(html, { autoPrint: true, features: "width=980,height=760" })) {
+      toast.error("يجب السماح بفتح النوافذ المنبثقة للطباعة");
       return;
     }
-    toast.success(autoPrint ? "جاري تجهيز الطباعة..." : "تم تجهيز ملف العميل");
+    toast.success("جاري تجهيز الطباعة...");
   };
 
   const shareProfile = () => {
@@ -316,10 +394,10 @@ function CustomerDetailPage() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportStatement(false)}>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportStatement()}>
                   <FileDown className="w-4 h-4" /> تصدير كشف حساب (PDF)
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportStatement(true)}>
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={exportPrint}>
                   <Printer className="w-4 h-4" /> طباعة
                 </Button>
                 <Button size="sm" className="gap-1.5" onClick={shareProfile}>
