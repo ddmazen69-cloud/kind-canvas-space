@@ -119,7 +119,7 @@ function InvoicesPage() {
       .filter((i) => {
         if (!q) return true;
         const c = data.customers.find((c) => c.id === i.customerId);
-        return c?.name.includes(q) || c?.phone.includes(q);
+        return c?.name.includes(q) || (c?.phone || "").includes(q);
       })
       .filter((i) => {
         if (!fromTs && !toTs) return true;
@@ -333,7 +333,7 @@ function InvoicesPage() {
                     )}
                     style={{ animationDelay: `${idx * 25}ms` }}
                   >
-                    <td className="p-4 font-mono text-muted-foreground">{invoiceNumber(data.invoices, inv.id, shopSettings.invoicePrefix)}</td>
+                    <td className="p-4 font-mono text-muted-foreground" data-latin-digits dir="ltr">{invoiceNumber(data.invoices, inv.id, shopSettings.invoicePrefix)}</td>
                     <td className="p-4">
                       {cust ? (
                         <button
@@ -540,7 +540,7 @@ function HistoryDialog({ customer, onClose, invoices, payments, items, blurCls, 
                         >
                           <span className="text-xs text-muted-foreground" dir="ltr">{format(new Date(inv.createdAt), "dd/MM/yyyy")}</span>
                           <span className={cn("font-bold tabular-nums", blurCls)}>{fmt(inv.total)} ج.م</span>
-                          <span className="font-mono text-xs text-muted-foreground">{invoiceNumber(invoices, inv.id, invoicePrefix)}</span>
+                          <span className="font-mono text-xs text-muted-foreground" data-latin-digits dir="ltr">{invoiceNumber(invoices, inv.id, invoicePrefix)}</span>
                         </button>
                       </div>
                       <AnimatePresence initial={false}>
@@ -703,7 +703,7 @@ function ViewInvoiceDialog({ inv, customer, invoiceNo, items, onClose }: { inv: 
     <Dialog open={!!inv} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md max-h-[88vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-right">تفاصيل الفاتورة {invoiceNo}</DialogTitle>
+          <DialogTitle className="text-right">تفاصيل الفاتورة <span data-latin-digits dir="ltr" className="font-mono">{invoiceNo}</span></DialogTitle>
           <DialogDescription className="text-right">{customer?.name ?? "—"}</DialogDescription>
         </DialogHeader>
         <div className="space-y-1 text-right text-sm">
@@ -834,7 +834,7 @@ function EditInvoiceDialog({ inv, invoiceNo, onClose }: { inv: Invoice | null; i
     <Dialog open={!!inv} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-right">تعديل الفاتورة {invoiceNo}</DialogTitle>
+          <DialogTitle className="text-right">تعديل الفاتورة <span data-latin-digits dir="ltr" className="font-mono">{invoiceNo}</span></DialogTitle>
           <DialogDescription className="text-right">تحديث بيانات الفاتورة والمنتجات.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 text-right">
@@ -958,8 +958,8 @@ function ReminderDialog({ inv, customer, invoiceNo, onClose }: { inv: Invoice | 
     `• تاريخ الاستحقاق: ${isoToDDMMYYYY(inv.firstDueDate)}\n\n` +
     `نرجو سرعة السداد. شكراً لتعاونك.`;
 
-  const phone = customer.phone.replace(/[^\d]/g, "");
-  const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  const phone = (customer.phone || "").replace(/[^\d]/g, "");
+  const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(toArabicDigits(message))}`;
 
   return (
     <Dialog open={!!inv} onOpenChange={(o) => !o && onClose()}>
@@ -1388,7 +1388,7 @@ function NewInvoiceDialog({ trigger }: { trigger: React.ReactNode }) {
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-3 text-right">
               <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">كود الفاتورة</div>
-              <div className="mt-1 text-lg font-semibold">{nextInvoiceNumber}</div>
+              <div className="mt-1 text-lg font-semibold" data-latin-digits dir="ltr">{nextInvoiceNumber}</div>
             </div>
             <div className="rounded-2xl border border-foreground/10 bg-foreground/[0.03] p-3 text-right">
               <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">حالة الفاتورة</div>

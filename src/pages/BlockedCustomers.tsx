@@ -107,7 +107,7 @@ function BlockedCustomersPage() {
   }, [blockedList, data.customers]);
 
   const list = useMemo(() => {
-    const filtered = blockedList.filter(({ c }) => (q ? c.name.includes(q) || c.phone.includes(q) : true));
+    const filtered = blockedList.filter(({ c }) => (q ? c.name.includes(q) || (c.phone || "").includes(q) : true));
     const dir = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       if (sortKey === "balance") return (a.m.balance - b.m.balance) * dir;
@@ -127,7 +127,7 @@ function BlockedCustomersPage() {
       <tr>
         <td>${i + 1}</td>
         <td>${escapeHtml(c.name)}</td>
-        <td dir="ltr">${escapeHtml(c.phone)}</td>
+        <td dir="ltr">${escapeHtml(c.phone || "—")}</td>
         <td class="num">${fmt(m.totalCharged)}</td>
         <td class="num ok">${fmt(m.totalPaid)}</td>
         <td class="num ${m.balance > 0 ? "due" : ""}">${fmt(m.balance)}</td>
@@ -181,7 +181,7 @@ function BlockedCustomersPage() {
     const rows = list.map(({ c, m }, i) => ({
       "م": i + 1,
       "اسم العميل": c.name,
-      "رقم الهاتف": c.phone,
+      "رقم الهاتف": c.phone || "",
       "الرصيد المجمد": m.balance,
       "أقصى تأخير (أيام)": m.worstLate,
       "نسبة السداد (%)": m.paidPct,
@@ -442,8 +442,8 @@ function BlockedCustomersPage() {
                 const overdue7 = m.worstLate > 7;
                 const initial = c.name.trim().slice(0, 1) || "؟";
                 const waMessage = blockedWhatsAppMessage(c, m.balance, m.worstLate);
-                const waPhone = c.phone.replace(/^0/, "20");
-                const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(waMessage)}`;
+                const waPhone = (c.phone || "").replace(/^0/, "20");
+                const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(toArabicDigits(waMessage))}`;
 
                 return (
                   <motion.div

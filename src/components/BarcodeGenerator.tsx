@@ -385,7 +385,7 @@ export function BarcodeGenerator({ open, onOpenChange, items }: {
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold truncate">{it.name}</div>
                     <div className="text-[10px] text-muted-foreground flex items-center gap-2">
-                      <span className="font-mono" dir="ltr">{it.barcode ?? <span className="text-warning">بلا باركود — سيُولّد تلقائيًا</span>}</span>
+                      <span className="font-mono" dir="ltr" data-latin-digits>{it.barcode ?? <span className="text-warning">بلا باركود — سيُولّد تلقائيًا</span>}</span>
                       {it.size && <span className="inline-flex items-center gap-0.5"><Shirt className="w-3 h-3" />{it.size}</span>}
                     </div>
                   </div>

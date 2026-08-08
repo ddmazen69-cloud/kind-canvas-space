@@ -266,9 +266,9 @@ function CustomerDetailPage() {
       hideFooter: true,
       body: `
         <div class="info">
-          <div class="box"><b>كود العميل</b> ${customer.code || "—"}</div>
-          <div class="box"><b>اسم العميل</b> ${customer.name}</div>
-          <div class="box"><b>الهاتف</b> <span dir="ltr">${customer.phone}</span></div>
+          <div class="box"><b>كود العميل</b> ${escapeHtml(customer.code || "—")}</div>
+          <div class="box"><b>اسم العميل</b> ${escapeHtml(customer.name)}</div>
+          <div class="box"><b>الهاتف</b> <span dir="ltr">${escapeHtml(customer.phone || "—")}</span></div>
           <div class="box"><b>العنوان</b> ${customer.address || "—"}</div>
           <div class="box"><b>حالة العميل</b> ${customer.customerType === "installment" ? "قسط" : "فورى"}</div>
         </div>
@@ -344,7 +344,7 @@ function CustomerDetailPage() {
 
   const sendShareLinkWhatsApp = () => {
     if (!createdLink) return;
-    const phone = customer.phone.replace(/^0/, "20");
+    const phone = (customer.phone || "").replace(/^0/, "20");
     const text = `مرحباً ${customer.name}، دي روابط كشف حسابك على سِجلّي:\n${createdLink}`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
   };
@@ -506,7 +506,8 @@ function CustomerDetailPage() {
                     </Avatar>
                     <div>
                       <div className="text-xl font-extrabold flex items-center gap-2">
-                        {customer.code ? `${customer.code} — ` : ""}{customer.name}
+                        {customer.code && <span data-latin-digits dir="ltr" className="font-mono">{customer.code}</span>}
+                        {customer.code ? " — " : ""}{customer.name}
                         {customer.frozen && (
                           <Badge variant="destructive" className="gap-1 bg-danger/20 text-danger border-danger/30 text-xs font-bold">
                             <Ban className="h-3 w-3" /> محظور
@@ -754,7 +755,7 @@ function CustomerDetailPage() {
                           const tone = invoice.paid >= invoice.total ? "bg-success/12 text-success" : invoice.paid > 0 ? "bg-warning/12 text-warning" : "bg-danger/12 text-danger";
                           return (
                             <tr key={invoice.id} className="border-t border-[var(--hairline)]">
-                              <td className="p-3 font-bold">{invoiceNumber(data.invoices, invoice.id)}</td>
+                              <td className="p-3 font-bold" data-latin-digits dir="ltr">{invoiceNumber(data.invoices, invoice.id)}</td>
                               <td className="p-3" dir="ltr">{isoToDDMMYYYY(invoice.firstDueDate)}</td>
                               <td className="p-3 font-bold">{fmt(invoice.total)} ج.م</td>
                               <td className="p-3 text-success font-bold">{fmt(invoice.paid)} ج.م</td>

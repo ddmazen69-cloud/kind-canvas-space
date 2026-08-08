@@ -212,7 +212,7 @@ function CustomersPage() {
         if (filter === "paidThisMonth") return paidThisMonth;
         return true;
       })
-      .filter(({ c }) => (q ? c.name.includes(q) || c.phone.includes(q) : true));
+      .filter(({ c }) => (q ? c.name.includes(q) || (c.phone || "").includes(q) : true));
     const dir = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       if (sortKey === "balance") return (a.m.balance - b.m.balance) * dir;
@@ -462,7 +462,7 @@ function CustomersPage() {
               {list.map(({ c, m, risk }, idx) => {
                 const overdue7 = m.worstLate > 7;
                 const lateLabel = m.worstLate > 0 ? `متأخر ${m.worstLate} يوم` : null;
-                const waPhone = c.phone.replace(/^0/, "20");
+                const waPhone = (c.phone || "").replace(/^0/, "20");
                 const waUrl = `https://wa.me/${waPhone}`;
                 const overLimit = c.creditLimit > 0 && m.balance >= c.creditLimit;
                 const initial = c.code || c.name.trim().slice(0, 1) || "؟";
@@ -696,6 +696,7 @@ function CustomersPage() {
                                   ? "bg-success/12 text-success ring-1 ring-success/25"
                                   : "bg-primary/12 text-primary ring-1 ring-primary/25",
                           )}
+                          data-latin-digits
                         >
                           {initial}
                         </span>
@@ -825,7 +826,7 @@ function CustomersPage() {
                 <div className="flex gap-2">
                   <Button className="flex-1 gap-2" onClick={() => { navigator.clipboard.writeText(toArabicDigits(msg)); toast.success("تم النسخ"); }}>نسخ النص</Button>
                   <Button variant="outline" className="flex-1 gap-2" onClick={() => {
-                    const phone = scriptFor.phone.replace(/^0/, "20");
+                    const phone = (scriptFor.phone || "").replace(/^0/, "20");
                     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(toArabicDigits(msg))}`, "_blank");
                   }}>إرسال واتساب</Button>
                 </div>
@@ -933,7 +934,7 @@ function exportStatementPDF(
   const body = `
 <div class="info">
   <div class="box"><b>اسم العميل</b> ${escapeHtml2(c.name)}</div>
-  <div class="box"><b>رقم الهاتف</b> <span dir="ltr">${escapeHtml2(c.phone)}</span></div>
+  <div class="box"><b>رقم الهاتف</b> <span dir="ltr">${escapeHtml2(c.phone || "—")}</span></div>
   <div class="box"><b>العنوان</b> ${escapeHtml2(c.address || "—")}</div>
   <div class="box"><b>تاريخ الانضمام</b> <span dir="ltr">${escapeHtml2(joining)}</span></div>
 </div>
@@ -987,7 +988,7 @@ function shareStatement(
 ) {
   const lines: string[] = [];
   lines.push(`📋 كشف حساب — ${c.name}`);
-  lines.push(`📞 ${c.phone}`);
+  lines.push(`📞 ${c.phone || "—"}`);
   lines.push(`📅 ${new Date().toLocaleDateString("ar-EG")}`);
   lines.push("―――――――――――――");
   lines.push(`💰 إجمالي المعاملات: ${fmt(m.totalCharged)} ج.م`);
@@ -1012,7 +1013,7 @@ function shareStatement(
   lines.push("");
   lines.push("— سِجلّي");
   const text = lines.join("\n");
-  const phone = c.phone.replace(/^0/, "20");
+  const phone = (c.phone || "").replace(/^0/, "20");
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(toArabicDigits(text))}`, "_blank");
   toast.success("جاري فتح واتساب لمشاركة الكشف");
 }

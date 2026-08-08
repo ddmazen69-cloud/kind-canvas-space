@@ -147,7 +147,8 @@ function SharedStatement({ token }: { token: string }) {
                       </span>
                       <div>
                         <div className="text-xl font-extrabold">
-                          {statement.customer.code ? `${statement.customer.code} — ` : ""}
+                          {statement.customer.code && <span data-latin-digits dir="ltr" className="font-mono">{statement.customer.code}</span>}
+                          {statement.customer.code ? " — " : ""}
                           {statement.customer.name}
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground" dir="ltr">{statement.customer.phone}</div>

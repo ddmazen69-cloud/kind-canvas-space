@@ -438,7 +438,7 @@ export default function DailyLog() {
                   const status = invoiceStatus(inv);
                   return (
                     <tr key={inv.id} className="border-t border-white/[0.05] transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-foreground/[0.025]">
-                      <td className="py-4 pr-5 font-mono text-xs sm:pr-6">{invoiceNumber(invoices, inv.id)}</td>
+                      <td className="py-4 pr-5 font-mono text-xs sm:pr-6" data-latin-digits dir="ltr">{invoiceNumber(invoices, inv.id)}</td>
                       <td className="py-3 pr-4">{time}</td>
                       <td className="py-3 pr-4">{name}</td>
                       <td className={`py-3 pr-4 ${privacy ? "privacy-blur" : "privacy-clear"}`}>{fmtMoney(inv.total)}</td>

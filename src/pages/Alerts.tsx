@@ -113,7 +113,7 @@ function AlertsPage() {
 
   const sendWhatsApp = (customerName: string, phone: string, amount: number) => {
     const msg = `عزيزي ${customerName}، نذكركم بموعد قسطكم اليوم بقيمة ${fmt(amount)} ج.م. شكراً لتعاونكم مع سجلّي.`;
-    const num = phone.replace(/\D/g, "").replace(/^0/, "20");
+    const num = (phone || "").replace(/\D/g, "").replace(/^0/, "20");
     window.open(`https://wa.me/${num}?text=${encodeURIComponent(toArabicDigits(msg))}`, "_blank");
   };
 
@@ -329,7 +329,7 @@ function AlertsPage() {
                     <Copy className="w-4 h-4" /> نسخ
                   </Button>
                   <Button variant="outline" className="flex-1 gap-1.5" onClick={() => {
-                    const phone = selected.customer!.phone.replace(/\D/g, "").replace(/^0/, "20");
+                    const phone = (selected.customer!.phone || "").replace(/\D/g, "").replace(/^0/, "20");
                     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(toArabicDigits(msg))}`, "_blank");
                   }}>
                     <Send className="w-4 h-4" /> إرسال واتساب
