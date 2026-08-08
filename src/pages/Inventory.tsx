@@ -327,7 +327,7 @@ ${list.map((it) => {
                         <div className="font-bold text-primary">{it.name}</div>
                         <div className="mt-0.5 text-[10px] text-muted-foreground">{categoryLabel(it.category)}</div>
                         {it.barcode && (
-                          <div className="text-[10px] text-muted-foreground font-mono mt-0.5 inline-flex items-center gap-1">
+                          <div data-latin-digits className="text-[10px] text-muted-foreground font-mono mt-0.5 inline-flex items-center gap-1">
                             <ScanLine className="w-3 h-3" /> {it.barcode}
                           </div>
                         )}

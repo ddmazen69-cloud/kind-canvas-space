@@ -2,9 +2,26 @@ import { useEffect } from "react";
 
 const AR = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"] as const;
 
-/** يحوّل أي أرقام لاتينية (0-9) داخل نص إلى أرقام عربية (٠-٩). */
+/** نمط الكود: حرف لاتيني/عربي ملاصق لرقم، أو # قبل رقم، أو شرطة بعد بادئة نصية. */
+function isCodeChar(ch: string | undefined): boolean {
+  return ch !== undefined && /[A-Za-z\u0600-\u06FF]/.test(ch);
+}
+
+/** يحوّل أي أرقام لاتينية (0-9) داخل نص إلى أرقام عربية (٠-٩)،
+ * مع استثناء أرقام الأكواد (C-0001، فاتورة-0001، #0001، S0001) فتبقى لاتينية. */
 export function toArabicDigits(input: unknown): string {
-  return String(input ?? "").replace(/[0-9]/g, (d) => AR[Number(d)]);
+  const s = String(input ?? "");
+  return s.replace(/[0-9]+/g, (digits, offset) => {
+    const prev = s[offset - 1];
+    const next = s[offset + digits.length];
+    const prevIsCode =
+      prev === "#" ||
+      (prev === "-" && isCodeChar(s[offset - 2] ?? "")) ||
+      isCodeChar(prev);
+    const nextIsCode = isCodeChar(next);
+    if (prevIsCode || nextIsCode) return digits;
+    return digits.replace(/[0-9]/g, (d) => AR[Number(d)]);
+  });
 }
 
 /** يحوّل الأرقام العربية إلى لاتينية (للاستخدام قبل الحفظ/الحساب). */
