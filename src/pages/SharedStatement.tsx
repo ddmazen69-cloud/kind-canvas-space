@@ -195,7 +195,7 @@ function SharedStatement({ token }: { token: string }) {
                   </div>
                   <div className="text-sm font-bold">بالترتيب الزمني</div>
                 </div>
-                <div className="hidden overflow-x-auto sm:block">
+                <div className="hidden overflow-x-auto lg:block">
                   <table className="w-full min-w-[700px] text-sm">
                     <thead className="bg-foreground/[0.04] text-muted-foreground">
                       <tr>
@@ -243,7 +243,7 @@ function SharedStatement({ token }: { token: string }) {
                   </table>
                 </div>
 
-                <div className="space-y-2 sm:hidden">
+                <div className="space-y-2 lg:hidden">
                   {statement.timeline.length === 0 && (
                     <div className="rounded-2xl bg-foreground/[0.04] p-4 text-center text-sm text-muted-foreground">لا توجد حركات</div>
                   )}
