@@ -536,6 +536,12 @@ function CustomerDetailPage() {
                     <div className="text-muted-foreground">نوع الدفع</div>
                     <div className="mt-1 font-bold">{customer.customerType === "cash" ? "فوري" : "أقساط"}</div>
                   </div>
+                  {customer.ledgerNo && (
+                    <div className="rounded-2xl bg-foreground/[0.04] p-3">
+                      <div className="text-muted-foreground">رقم الدفتر الورقي</div>
+                      <div className="mt-1 font-bold" dir="ltr" data-latin-digits>{customer.ledgerNo}</div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
