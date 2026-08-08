@@ -91,7 +91,7 @@ function RasdPage() {
     } catch {
       answer = localAnswer(content, data, settings);
     }
-    setMessages((current) => [...current, userMsg, { role: "assistant", ...answer }]);
+    setMessages((current) => [...current, { role: "assistant", ...answer }]);
     setSending(false);
   };
 
