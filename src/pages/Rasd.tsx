@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { PageTransition } from "@/components/PageTransition";
@@ -240,7 +241,7 @@ function RasdPage() {
   );
 }
 
-function SummaryCard({ icon, tone, label, value }: { icon: React.ReactNode; tone: "danger" | "warning" | "success" | "muted"; label: string; value: string }) {
+function SummaryCard({ icon, tone, label, value }: { icon: ReactNode; tone: "danger" | "warning" | "success" | "muted"; label: string; value: string }) {
   const tones = {
     danger: "border-danger/25 bg-danger/10 text-danger",
     warning: "border-warning/25 bg-warning/10 text-warning",
