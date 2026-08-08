@@ -240,12 +240,19 @@ function CustomerDetailPage() {
         <style>
           .nowrap { white-space: nowrap; }
           .inv-no { margin-top: 3px; font-size: 10.5px; color: var(--muted); }
+          .closing { margin-top: 26px; text-align: center; font-family: 'Cairo', sans-serif; font-size: 12.5px; font-weight: 700; color: #334155; line-height: 1.9; }
+          .closing .brand-line { color: var(--brand); font-weight: 800; }
         </style>
         <h2 class="sec">سجل الحركات التفصيلي (بالترتيب الزمني)</h2>
         <div class="t-wrap"><table>
           <thead><tr><th>م</th><th>التاريخ</th><th>النوع</th><th>التفاصيل</th><th class="num">المبلغ</th><th class="num">الرصيد</th></tr></thead>
           <tbody>${rows || `<tr><td colspan="6" class="empty">لا توجد حركات</td></tr>`}</tbody>
-        </table></div>`,
+        </table></div>
+        <div class="closing">
+          شكراً لتعاملكم معنا، ويسعدنا خدمتكم دائماً.<br/>
+          للمراجعة أو أي استفسار يرجى مراجعة المحل.<br/>
+          <span class="brand-line">سِجلّي</span>
+        </div>`,
       page: "A4",
     });
 
