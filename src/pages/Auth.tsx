@@ -125,7 +125,7 @@ function AuthPage() {
                   type="button"
                   onClick={forgotPassword}
                   disabled={busy}
-                  className="text-xs font-semibold text-primary transition-opacity hover:opacity-70 disabled:opacity-40"
+                  className="-my-2 py-2 text-xs font-semibold text-primary transition-opacity hover:opacity-70 disabled:opacity-40"
                 >
                   نسيت كلمة السر؟
                 </button>

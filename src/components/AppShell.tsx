@@ -146,14 +146,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      {/* Mobile top nav */}
-      <div className="glass no-scrollbar fixed inset-x-3 bottom-3 z-40 flex overflow-x-auto rounded-[1.5rem] md:hidden">
+      {/* Mobile bottom nav */}
+      <div className="glass no-scrollbar fixed inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-40 flex touch-pan-x snap-x snap-mandatory overflow-x-auto rounded-[1.5rem] md:hidden">
         {visibleNav.map((n) => {
           const active = n.to === "/" ? location.pathname === "/" : location.pathname.startsWith(n.to);
           const Icon = n.icon;
           const showBadge = n.alertKey && overdueCount > 0;
           return (
-            <Link key={n.to} to={n.to} className={cn("press flex min-w-[68px] flex-1 flex-col items-center gap-1.5 rounded-[1.25rem] py-3 text-[11px]", active ? "bg-primary/12 font-semibold text-primary" : "text-muted-foreground")}>
+            <Link key={n.to} to={n.to} className={cn("press flex min-w-[72px] flex-1 snap-start flex-col items-center gap-1.5 rounded-[1.25rem] py-3 text-[11px]", active ? "bg-primary/12 font-semibold text-primary" : "text-muted-foreground")}>
               <span className="relative">
                 <Icon className="w-5 h-5" />
                 {showBadge && (

@@ -632,7 +632,7 @@ function EditDialog({ item, onClose }: { item: StockItem | null; onClose: () => 
               </Button>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="grid gap-1.5">
               <Label>الكمية</Label>
               <Input type="number" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} />
@@ -951,7 +951,7 @@ function AddProductDialog({ open, onOpenChange, prefillBarcode, existingBarcodes
               <div className="text-[11px] text-muted-foreground">يُعتبر الصنف منخفضًا إذا كانت الكمية أقل من هذا الرقم.</div>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="grid gap-1.5"><Label>الكمية</Label><Input type="number" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} /></div>
             <div className="grid gap-1.5"><Label>سعر الشراء</Label><Input type="number" inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value)} /></div>
             <div className="grid gap-1.5"><Label>سعر البيع</Label><Input type="number" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} /></div>

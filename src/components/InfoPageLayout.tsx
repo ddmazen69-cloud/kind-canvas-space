@@ -23,10 +23,10 @@ export function InfoPageLayout({
 }) {
   return (
     <div dir="rtl" className="min-h-screen bg-background">
-      <main className="relative px-4 pt-16 sm:px-8">
+      <main className="relative overflow-x-clip px-4 pt-16 sm:px-8">
         <div
           aria-hidden
-          className="pointer-events-none absolute -end-24 top-0 h-[480px] w-[480px] rounded-full opacity-70 blur-[120px]"
+          className="pointer-events-none absolute -end-24 top-0 h-[480px] w-[480px] rounded-full opacity-70 blur-[120px] max-lg:-end-40"
           style={{ background: "hsl(var(--primary) / 0.10)" }}
         />
 
@@ -42,7 +42,7 @@ export function InfoPageLayout({
             </div>
             <Link
               to="/landing"
-              className="group inline-flex shrink-0 items-center gap-2 rounded-full hairline/70 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-primary hover:text-primary"
+              className="group inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full hairline/70 px-4 py-2 text-sm font-medium text-muted-foreground transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-primary hover:text-primary"
             >
               <span className="hidden sm:inline">الرئيسية</span>
               <ArrowUpLeft className="h-4 w-4 transition-transform duration-500 group-hover:-rotate-45" />

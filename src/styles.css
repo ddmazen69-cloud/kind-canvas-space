@@ -628,3 +628,83 @@ gpt-eng-badge {
   opacity: 0 !important;
   pointer-events: none !important;
 }
+
+/* ============================================================
+   Adaptive shell — responsive hardening layer
+   تقوّي الحاوية من أي تمرير أفقي عشوائي وتراعي أجهزة اللمس
+   ============================================================ */
+
+/* 1) حماية صارمة للـ viewport: لا تمرير أفقي مهما كان المحتوى */
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* 2) منع تغيير حجم النص تلقائياً (iOS التكبير عند توجيه الهاتف) */
+html {
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 3) وسائط سائلة: لا تكسر العرض أبداً */
+img, video, canvas, svg, iframe {
+  max-width: 100%;
+}
+
+/* 4) اللمس لا يُطلق hover:
+   - إزالة القفزات (transform/box-shadow) على العناصر المعرفة هنا.
+   - group-icon الخاصة بـ island-btn تُعاد للصفر حتى لا تنزاح بالخطأ. */
+@media (hover: none) and (pointer: coarse) {
+  .bezel-lift:hover,
+  .action-btn:hover,
+  .row-hover:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  .group:hover .island-btn-icon {
+    transform: none;
+  }
+}
+
+/* 5) Touch targets: أزرار الأيقونات تصل للحد الأدنى المريح (44px) باللمس */
+@media (pointer: coarse) {
+  .action-btn,
+  [role="dialog"] button[aria-label*="Close"],
+  button[aria-label*="غلق"],
+  button[aria-label*="إغلاق"] {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+  /* أي زر أيقونة صغير (h-8/h-9) يُكبَّر منطقة اللمس فقط دون كسر الشبكة المرئية */
+  button[class*="h-8"],
+  button[class*="h-9"],
+  [role="button"][class*="h-8"],
+  [role="button"][class*="h-9"] {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+  }
+  /* الحبوب/الشرائح الصغيرة القابلة للنقر (مثل مبالغ سريعة) */
+  button[class*="py-1"],
+  [role="button"][class*="py-1"] {
+    min-height: 2.25rem;
+  }
+}
+
+/* 6) شاشات صغيرة جداً: نقصّف زوايا البيزل قليلاً لتوفير مساحة قابلة للاستخدام */
+@media (max-width: 400px) {
+  :root {
+    --bezel-outer-radius: 1.4rem;
+    --bezel-pad: 0.3rem;
+  }
+  main {
+    padding-inline: 0.75rem !important;
+  }
+}
+

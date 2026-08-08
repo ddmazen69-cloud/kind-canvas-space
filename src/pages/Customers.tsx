@@ -1085,7 +1085,7 @@ function QuickAddInvoice({ customerId, blocked }: { customerId: string; blocked:
             <span className="text-primary font-bold">{fmt(remaining)} ج.م</span>
             <span className="text-sm text-muted-foreground">المبلغ المتبقي للتقسيط:</span>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <Label>القسط الشهري (ج.م)</Label>
               <Input type="number" value={monthly} onChange={(e) => setMonthly(e.target.value)} />

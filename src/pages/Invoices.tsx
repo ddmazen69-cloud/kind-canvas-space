@@ -552,13 +552,13 @@ function HistoryDialog({ customer, onClose, invoices, payments, items, blurCls, 
                             transition={{ duration: 0.25, ease: "easeOut" }}
                             style={{ overflow: "hidden" }}
                           >
-                            <div className="bg-foreground/[0.03] px-3 pb-3 pt-1">
-                              {invItems.length === 0 ? (
-                                <div className="text-xs text-muted-foreground py-3 text-center">
-                                  لا توجد منتجات مفصّلة لهذه الفاتورة (قد تكون فاتورة قديمة).
-                                </div>
-                              ) : (
-                                <table className="w-full text-xs">
+                                <div className="overflow-x-auto bg-foreground/[0.03] px-3 pb-3 pt-1">
+                                  {invItems.length === 0 ? (
+                                    <div className="text-xs text-muted-foreground py-3 text-center">
+                                      لا توجد منتجات مفصّلة لهذه الفاتورة (قد تكون فاتورة قديمة).
+                                    </div>
+                                  ) : (
+                                <table className="w-full min-w-[480px] text-xs">
                                   <thead className="text-muted-foreground">
                                     <tr>
                                       <th className="text-right p-1.5 font-medium">المنتج</th>
@@ -575,13 +575,13 @@ function HistoryDialog({ customer, onClose, invoices, payments, items, blurCls, 
                                         <td className={cn("p-1.5 tabular-nums font-bold", blurCls)}>{fmt(it.price)} ج.م</td>
                                         <td className="p-1.5">
                                           <div className="flex items-center gap-0.5">
-                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-warning hover:bg-warning/10" title="تعديل" onClick={() => setEditing(it)}>
-                                              <Pencil className="w-3 h-3" />
+                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-warning hover:bg-warning/10" title="تعديل" onClick={() => setEditing(it)}>
+                                              <Pencil className="w-4 h-4" />
                                             </Button>
                                             <AlertDialog>
                                               <AlertDialogTrigger asChild>
-                                                <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-danger hover:bg-danger/10" title="حذف">
-                                                  <Trash2 className="w-3 h-3" />
+                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-danger hover:bg-danger/10" title="حذف">
+                                                  <Trash2 className="w-4 h-4" />
                                                 </Button>
                                               </AlertDialogTrigger>
                                               <AlertDialogContent>
@@ -1053,7 +1053,7 @@ function PaymentDialog({ invoiceId, max }: { invoiceId: string; max: number }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="gap-1.5 h-8 border-success/40 text-success hover:bg-success/10"><Wallet className="w-3.5 h-3.5" /> دفع</Button>
+        <Button size="sm" variant="outline" className="gap-1.5 h-9 border-success/40 text-success hover:bg-success/10"><Wallet className="w-4 h-4" /> دفع</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
