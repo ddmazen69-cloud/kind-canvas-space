@@ -28,6 +28,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SuppliersRouteImport } from './routes/suppliers'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as WarehouseRouteImport } from './routes/warehouse'
 import { Route as CustomersIndexRouteImport } from './routes/customers.index'
 import { Route as CustomersCustomerIdRouteImport } from './routes/customers.$customerId'
 import { Route as JoinTokenRouteImport } from './routes/join.$token'
@@ -129,6 +130,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WarehouseRoute = WarehouseRouteImport.update({
+  id: '/warehouse',
+  path: '/warehouse',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CustomersIndexRoute = CustomersIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -176,6 +182,7 @@ export interface FileRoutesByFullPath {
   '/suppliers': typeof SuppliersRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
+  '/warehouse': typeof WarehouseRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
   '/join/$token': typeof JoinTokenRoute
   '/customers/': typeof CustomersIndexRoute
@@ -200,6 +207,7 @@ export interface FileRoutesByTo {
   '/suppliers': typeof SuppliersRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
+  '/warehouse': typeof WarehouseRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
   '/join/$token': typeof JoinTokenRoute
   '/share/$token': typeof ShareTokenRoute
@@ -227,6 +235,7 @@ export interface FileRoutesById {
   '/suppliers': typeof SuppliersRoute
   '/support': typeof SupportRoute
   '/terms': typeof TermsRoute
+  '/warehouse': typeof WarehouseRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
   '/join/$token': typeof JoinTokenRoute
   '/share/$token': typeof ShareTokenRoute
@@ -255,6 +264,7 @@ export interface FileRouteTypes {
     | '/suppliers'
     | '/support'
     | '/terms'
+    | '/warehouse'
     | '/customers/$customerId'
     | '/join/$token'
     | '/share/$token'
@@ -280,6 +290,7 @@ export interface FileRouteTypes {
     | '/suppliers'
     | '/support'
     | '/terms'
+    | '/warehouse'
     | '/customers/$customerId'
     | '/join/$token'
     | '/share/$token'
@@ -306,6 +317,7 @@ export interface FileRouteTypes {
     | '/suppliers'
     | '/support'
     | '/terms'
+    | '/warehouse'
     | '/customers/$customerId'
     | '/join/$token'
     | '/share/$token'
@@ -333,6 +345,7 @@ export interface RootRouteChildren {
   SuppliersRoute: typeof SuppliersRoute
   SupportRoute: typeof SupportRoute
   TermsRoute: typeof TermsRoute
+  WarehouseRoute: typeof WarehouseRoute
   JoinTokenRoute: typeof JoinTokenRoute
   ShareTokenRoute: typeof ShareTokenRoute
   ApiPublicHooksAutoBackupRoute: typeof ApiPublicHooksAutoBackupRoute
@@ -473,6 +486,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/warehouse': {
+      id: '/warehouse'
+      path: '/warehouse'
+      fullPath: '/warehouse'
+      preLoaderRoute: typeof WarehouseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/customers/': {
       id: '/customers/'
       path: '/'
@@ -545,6 +565,7 @@ const rootRouteChildren: RootRouteChildren = {
   SuppliersRoute: SuppliersRoute,
   SupportRoute: SupportRoute,
   TermsRoute: TermsRoute,
+  WarehouseRoute: WarehouseRoute,
   JoinTokenRoute: JoinTokenRoute,
   ShareTokenRoute: ShareTokenRoute,
   ApiPublicHooksAutoBackupRoute: ApiPublicHooksAutoBackupRoute,
