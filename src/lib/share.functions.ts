@@ -222,12 +222,10 @@ export const getSharedStatement = createServerFn({ method: "POST" })
 
     raw.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     let bal = 0;
-    const timeline = raw
-      .map((r) => {
-        bal += r.kind === "payment" ? -r.amount : r.amount;
-        return { ...r, runningBalance: bal };
-      })
-      .reverse();
+    const timeline = raw.map((r) => {
+      bal += r.kind === "payment" ? -r.amount : r.amount;
+      return { ...r, runningBalance: bal };
+    });
 
     return {
       status: "ok" as const,

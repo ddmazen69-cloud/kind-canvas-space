@@ -154,24 +154,19 @@ function ShareStatementPage() {
                         <div className="mt-1 text-xs text-muted-foreground" dir="ltr">{statement.customer.phone}</div>
                       </div>
                     </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
-                  <div className="rounded-2xl bg-foreground/[0.04] p-3">
+                <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:grid-cols-6">
+                  <div className="rounded-2xl bg-foreground/[0.04] p-3 text-center">
                     <div className="text-muted-foreground">العنوان</div>
-                    <div className="mt-1 font-bold">{statement.customer.address || "—"}</div>
+                    <div className="mt-1 font-bold break-words">{statement.customer.address || "—"}</div>
                   </div>
-                  <div className="rounded-2xl bg-foreground/[0.04] p-3">
+                  <div className="rounded-2xl bg-foreground/[0.04] p-3 text-center">
                     <div className="text-muted-foreground">تاريخ الانضمام</div>
                     <div className="mt-1 font-bold" dir="ltr">{isoToDDMMYYYY(statement.customer.joiningDate)}</div>
                   </div>
-                  <div className="rounded-2xl bg-foreground/[0.04] p-3">
+                  <div className="rounded-2xl bg-foreground/[0.04] p-3 text-center">
                     <div className="text-muted-foreground">نوع الدفع</div>
                     <div className="mt-1 font-bold">{statement.customer.customerType === "cash" ? "فوري" : "أقساط"}</div>
                   </div>
-                </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
                   <div className="rounded-2xl bg-foreground/[0.04] p-3 text-center">
                     <div className="text-muted-foreground">مبلغ الديون</div>
                     <div className={`mt-1 font-bold ${statement.metrics.balance > 0 ? "text-danger" : "text-success"}`}>
