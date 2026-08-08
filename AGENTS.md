@@ -63,4 +63,16 @@
 9. **أيّ وظيفة إدارية في Hook/API عام تحتاج سرّاً مخصصاً، لا `apikey`**
    (مفتاح anon علني). `auto-backup` يستخدم header `x-backup-secret` مع
    `AUTO_BACKUP_WEBHOOK_SECRET` في بيئة السيرفر.
+
+10. **روابط مشاركة كشف حساب العميل (customer_share_links) قراءة عامة مقصودة
+    وموثقة.** هذه هي الطريقة الوحيدة المسموح بها لعرض بيانات عميل لغير المسجلين:
+    - الـ `token` (48 حرف hex من `node:crypto randomBytes`) هو الـ capability،
+      ويُولَّد في السيرفر ولا يُرسل للعميل قبل إنشائه.
+    - جدول `customer_share_links` RLS على `auth.uid() = user_id` فقط، ولا
+      GRANT لأي دور خارج `authenticated`.
+    - القراءة العامة من Server Function `getSharedStatement` عبر `supabaseAdmin`
+      (بعد الفحص الفوري لـ `revoked_at` و`expires_at`)، وترجع بيانات العميل
+      الواحد المرتبط بالتوكن فقط — **بدون** `user_id` أو بيانات مستخدمين آخرين
+      أو إعدادات المحل. لا تُحوَّل إلى RLS أنون ولا تُكشف لغير مالكي التوكن.
+
 <!-- SECURITY:MEMORY:END -->

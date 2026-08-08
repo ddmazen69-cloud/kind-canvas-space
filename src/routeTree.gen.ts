@@ -31,6 +31,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as CustomersIndexRouteImport } from './routes/customers.index'
 import { Route as CustomersCustomerIdRouteImport } from './routes/customers.$customerId'
 import { Route as JoinTokenRouteImport } from './routes/join.$token'
+import { Route as ShareTokenRouteImport } from './routes/share.$token'
 import { Route as ApiPublicHooksAutoBackupRouteImport } from './routes/api/public/hooks/auto-backup'
 
 const IndexRoute = IndexRouteImport.update({
@@ -143,6 +144,11 @@ const JoinTokenRoute = JoinTokenRouteImport.update({
   path: '/join/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ShareTokenRoute = ShareTokenRouteImport.update({
+  id: '/share/$token',
+  path: '/share/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksAutoBackupRoute =
   ApiPublicHooksAutoBackupRouteImport.update({
     id: '/api/public/hooks/auto-backup',
@@ -196,7 +202,8 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
   '/join/$token': typeof JoinTokenRoute
-  '/customers': typeof CustomersIndexRoute
+  '/share/$token': typeof ShareTokenRoute
+  '/customers/': typeof CustomersIndexRoute
   '/api/public/hooks/auto-backup': typeof ApiPublicHooksAutoBackupRoute
 }
 export interface FileRoutesById {
@@ -222,6 +229,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
   '/join/$token': typeof JoinTokenRoute
+  '/share/$token': typeof ShareTokenRoute
   '/customers/': typeof CustomersIndexRoute
   '/api/public/hooks/auto-backup': typeof ApiPublicHooksAutoBackupRoute
 }
@@ -249,6 +257,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/customers/$customerId'
     | '/join/$token'
+    | '/share/$token'
     | '/customers/'
     | '/api/public/hooks/auto-backup'
   fileRoutesByTo: FileRoutesByTo
@@ -273,6 +282,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/customers/$customerId'
     | '/join/$token'
+    | '/share/$token'
     | '/customers'
     | '/api/public/hooks/auto-backup'
   id:
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/customers/$customerId'
     | '/join/$token'
+    | '/share/$token'
     | '/customers/'
     | '/api/public/hooks/auto-backup'
   fileRoutesById: FileRoutesById
@@ -323,6 +334,7 @@ export interface RootRouteChildren {
   SupportRoute: typeof SupportRoute
   TermsRoute: typeof TermsRoute
   JoinTokenRoute: typeof JoinTokenRoute
+  ShareTokenRoute: typeof ShareTokenRoute
   ApiPublicHooksAutoBackupRoute: typeof ApiPublicHooksAutoBackupRoute
 }
 
@@ -482,6 +494,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JoinTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/share/$token': {
+      id: '/share/$token'
+      path: '/share/$token'
+      fullPath: '/share/$token'
+      preLoaderRoute: typeof ShareTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/auto-backup': {
       id: '/api/public/hooks/auto-backup'
       path: '/api/public/hooks/auto-backup'
@@ -527,6 +546,7 @@ const rootRouteChildren: RootRouteChildren = {
   SupportRoute: SupportRoute,
   TermsRoute: TermsRoute,
   JoinTokenRoute: JoinTokenRoute,
+  ShareTokenRoute: ShareTokenRoute,
   ApiPublicHooksAutoBackupRoute: ApiPublicHooksAutoBackupRoute,
 }
 export const routeTree = rootRouteImport
