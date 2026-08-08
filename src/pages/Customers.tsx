@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { StarRating } from "@/components/StarRating";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CustomerTypeBadge } from "@/components/CustomerTypeBadge";
-import { useDB, db, fmt, aiScript, daysLate, analyzeCustomerRisk, nextEntityCode, invoiceNumber, type Customer, type CustomerStatus, type CustomerType, type Invoice } from "@/lib/store";
+import { useDB, db, fmt, aiScript, daysLate, analyzeCustomerRisk, nextEntityCode, invoiceNumber, type Customer, type CustomerStatus, type CustomerType, type Invoice, type AITone } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -140,6 +140,7 @@ function CustomersPage() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<FilterTab>("all");
   const [scriptFor, setScriptFor] = useState<Customer | null>(null);
+  const [scriptTone, setScriptTone] = useState<AITone>("auto");
   const [historyFor, setHistoryFor] = useState<Customer | null>(null);
   const { privacy, toggle } = usePrivacy();
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -791,7 +792,7 @@ function CustomersPage() {
           </DialogHeader>
           {scriptFor && (() => {
             const m = customerMetrics(data.invoices, scriptFor);
-            const msg = aiScript(scriptFor, m.balance, m.worstLate);
+            const msg = aiScript(scriptFor, m.balance, m.worstLate, scriptTone);
             const tone =
               m.worstLate <= 0 ? { label: "ودود", cls: "bg-success/15 text-success border-success/30" } :
               m.worstLate < 7 ? { label: "تذكير لطيف", cls: "bg-success/15 text-success border-success/30" } :
@@ -804,6 +805,27 @@ function CustomersPage() {
                     <Badge className="bg-danger text-danger-foreground border-0">متأخر {m.worstLate} يوم</Badge>
                   )}
                   <Badge variant="outline" className={tone.cls}>نبرة: {tone.label}</Badge>
+                </div>
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  {([
+                    { v: "friendly", label: "ودود", cls: "bg-success/15 text-success ring-success/30" },
+                    { v: "auto", label: "تلقائي", cls: "bg-primary/12 text-primary ring-primary/30" },
+                    { v: "formal", label: "رسمي", cls: "bg-danger/12 text-danger ring-danger/30" },
+                  ] as const).map((t) => (
+                    <button
+                      key={t.v}
+                      type="button"
+                      onClick={() => setScriptTone(t.v)}
+                      className={cn(
+                        "rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition-colors",
+                        scriptTone === t.v
+                          ? `${t.cls} ring-2`
+                          : "bg-foreground/[0.03] text-muted-foreground ring-border hover:bg-foreground/[0.06]",
+                      )}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
                 </div>
                 <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-4 text-right leading-loose">{msg}</div>
                 <div className="flex gap-2">

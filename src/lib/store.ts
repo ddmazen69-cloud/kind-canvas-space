@@ -1038,10 +1038,36 @@ export async function fetchStockHistory(stockItemId: string, name: string): Prom
   return out.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
-export function aiScript(c: Customer, balance: number, lateDays: number): string {
-  // Status-driven tone: defaulter → formal legal warning, committed → thank-you + offer.
+export type AITone = "auto" | "friendly" | "formal";
+
+export function aiScript(c: Customer, balance: number, lateDays: number, tone: AITone = "auto"): string {
+  const months = Math.max(1, Math.floor(Math.max(lateDays, 30) / 30));
+  // رسمية
+  if (tone === "formal") {
+    if (c.status === "defaulter" || lateDays > 30)
+      return `السيد/ ${c.name} المحترم،\nنحيطكم علماً بأن حسابكم لدينا متأخر السداد منذ ${months} شهر، وقد بلغ الرصيد المستحق عليكم مبلغ ${fmt(balance)} ج.م.\nنمنحكم مهلة نهائية للسداد خلال (7) أيام من تاريخه، وفي حال عدم الاستجابة سنضطر آسفين لاتخاذ كافة الإجراءات القانونية اللازمة لاسترداد حقوقنا، وتحميلكم كافة المصاريف القضائية.\nنأمل المبادرة بالسداد تجنباً للإجراءات.\nوتفضلوا بقبول وافر الاحترام.`;
+    if (c.status === "committed")
+      return `السيد/ ${c.name} المحترم،\nيتشرف المحل بشكر التزامكم المميز في السداد، ويخصّكم بعرض مميز بخصم 10% على مشترياتكم القادمة مع رفع السقف الائتماني.\nالعرض ساري لمدة أسبوع.\nوتفضلوا بقبول وافر الاحترام.`;
+    if (lateDays <= 0)
+      return `السيد/ ${c.name} المحترم،\nيسعدنا إعلامكم أن حسابكم مسدّد بالكامل دون أي تأخير، ونحن جاهزون لخدمتكم في أي وقت.\nوتفضلوا بقبول وافر الاحترام.`;
+    if (lateDays < 7)
+      return `السيد/ ${c.name} المحترم،\nتذكير ودي بأنه تبقى عليكم مبلغ ${fmt(balance)} ج.م. ونشكركم على تعاونكم.\nوتفضلوا بقبول وافر الاحترام.`;
+    return `السيد/ ${c.name} المحترم،\nنحيطكم علماً بتأخر سداد مبلغ ${fmt(balance)} ج.م. منذ ${lateDays} يوم، ونأمل سرعة تسوية الحساب في أقرب وقت.\nوتفضلوا بقبول وافر الاحترام.`;
+  }
+  // ودية
+  if (tone === "friendly") {
+    if (c.status === "defaulter" || lateDays > 30)
+      return `يا أستاذ ${c.name}، في موضوع مهم ومحتاجين نخلصه مع بعض 🤝\nعليك متبقي ${fmt(balance)} ج.م. متأخرة من فترة، ياريت تشرفنا في المحل الأسبوع ده عشان نقفل حسابك وكلنا نرتاح.\nولو عندك أي ظرف احكيلنا، إحنا تحت أمرك.`;
+    if (c.status === "committed")
+      return `يا أستاذ ${c.name}، تحية طيبة 🌿\nبنشكرك على التزامك الدائم في السداد، وده اللي خلانا نخصّك بعرض مميز:\n🎁 خصم 10% على مشترياتك الجاية، وسقف ائتماني أعلى من غير مقدم.\nالعرض ساري لمدة أسبوع. تحت أمرك في أي وقت.`;
+    if (lateDays <= 0)
+      return `يا أستاذ ${c.name}، تحية طيبة. حسابك تمام معانا، وأي وقت محتاج بضاعة جديدة إحنا تحت أمرك.`;
+    if (lateDays < 7)
+      return `يا أستاذ ${c.name}، تذكير بسيط وعلى راحتك: عليك متبقي ${fmt(balance)} ج.م. لو فيه أي استفسار إحنا تحت أمرك.`;
+    return `يا أستاذ ${c.name}، بقالك ${lateDays} يوم متأخر على القسط. محتاجين نشرفنا في المحل لتحديث الحساب. المتبقي: ${fmt(balance)} ج.م.`;
+  }
+  // تلقائية — حسب حالة العميل ودرجة التأخر
   if (c.status === "defaulter") {
-    const months = Math.max(1, Math.floor(Math.max(lateDays, 30) / 30));
     return `السيد/ ${c.name} المحترم،\nنحيطكم علماً بأن حسابكم لدينا متأخر السداد منذ ${months} شهر، وقد بلغ الرصيد المستحق عليكم مبلغ ${fmt(balance)} ج.م.\nنمنحكم مهلة نهائية للسداد خلال (7) أيام من تاريخه، وفي حال عدم الاستجابة سنضطر آسفين لاتخاذ كافة الإجراءات القانونية اللازمة لاسترداد حقوقنا، وتحميلكم كافة المصاريف القضائية.\nنأمل المبادرة بالسداد تجنباً للإجراءات.\nوتفضلوا بقبول وافر الاحترام.`;
   }
   if (c.status === "committed") {
@@ -1054,7 +1080,6 @@ export function aiScript(c: Customer, balance: number, lateDays: number): string
     return `يا أستاذ ${c.name}، تذكير بسيط وعلى راحتك: عليك متبقي ${fmt(balance)} ج.م. لو فيه أي استفسار إحنا تحت أمرك.`;
   if (lateDays <= 30)
     return `يا أستاذ ${c.name}، بقالك ${lateDays} يوم متأخر على القسط. محتاجين نشرفنا في المحل لتحديث الحساب. المتبقي: ${fmt(balance)} ج.م.`;
-  const months = Math.max(1, Math.floor(lateDays / 30));
   return `يا أستاذ ${c.name}، الحساب متوقف تماماً وبقالنا ${months} شهر من غير سداد. لازم الحساب يتقفل لتجنب الإجراءات القانونية. المتبقي: ${fmt(balance)} ج.م.`;
 }
 
