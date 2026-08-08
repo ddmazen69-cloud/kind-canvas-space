@@ -14,6 +14,7 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as AlertsRouteImport } from './routes/alerts'
 import { Route as ArchiveRouteImport } from './routes/archive'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as BlockedRouteImport } from './routes/blocked'
 import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as DailyRouteImport } from './routes/daily'
 import { Route as ExpensesRouteImport } from './routes/expenses'
@@ -55,6 +56,11 @@ const ArchiveRoute = ArchiveRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlockedRoute = BlockedRouteImport.update({
+  id: '/blocked',
+  path: '/blocked',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomersRoute = CustomersRouteImport.update({
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/alerts': typeof AlertsRoute
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
+  '/blocked': typeof BlockedRoute
   '/customers': typeof CustomersRouteWithChildren
   '/daily': typeof DailyRoute
   '/expenses': typeof ExpensesRoute
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/alerts': typeof AlertsRoute
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
+  '/blocked': typeof BlockedRoute
   '/daily': typeof DailyRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRoute
@@ -198,6 +206,7 @@ export interface FileRoutesById {
   '/alerts': typeof AlertsRoute
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
+  '/blocked': typeof BlockedRoute
   '/customers': typeof CustomersRouteWithChildren
   '/daily': typeof DailyRoute
   '/expenses': typeof ExpensesRoute
@@ -224,6 +233,7 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/archive'
     | '/auth'
+    | '/blocked'
     | '/customers'
     | '/daily'
     | '/expenses'
@@ -248,6 +258,7 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/archive'
     | '/auth'
+    | '/blocked'
     | '/daily'
     | '/expenses'
     | '/inventory'
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | '/alerts'
     | '/archive'
     | '/auth'
+    | '/blocked'
     | '/customers'
     | '/daily'
     | '/expenses'
@@ -296,6 +308,7 @@ export interface RootRouteChildren {
   AlertsRoute: typeof AlertsRoute
   ArchiveRoute: typeof ArchiveRoute
   AuthRoute: typeof AuthRoute
+  BlockedRoute: typeof BlockedRoute
   CustomersRoute: typeof CustomersRouteWithChildren
   DailyRoute: typeof DailyRoute
   ExpensesRoute: typeof ExpensesRoute
@@ -348,6 +361,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blocked': {
+      id: '/blocked'
+      path: '/blocked'
+      fullPath: '/blocked'
+      preLoaderRoute: typeof BlockedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customers': {
@@ -492,6 +512,7 @@ const rootRouteChildren: RootRouteChildren = {
   AlertsRoute: AlertsRoute,
   ArchiveRoute: ArchiveRoute,
   AuthRoute: AuthRoute,
+  BlockedRoute: BlockedRoute,
   CustomersRoute: CustomersRouteWithChildren,
   DailyRoute: DailyRoute,
   ExpensesRoute: ExpensesRoute,
