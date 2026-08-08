@@ -129,7 +129,7 @@ export const getSharedStatement = createServerFn({ method: "POST" })
 
     const { data: link, error: linkErr } = await supabaseAdmin
       .from("customer_share_links")
-      .select("id, customer_id, expires_at, revoked_at")
+      .select("id, user_id, customer_id, expires_at, revoked_at")
       .eq("token", data.token.trim())
       .maybeSingle();
 
@@ -142,6 +142,28 @@ export const getSharedStatement = createServerFn({ method: "POST" })
     if (link.expires_at && new Date(link.expires_at).getTime() < Date.now()) {
       return { status: "expired" as const };
     }
+
+    // بادئة أرقام الفواتير وترتيبها ضمن فواتير المتجر كاملة،
+    // ليطابق كود الفاتورة المعروض في لوحة المحل (نفس منطق invoiceNumber في store.ts).
+    const { data: settingsRow } = await supabaseAdmin
+      .from("shop_settings")
+      .select("invoice_prefix")
+      .eq("user_id", link.user_id)
+      .maybeSingle();
+    const invoicePrefix = (settingsRow?.invoice_prefix as string | null) ?? "";
+
+    const { data: allInvoices } = await supabaseAdmin
+      .from("invoices")
+      .select("id, created_at")
+      .eq("user_id", link.user_id)
+      .order("created_at", { ascending: true });
+    const orderedIds = (allInvoices ?? []).map((i) => i.id);
+    const serialOf = (invoiceId: string) => {
+      const idx = orderedIds.indexOf(invoiceId);
+      const serial = String(idx >= 0 ? idx + 1 : orderedIds.length + 1).padStart(4, "0");
+      const p = invoicePrefix.trim();
+      return p ? `${p}-${serial}` : `#${serial}`;
+    };
 
     // قراءة العميل المرتبط بالتوكن فقط.
     const { data: customer, error: customerErr } = await supabaseAdmin
@@ -182,7 +204,7 @@ export const getSharedStatement = createServerFn({ method: "POST" })
     const paidPct = totalCharged > 0 ? Math.min(100, Math.round((totalPaid / totalCharged) * 100)) : 0;
 
     // ── بناء الجدول الزمني (نفس ترتيب buildTimeline في صفحة العميل) ──
-    type Raw = { id: string; date: string; kind: "opening" | "purchase" | "payment"; description: string; amount: number };
+    type Raw = { id: string; date: string; kind: "opening" | "purchase" | "payment"; description: string; amount: number; invoiceNo?: string };
     const raw: Raw[] = [];
 
     if (customer.opening_balance && customer.opening_balance > 0) {
@@ -197,7 +219,8 @@ export const getSharedStatement = createServerFn({ method: "POST" })
 
     for (const inv of invoices ?? []) {
       const desc = inv.notes?.trim() ? inv.notes : "فاتورة آجلة";
-      raw.push({ id: `inv-${inv.id}`, date: inv.created_at, kind: "purchase", description: desc, amount: inv.total });
+      const invoiceNo = serialOf(inv.id);
+      raw.push({ id: `inv-${inv.id}`, date: inv.created_at, kind: "purchase", description: desc, amount: inv.total, invoiceNo });
       if (inv.down_payment > 0) {
         raw.push({
           id: `down-${inv.id}`,
@@ -205,6 +228,7 @@ export const getSharedStatement = createServerFn({ method: "POST" })
           kind: "payment",
           description: `مقدم على فاتورة (${(inv.notes || "").trim() || "بدون وصف"})`,
           amount: inv.down_payment,
+          invoiceNo,
         });
       }
     }
@@ -217,6 +241,7 @@ export const getSharedStatement = createServerFn({ method: "POST" })
         kind: "payment",
         description: `سداد على فاتورة ${inv?.notes ? `«${inv.notes}»` : ""}`,
         amount: p.amount,
+        invoiceNo: inv ? serialOf(inv.id) : undefined,
       });
     }
 

@@ -35,6 +35,7 @@ type Statement =
         description: string;
         amount: number;
         runningBalance: number;
+        invoiceNo?: string;
       }>;
     };
 
@@ -194,13 +195,14 @@ function SharedStatement({ token }: { token: string }) {
                   </div>
                   <div className="text-sm font-bold">بالترتيب الزمني</div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[680px] text-sm">
+                <div className="hidden overflow-x-auto sm:block">
+                  <table className="w-full min-w-[700px] text-sm">
                     <thead className="bg-foreground/[0.04] text-muted-foreground">
                       <tr>
                         <th className="p-3 text-right">م</th>
                         <th className="p-3 text-right">التاريخ</th>
                         <th className="p-3 text-right">النوع</th>
+                        <th className="p-3 text-right">كود الفاتورة</th>
                         <th className="p-3 text-right">التفاصيل</th>
                         <th className="p-3 text-right">المبلغ</th>
                         <th className="p-3 text-right">الرصيد</th>
@@ -209,7 +211,7 @@ function SharedStatement({ token }: { token: string }) {
                     <tbody>
                       {statement.timeline.length === 0 && (
                         <tr className="border-t border-[var(--hairline)]">
-                          <td colSpan={6} className="p-4 text-center text-muted-foreground">لا توجد حركات</td>
+                          <td colSpan={7} className="p-4 text-center text-muted-foreground">لا توجد حركات</td>
                         </tr>
                       )}
                       {statement.timeline.map((t, i) => (
@@ -225,6 +227,13 @@ function SharedStatement({ token }: { token: string }) {
                               {typeLabel(t.kind)}
                             </span>
                           </td>
+                          <td className="p-3">
+                            {t.invoiceNo ? (
+                              <span dir="ltr" className="rounded bg-foreground/[0.05] px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">{t.invoiceNo}</span>
+                            ) : (
+                              <span className="text-muted-foreground/60">—</span>
+                            )}
+                          </td>
                           <td className="p-3 text-muted-foreground">{t.description}</td>
                           <td className={`p-3 font-bold ${t.kind === "payment" ? "text-success" : "text-danger"}`}>{fmt(Math.abs(t.amount))} ج.م</td>
                           <td className="p-3 font-bold text-white">{fmt(Math.abs(t.runningBalance))} ج.م</td>
@@ -232,6 +241,38 @@ function SharedStatement({ token }: { token: string }) {
                       ))}
                     </tbody>
                   </table>
+                </div>
+
+                <div className="space-y-2 sm:hidden">
+                  {statement.timeline.length === 0 && (
+                    <div className="rounded-2xl bg-foreground/[0.04] p-4 text-center text-sm text-muted-foreground">لا توجد حركات</div>
+                  )}
+                  {statement.timeline.map((t, i) => (
+                    <div key={t.id} className="rounded-2xl border border-[var(--hairline)] p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                              t.kind === "payment" ? "bg-success/12 text-success" : t.kind === "opening" ? "bg-primary/10 text-primary" : "bg-warning/12 text-warning"
+                            }`}
+                          >
+                            {typeLabel(t.kind)}
+                          </span>
+                          {t.invoiceNo && (
+                            <span dir="ltr" className="rounded bg-foreground/[0.05] px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">{t.invoiceNo}</span>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground" dir="ltr">{isoToDDMMYYYY(t.date.slice(0, 10))}</span>
+                      </div>
+                      <div className="mt-1.5 text-sm text-muted-foreground">{t.description}</div>
+                      <div className="mt-2 flex items-center justify-between text-sm">
+                        <span className={`font-bold ${t.kind === "payment" ? "text-success" : "text-danger"}`}>{fmt(Math.abs(t.amount))} ج.م</span>
+                        <span className="text-xs text-muted-foreground">
+                          الرصيد: <span className="font-bold text-white">{fmt(Math.abs(t.runningBalance))} ج.م</span>
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

@@ -43,6 +43,7 @@ import {
   Ban,
   Undo2,
   Trash2,
+  ExternalLink,
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
@@ -844,7 +845,7 @@ function CustomerDetailPage() {
                 const st = shareLinkStatus(l);
                 const active = !l.revokedAt && !(l.expiresAt && new Date(l.expiresAt).getTime() < Date.now());
                 return (
-                  <div key={l.id} className="flex items-center justify-between gap-2 border-t border-[var(--hairline)] py-2 text-sm">
+                  <div key={l.id} className="flex flex-col gap-2 border-t border-[var(--hairline)] py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <Badge className={st.tone}>{st.label}</Badge>
@@ -857,28 +858,39 @@ function CustomerDetailPage() {
                         {l.expiresAt && active ? ` — ينتهي ${new Date(l.expiresAt).toLocaleDateString("ar-EG")}` : ""}
                       </div>
                     </div>
-                    {active && (
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5 text-primary hover:bg-primary/10"
+                        onClick={() => window.open(`${window.location.origin}/share/${l.token}`, "_blank", "noopener,noreferrer")}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        فتح
+                      </Button>
+                      {active && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1.5 text-danger hover:bg-danger/10"
+                          onClick={() => revokeLink(l.id)}
+                          disabled={revokingId === l.id}
+                        >
+                          {revokingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
+                          إلغاء
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
                         className="gap-1.5 text-danger hover:bg-danger/10"
-                        onClick={() => revokeLink(l.id)}
-                        disabled={revokingId === l.id}
+                        onClick={() => deleteLink(l.id)}
+                        disabled={deletingId === l.id}
                       >
-                        {revokingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
-                        إلغاء
+                        {deletingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                        حذف
                       </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1.5 text-danger hover:bg-danger/10"
-                      onClick={() => deleteLink(l.id)}
-                      disabled={deletingId === l.id}
-                    >
-                      {deletingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                      حذف
-                    </Button>
+                    </div>
                   </div>
                 );
               })}
