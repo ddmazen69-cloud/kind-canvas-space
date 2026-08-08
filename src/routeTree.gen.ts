@@ -21,7 +21,6 @@ import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as InvoicesRouteImport } from './routes/invoices'
 import { Route as LandingRouteImport } from './routes/landing'
 import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as RasdRouteImport } from './routes/rasd'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -93,11 +92,6 @@ const PrivacyRoute = PrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RasdRoute = RasdRouteImport.update({
-  id: '/rasd',
-  path: '/rasd',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ReportsRoute = ReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
@@ -163,7 +157,6 @@ export interface FileRoutesByFullPath {
   '/invoices': typeof InvoicesRoute
   '/landing': typeof LandingRoute
   '/privacy': typeof PrivacyRoute
-  '/rasd': typeof RasdRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
@@ -187,7 +180,6 @@ export interface FileRoutesByTo {
   '/invoices': typeof InvoicesRoute
   '/landing': typeof LandingRoute
   '/privacy': typeof PrivacyRoute
-  '/rasd': typeof RasdRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
@@ -213,7 +205,6 @@ export interface FileRoutesById {
   '/invoices': typeof InvoicesRoute
   '/landing': typeof LandingRoute
   '/privacy': typeof PrivacyRoute
-  '/rasd': typeof RasdRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
@@ -240,7 +231,6 @@ export interface FileRouteTypes {
     | '/invoices'
     | '/landing'
     | '/privacy'
-    | '/rasd'
     | '/reports'
     | '/reset-password'
     | '/settings'
@@ -264,7 +254,6 @@ export interface FileRouteTypes {
     | '/invoices'
     | '/landing'
     | '/privacy'
-    | '/rasd'
     | '/reports'
     | '/reset-password'
     | '/settings'
@@ -289,7 +278,6 @@ export interface FileRouteTypes {
     | '/invoices'
     | '/landing'
     | '/privacy'
-    | '/rasd'
     | '/reports'
     | '/reset-password'
     | '/settings'
@@ -315,7 +303,6 @@ export interface RootRouteChildren {
   InvoicesRoute: typeof InvoicesRoute
   LandingRoute: typeof LandingRoute
   PrivacyRoute: typeof PrivacyRoute
-  RasdRoute: typeof RasdRoute
   ReportsRoute: typeof ReportsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
@@ -410,13 +397,6 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/rasd': {
-      id: '/rasd'
-      path: '/rasd'
-      fullPath: '/rasd'
-      preLoaderRoute: typeof RasdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports': {
@@ -519,7 +499,6 @@ const rootRouteChildren: RootRouteChildren = {
   InvoicesRoute: InvoicesRoute,
   LandingRoute: LandingRoute,
   PrivacyRoute: PrivacyRoute,
-  RasdRoute: RasdRoute,
   ReportsRoute: ReportsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
