@@ -193,6 +193,26 @@ function CustomerDetailPage() {
   const latestInvoice = myInvoices[0];
   const latestPayment = myPayments[0];
 
+  // ── رابط مشاركة كشف الحساب ──
+  type ShareLinkRow = {
+    id: string;
+    token: string;
+    createdAt: string;
+    expiresAt: string | null;
+    revokedAt: string | null;
+  };
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareDays, setShareDays] = useState<string>("7");
+  const [creating, setCreating] = useState(false);
+  const [createdLink, setCreatedLink] = useState<string | null>(null);
+  const [links, setLinks] = useState<ShareLinkRow[]>([]);
+  const [loadingLinks, setLoadingLinks] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const makeCreate = useServerFn(createShareLink);
+  const makeList = useServerFn(listShareLinks);
+  const makeRevoke = useServerFn(revokeShareLink);
+
   if (!customer || !m) {
     return (
       <AppShell>
@@ -275,25 +295,6 @@ function CustomerDetailPage() {
   };
 
   // ── رابط مشاركة كشف الحساب ──
-  type ShareLinkRow = {
-    id: string;
-    token: string;
-    createdAt: string;
-    expiresAt: string | null;
-    revokedAt: string | null;
-  };
-  const [shareOpen, setShareOpen] = useState(false);
-  const [shareDays, setShareDays] = useState<string>("7");
-  const [creating, setCreating] = useState(false);
-  const [createdLink, setCreatedLink] = useState<string | null>(null);
-  const [links, setLinks] = useState<ShareLinkRow[]>([]);
-  const [loadingLinks, setLoadingLinks] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [revokingId, setRevokingId] = useState<string | null>(null);
-  const makeCreate = useServerFn(createShareLink);
-  const makeList = useServerFn(listShareLinks);
-  const makeRevoke = useServerFn(revokeShareLink);
-
   const openShareDialog = async () => {
     setShareOpen(true);
     setCreatedLink(null);
