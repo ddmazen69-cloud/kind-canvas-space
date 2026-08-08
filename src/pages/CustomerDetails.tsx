@@ -19,8 +19,7 @@ import { useDB, db, type Customer, type Invoice, type Payment, fmt, daysLate, an
 import { usePrivacy } from "@/lib/privacy";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useServerFn } from "@tanstack/react-start";
-import { createShareLink, listShareLinks, revokeShareLink, deleteShareLink } from "@/lib/share.functions";
+import { createShareLinkClient, listShareLinksClient, revokeShareLinkClient, deleteShareLinkClient } from "@/lib/share.client";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -212,10 +211,6 @@ function CustomerDetailPage() {
   const [copied, setCopied] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const makeCreate = useServerFn(createShareLink);
-  const makeList = useServerFn(listShareLinks);
-  const makeRevoke = useServerFn(revokeShareLink);
-  const makeDelete = useServerFn(deleteShareLink);
 
   if (!customer || !m) {
     return (
@@ -305,7 +300,7 @@ function CustomerDetailPage() {
     setCopied(false);
     setLoadingLinks(true);
     try {
-      const res = await makeList({ data: { customerId: customer.id } });
+      const res = await listShareLinksClient(customer.id);
       setLinks(res);
     } catch (e: any) {
       toast.error(e?.message || "تعذر تحميل الروابط");
@@ -317,10 +312,10 @@ function CustomerDetailPage() {
   const generateShareLink = async () => {
     setCreating(true);
     try {
-      const res = await makeCreate({ data: { customerId: customer.id, days: Number(shareDays) } });
+      const res = await createShareLinkClient(customer.id, Number(shareDays));
       const url = `${window.location.origin}/share/${res.token}`;
       setCreatedLink(url);
-      const refreshed = await makeList({ data: { customerId: customer.id } });
+      const refreshed = await listShareLinksClient(customer.id);
       setLinks(refreshed);
       toast.success("تم توليد رابط المشاركة");
     } catch (e: any) {
@@ -352,8 +347,8 @@ function CustomerDetailPage() {
   const revokeLink = async (id: string) => {
     setRevokingId(id);
     try {
-      await makeRevoke({ data: { id } });
-      const refreshed = await makeList({ data: { customerId: customer.id } });
+      await revokeShareLinkClient(id);
+      const refreshed = await listShareLinksClient(customer.id);
       setLinks(refreshed);
       toast.success("تم إلغاء الرابط");
     } catch (e: any) {
@@ -366,8 +361,8 @@ function CustomerDetailPage() {
   const deleteLink = async (id: string) => {
     setDeletingId(id);
     try {
-      await makeDelete({ data: { id } });
-      const refreshed = await makeList({ data: { customerId: customer.id } });
+      await deleteShareLinkClient(id);
+      const refreshed = await listShareLinksClient(customer.id);
       setLinks(refreshed);
       if (createdLink) setCreatedLink(null);
       toast.success("تم حذف الرابط نهائياً");

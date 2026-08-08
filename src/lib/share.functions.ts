@@ -1,118 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-
-const createShareSchema = z.object({
-  customerId: z.string().min(1),
-  days: z.number().int().min(0).max(365).default(7),
-});
-
-const listShareSchema = z.object({
-  customerId: z.string().min(1),
-});
-
-const revokeShareSchema = z.object({
-  id: z.string().min(1),
-});
 
 const statementSchema = z.object({
   token: z.string().min(1).max(200),
 });
 
-/** ينشئ رابط مشاركة لكشف حساب عميل. المالك فقط (عبر RLS). */
-export const createShareLink = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => createShareSchema.parse(input))
-  .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-
-    // التأكد أن العميل يخص المستخدم (RLS يفرض هذا).
-    const { data: customer, error: customerErr } = await supabase
-      .from("customers")
-      .select("id")
-      .eq("id", data.customerId)
-      .maybeSingle();
-    if (customerErr || !customer) {
-      throw new Error("العميل ده مش موجود أو مش بتاعك");
-    }
-
-    // التوكن يُولَّد في السيرفر بقوة عشوائية عالية.
-    const { randomBytes } = await import("node:crypto");
-    const token = randomBytes(24).toString("hex");
-
-    const expiresAt = data.days > 0
-      ? new Date(Date.now() + data.days * 86400000).toISOString()
-      : null;
-
-    const { data: link, error } = await supabase
-      .from("customer_share_links")
-      .insert({
-        user_id: userId,
-        customer_id: data.customerId,
-        token,
-        expires_at: expiresAt,
-      })
-      .select("id, token, created_at, expires_at, revoked_at")
-      .single();
-    if (error) throw new Error(error.message);
-
-    return { id: link.id, token: link.token, expiresAt: link.expires_at };
-  });
-
-/** قائمة روابط مشاركة عميل معين (المالك فقط — RLS). */
-export const listShareLinks = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => listShareSchema.parse(input))
-  .handler(async ({ data, context }) => {
-    const { supabase } = context;
-
-    const { data: links, error } = await supabase
-      .from("customer_share_links")
-      .select("id, token, created_at, expires_at, revoked_at")
-      .eq("customer_id", data.customerId)
-      .order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
-
-    return (links ?? []).map((l) => ({
-      id: l.id,
-      token: l.token,
-      createdAt: l.created_at,
-      expiresAt: l.expires_at,
-      revokedAt: l.revoked_at,
-    }));
-  });
-
-/** إلغاء/تعطيل رابط مشاركة (المالك فقط — RLS). */
-export const revokeShareLink = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => revokeShareSchema.parse(input))
-  .handler(async ({ data, context }) => {
-    const { supabase } = context;
-
-    const { error } = await supabase
-      .from("customer_share_links")
-      .update({ revoked_at: new Date().toISOString() })
-      .eq("id", data.id);
-    if (error) throw new Error(error.message);
-
-    return { ok: true };
-  });
-
-/** حذف رابط مشاركة نهائياً (المالك فقط — RLS). */
-export const deleteShareLink = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => revokeShareSchema.parse(input))
-  .handler(async ({ data, context }) => {
-    const { supabase } = context;
-
-    const { error } = await supabase
-      .from("customer_share_links")
-      .delete()
-      .eq("id", data.id);
-    if (error) throw new Error(error.message);
-
-    return { ok: true };
-  });
+// إدارة الروابط (إنشاء/قائمة/إلغاء/حذف) تعمل client-side عبر RLS
+// في src/lib/share.client.ts — التوكن يُولَّد هناك عبر WebCrypto.
 
 /**
  * قراءة كشف حساب العميل عبر رابط المشاركة (عامة — بدون تسجيل دخول).
