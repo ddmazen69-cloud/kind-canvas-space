@@ -203,19 +203,12 @@ function CustomerDetailPage() {
     const ordered = [...timeline].reverse();
     const rows = ordered.map((t, i) => {
       const typeLabel = t.kind === "purchase" ? "فاتورة" : t.kind === "opening" ? "رصيد افتتاحي" : "سداد";
-      const sign = t.kind === "payment" ? "−" : "+";
       let detail = `<b>${escapeHtml(t.description)}</b>`;
       if (t.invoiceId) {
         const inv = myInvoices.find((x) => x.id === t.invoiceId);
         detail += `<div class="inv-no">رقم الفاتورة: <b>${invoiceNumber(data.invoices, t.invoiceId)}</b></div>`;
         if (t.kind === "purchase" && inv) {
-          const items = data.invoiceItems.filter((it) => it.invoiceId === inv.id);
-          if (items.length) {
-            detail += `<div class="items"><div class="items-head">تفاصيل الشراء:</div><table class="sub-table"><thead><tr><th>م</th><th>الصنف</th><th class="num">السعر</th></tr></thead><tbody>` +
-              items.map((it, j) => `<tr><td>${j + 1}</td><td>${escapeHtml(it.name)}</td><td class="num">${fmt(it.price)} ج.م</td></tr>`).join("") +
-              `</tbody></table></div>`;
-            detail += `<div class="detail-line">الإجمالي: <b>${fmt(inv.total)} ج.م</b> — المقدم: ${fmt(inv.downPayment)} ج.م — المسدد: ${fmt(inv.paid)} ج.م — المتبقي: <b>${fmt(Math.max(0, inv.total - inv.paid))}</b> ج.م</div>`;
-          }
+          detail += `<div class="detail-line">الإجمالي: <b>${fmt(inv.total)} ج.م</b> — المقدم: ${fmt(inv.downPayment)} ج.م — المسدد: ${fmt(inv.paid)} ج.م — المتبقي: <b>${fmt(Math.max(0, inv.total - inv.paid))}</b> ج.م</div>`;
         }
       }
       return `
@@ -224,7 +217,7 @@ function CustomerDetailPage() {
           <td dir="ltr" class="nowrap">${isoToDDMMYYYY(t.date.slice(0, 10))}</td>
           <td><span class="tag ${t.kind}">${typeLabel}</span></td>
           <td>${detail}</td>
-          <td class="num ${t.kind === "payment" ? "pay" : "buy"}">${sign} ${fmt(t.amount)}</td>
+          <td class="num ${t.kind === "payment" ? "pay" : "buy"}">${fmt(t.amount)}</td>
           <td class="num ${t.runningBalance > 0 ? "due" : "ok"}">${fmt(t.runningBalance)}</td>
         </tr>`;
     }).join("");
@@ -254,12 +247,6 @@ function CustomerDetailPage() {
         <style>
           .nowrap { white-space: nowrap; }
           .inv-no { margin-top: 3px; font-size: 10.5px; color: var(--muted); }
-          .items { margin-top: 8px; }
-          .items-head { font-size: 10.5px; font-weight: 700; margin-bottom: 4px; color: #475569; }
-          .sub-table { margin-top: 2px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: 10.5px; width: 100%; border-collapse: collapse; }
-          .sub-table th { background: #f8fafc; color: #475569; font-weight: 600; font-size: 9.5px; padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--line); }
-          .sub-table td { padding: 5px 8px; border-bottom: 1px solid var(--line); }
-          .sub-table tr:last-child td { border-bottom: 0; }
           .detail-line { margin-top: 6px; font-size: 10.5px; color: #475569; }
         </style>
         <h2 class="sec">سجل الحركات التفصيلي (بالترتيب الزمني)</h2>
@@ -281,14 +268,13 @@ function CustomerDetailPage() {
     const today = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
     const rows = timeline.map((t, i) => {
       const typeLabel = t.kind === "purchase" ? "مشترى" : t.kind === "opening" ? "رصيد افتتاحي" : "سداد";
-      const sign = t.kind === "payment" ? "−" : "+";
       return `
         <tr>
           <td>${i + 1}</td>
           <td dir="ltr">${isoToDDMMYYYY(t.date.slice(0, 10))}</td>
           <td><span class="tag ${t.kind}">${typeLabel}</span></td>
           <td>${t.description}</td>
-          <td class="num ${t.kind === "payment" ? "pay" : "buy"}">${sign} ${fmt(t.amount)}</td>
+          <td class="num ${t.kind === "payment" ? "pay" : "buy"}">${fmt(t.amount)}</td>
           <td class="num ${t.runningBalance > 0 ? "due" : "ok"}">${fmt(t.runningBalance)}</td>
         </tr>`;
     }).join("");
