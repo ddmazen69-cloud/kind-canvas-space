@@ -11,7 +11,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { CustomerTypeBadge } from "@/components/CustomerTypeBadge";
 import { StarRating } from "@/components/StarRating";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useDB, db, type Customer, type Invoice, type Payment, fmt, daysLate, analyzeCustomerRisk, invoiceNumber } from "@/lib/store";
+import { useDB, db, type Customer, type Invoice, type Payment, fmt, daysLate, analyzeCustomerRisk, invoiceNumber, getShopSettings } from "@/lib/store";
 import { usePrivacy } from "@/lib/privacy";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -200,16 +200,13 @@ function CustomerDetailPage() {
 
   const exportStatement = () => {
     const today = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+    const shop = getShopSettings();
     const ordered = [...timeline].reverse();
     const rows = ordered.map((t, i) => {
       const typeLabel = t.kind === "purchase" ? "فاتورة" : t.kind === "opening" ? "رصيد افتتاحي" : "سداد";
       let detail = `<b>${escapeHtml(t.description)}</b>`;
       if (t.invoiceId) {
-        const inv = myInvoices.find((x) => x.id === t.invoiceId);
         detail += `<div class="inv-no">رقم الفاتورة: <b>${invoiceNumber(data.invoices, t.invoiceId)}</b></div>`;
-        if (t.kind === "purchase" && inv) {
-          detail += `<div class="detail-line">الإجمالي: <b>${fmt(inv.total)} ج.م</b> — المقدم: ${fmt(inv.downPayment)} ج.م — المسدد: ${fmt(inv.paid)} ج.م — المتبقي: <b>${fmt(Math.max(0, inv.total - inv.paid))}</b> ج.م</div>`;
-        }
       }
       return `
         <tr>
@@ -228,26 +225,20 @@ function CustomerDetailPage() {
       title: "كشف حساب العميل",
       lede: `سجل تفصيلي بكل الفواتير والمدفوعات بالترتيب الزمني — تاريخ التقرير: ${today}.`,
       meta: [
-        { label: "اسم العميل", value: customer.name },
-        { label: "الهاتف", value: customer.phone },
-        { label: "الحالة", value: customer.status },
-      ],
-      kpis: [
-        { label: "الرصيد المتبقي", value: `${fmt(m.balance)} ج.م`, tone: m.balance > 0 ? "danger" : "brand" },
-        { label: "نسبة المسدد", value: `${m.paidPct}%` },
-        { label: "أقصى تأخير", value: `${m.worstLate} يوم` },
+        { label: "اسم المحل", value: shop.shopName || "—" },
+        { label: "رقم الهاتف", value: shop.phone || "—" },
+        { label: "العنوان", value: shop.address || "—" },
       ],
       body: `
         <div class="info">
           <div class="box"><b>اسم العميل</b> ${customer.name}</div>
           <div class="box"><b>الهاتف</b> <span dir="ltr">${customer.phone}</span></div>
           <div class="box"><b>العنوان</b> ${customer.address || "—"}</div>
-          <div class="box"><b>تاريخ الانضمام</b> <span dir="ltr">${isoToDDMMYYYY(customer.joiningDate)}</span></div>
+          <div class="box"><b>حال العميل</b> ${customer.customerType === "installment" ? "قسط" : "فورى"}</div>
         </div>
         <style>
           .nowrap { white-space: nowrap; }
           .inv-no { margin-top: 3px; font-size: 10.5px; color: var(--muted); }
-          .detail-line { margin-top: 6px; font-size: 10.5px; color: #475569; }
         </style>
         <h2 class="sec">سجل الحركات التفصيلي (بالترتيب الزمني)</h2>
         <div class="t-wrap"><table>
