@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CustomerTypeBadge } from "@/components/CustomerTypeBadge";
 import { StarRating } from "@/components/StarRating";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useDB, db, type Customer, type Invoice, type Payment, fmt, daysLate, analyzeCustomerRisk, invoiceNumber } from "@/lib/store";
 import { usePrivacy } from "@/lib/privacy";
 import { cn } from "@/lib/utils";
@@ -274,24 +275,49 @@ function CustomerDetailPage() {
                 <Link to="/customers" className="inline-flex items-center gap-2 rounded-full border border-border/60 px-3 py-2 text-sm font-bold hover:bg-foreground/[0.04]">
                   <ArrowLeft className="h-4 w-4" /> العودة للقائمة
                 </Link>
-                <Button
-                  variant={customer.frozen ? "default" : "destructive"}
-                  size="sm"
-                  className={cn("gap-1.5 font-bold", customer.frozen ? "bg-success text-success-foreground hover:bg-success/90" : "bg-danger text-danger-foreground hover:bg-danger/90")}
-                  onClick={async () => {
-                    try {
-                      await db.toggleFreezeCustomer(customer.id, !customer.frozen);
-                      toast.success(customer.frozen ? "تم فك الحظر عن العميل" : "تم حظر العميل وتجميد حسابه");
-                    } catch (err: any) {
-                      toast.error(err.message || "حدث خطأ أثناء تغيير حالة الحظر");
-                    }
-                  }}
-                >
-                  {customer.frozen ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                  {customer.frozen ? "فك الحظر" : "حظر العميل"}
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant={customer.frozen ? "default" : "destructive"}
+                      size="sm"
+                      className={cn("gap-1.5 font-bold", customer.frozen ? "bg-success text-success-foreground hover:bg-success/90" : "bg-danger text-danger-foreground hover:bg-danger/90")}
+                    >
+                      {customer.frozen ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                      {customer.frozen ? "فك الحظر" : "حظر العميل"}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="text-right">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2 justify-end">
+                        {customer.frozen ? "فك حظر العميل" : "حظر وتجميد التعامل مع العميل"}
+                        {customer.frozen ? <Unlock className="h-5 w-5 text-success" /> : <ShieldAlert className="h-5 w-5 text-danger" />}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="text-right whitespace-pre-wrap">
+                        {customer.frozen
+                          ? `هل تود إلغاء الحظر عن العميل «${customer.name}» والسماح بإصدار فواتير وأقساط جديدة له؟`
+                          : `هل أنت متأكد من حظر العميل «${customer.name}»؟\nسيتم إيقاف الشراء الآجل لهذا العميل وتعيين شارة الحظر على حسابه.`}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="flex-row-reverse gap-2">
+                      <AlertDialogAction
+                        className={customer.frozen ? "bg-success text-success-foreground hover:bg-success/90" : "bg-danger text-danger-foreground hover:bg-danger/90"}
+                        onClick={async () => {
+                          try {
+                            await db.toggleFreezeCustomer(customer.id, !customer.frozen);
+                            toast.success(customer.frozen ? "تم فك الحظر عن العميل" : "تم حظر العميل وتجميد حسابه");
+                          } catch (err: any) {
+                            toast.error(err.message || "حدث خطأ أثناء تغيير حالة الحظر");
+                          }
+                        }}
+                      >
+                        {customer.frozen ? "تأكيد فك الحظر" : "تأكيد الحظر"}
+                      </AlertDialogAction>
+                      <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportStatement(false)}>
-                  <FileDown className="w-4 h-4" /> تصدير PDF
+                  <FileDown className="w-4 h-4" /> تصدير كشف حساب (PDF)
                 </Button>
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportStatement(true)}>
                   <Printer className="w-4 h-4" /> طباعة

@@ -25,7 +25,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Search, MessageCircle, Pencil, Trash2, Sparkles, Star, Info, User, Eye, EyeOff, FileDown, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, History, Share2, Wallet, Printer, ShoppingBag, Receipt, CreditCard, Banknote, ShieldAlert, Lock, Unlock, Ban, ArrowLeft } from "lucide-react";
+import { Plus, Search, MessageCircle, Pencil, Trash2, Sparkles, Star, Info, User, Eye, EyeOff, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, History, Share2, Wallet, Printer, ShoppingBag, Receipt, CreditCard, Banknote, ShieldAlert, Lock, Unlock, Ban, ArrowLeft } from "lucide-react";
 import type { Payment } from "@/lib/store";
 import { toArabicDigits } from "@/lib/arabic-digits";
 import { cn } from "@/lib/utils";
@@ -224,67 +224,6 @@ function CustomersPage() {
     else { setSortKey(key); setSortDir(key === "balance" ? "desc" : "asc"); }
   };
 
-  const exportPDF = () => {
-    const tabLabel: Record<FilterTab, string> = { all: "كل العملاء", installment: "عملاء الأقساط", cash: "العملاء الفوريون", overdue: "العملاء المتأخرون", stressed: "العملاء المتعثرون", nearLimit: "عملاء قرب الحظر", inactive: "العملاء الخاملون", settled: "العملاء الخالصون", paidThisMonth: "العملاء المدفوعون كاملاً هذا الشهر" };
-    const today = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
-    const rows = list.map(({ c, m }, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td>${escapeHtml(c.name)}</td>
-        <td dir="ltr">${escapeHtml(c.phone)}</td>
-        <td>${escapeHtml(c.address || "—")}</td>
-        <td class="num">${fmt(m.totalCharged)}</td>
-        <td class="num ok">${fmt(m.totalPaid)}</td>
-        <td class="num ${m.balance > 0 ? "due" : ""}">${fmt(m.balance)}</td>
-        <td>${m.worstLate > 0 ? `<span class="tag purchase">${m.worstLate} يوم</span>` : "—"}</td>
-      </tr>`).join("");
-    const totalDue = list.reduce((s, x) => s + Math.max(0, x.m.balance), 0);
-    const totalCharged = list.reduce((s, x) => s + x.m.totalCharged, 0);
-    const totalPaid = list.reduce((s, x) => s + x.m.totalPaid, 0);
-    const body = `
-<h2 class="sec">بيانات العملاء</h2>
-<div class="t-wrap"><table>
-  <thead><tr>
-    <th>م</th><th>اسم العميل</th><th>الهاتف</th><th>العنوان</th>
-    <th class="num">إجمالي المعاملات</th><th class="num">إجمالي المسدد</th><th class="num">المتبقي</th><th>أقصى تأخير</th>
-  </tr></thead>
-  <tbody>${rows || `<tr><td colspan="8" class="empty">لا توجد بيانات</td></tr>`}</tbody>
-  <tfoot><tr>
-    <td colspan="4">الإجماليات</td>
-    <td class="num">${fmt(totalCharged)}</td>
-    <td class="num">${fmt(totalPaid)}</td>
-    <td class="num">${fmt(totalDue)}</td>
-    <td>—</td>
-  </tr></tfoot>
-</table></div>
-<div class="sig"><div>توقيع المسؤول</div><div>الختم الرسمي</div></div>`;
-    const html = pdfDocument({
-      docTitle: "كشف حساب العملاء — سِجلّي",
-      badge: "كشف حساب عملاء",
-      title: "كشف حساب العملاء",
-      lede: `تقرير رسمي يوضّح أرصدة العملاء والمتأخرات — ${tabLabel[filter]}.`,
-      meta: [
-        { label: "تاريخ التقرير", value: today },
-        { label: "التصنيف", value: tabLabel[filter] },
-        { label: "عدد العملاء", value: String(list.length) },
-      ],
-      kpis: [
-        { label: "عدد العملاء", value: String(list.length) },
-        { label: "إجمالي المعاملات", value: `${fmt(totalCharged)} ج.م`, tone: "brand" },
-        { label: "إجمالي المسدد", value: `${fmt(totalPaid)} ج.م` },
-        { label: "الديون بالخارج", value: `${fmt(totalDue)} ج.م`, tone: "danger" },
-      ],
-      body,
-      page: "A4 landscape",
-    });
-    if (!openPdfDocument(html, { autoPrint: true, features: "width=980,height=760" })) {
-      toast.error("الرجاء السماح بفتح النوافذ المنبثقة لتصدير PDF");
-      return;
-    }
-    toast.success("جاري تجهيز كشف الحساب...");
-  };
-
-
   return (
     <>
       <PageHeader
@@ -312,10 +251,6 @@ function CustomersPage() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={exportPDF} disabled={list.length === 0}>
-              <FileDown className="w-4 h-4" />
-              تصدير كشف حساب (PDF)
-            </Button>
             <CustomerDialog trigger={<Button className="gap-2"><Plus className="w-4 h-4" /> إضافة عميل</Button>} />
           </div>
         }

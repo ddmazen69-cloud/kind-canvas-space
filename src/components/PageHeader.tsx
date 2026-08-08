@@ -23,7 +23,7 @@ export function PageHeader({
       <div className="order-1 min-w-0 text-right">
         {eyebrow && <span className="eyebrow mb-4">{eyebrow}</span>}
         <h1 className="text-title flex w-full items-center justify-start gap-3 text-right text-primary">
-          <span className="truncate">{title}</span>
+          <span className="break-words">{title}</span>
           {icon && <span className="shrink-0 opacity-90">{icon}</span>}
         </h1>
         {subtitle && (
