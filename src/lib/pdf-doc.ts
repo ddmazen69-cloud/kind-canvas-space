@@ -57,6 +57,14 @@ export const pdfCss = `
   .brand-sub { font-size: 10.5px; color: var(--muted); margin-top: 3px; letter-spacing: .3px; }
   .doc-meta { text-align: left; font-size: 10.5px; color: var(--muted); line-height: 1.9; min-width: 190px; }
   .doc-meta b { color: var(--ink); font-weight: 600; }
+  .doc-head.centered { flex-direction: column; align-items: stretch; gap: 12px; }
+  .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .center-logo { flex: 1; display: flex; justify-content: center; }
+  .center-logo svg { width: 64px; height: 64px; display: block; }
+  .center-logo-img { display: block; width: 64px; height: 64px; border-radius: 18px; object-fit: contain; background: #f8fafc; }
+  .shop-name { font-family: 'Cairo', sans-serif; font-size: 16px; font-weight: 800; color: var(--ink); white-space: nowrap; }
+  .centered-meta { text-align: center; display: flex; justify-content: center; gap: 26px; margin-top: 4px; flex-wrap: wrap; }
+  .centered-meta b { color: var(--ink); font-weight: 600; }
   .eyebrow {
     display: inline-block; padding: 3px 10px; border-radius: 999px; background: var(--brand-soft);
     color: #047857; border: 1px solid #a7f3d0; font-size: 9.5px; font-weight: 700;
@@ -184,10 +192,23 @@ export const thermalCss = `
   @media print { .sheet { max-width: none; } }
 `;
 
-export function pdfHeader(opts: { brandSub?: string; meta: PdfMeta[]; logoUrl?: string | null; showMark?: boolean }): string {
+export function pdfHeader(opts: { brandSub?: string; meta: PdfMeta[]; logoUrl?: string | null; showMark?: boolean; centered?: boolean; shopName?: string }): string {
   const mark = opts.logoUrl
     ? `<img class="shop-logo" src="${esc(opts.logoUrl)}" alt=""/>`
     : (opts.showMark === false ? "" : brandMarkSvg);
+  if (opts.centered) {
+    const centerMark = opts.logoUrl
+      ? `<img class="center-logo-img" src="${esc(opts.logoUrl)}" alt=""/>`
+      : brandMarkSvg;
+    return `<header class="doc-head centered">
+  <div class="brand-row">
+    <div class="brand">سِجلّ<em>ي</em></div>
+    <div class="center-logo">${centerMark}</div>
+    <div class="shop-name">${esc(opts.shopName || "")}</div>
+  </div>
+  <div class="doc-meta centered-meta">${opts.meta.map((m) => `<div><b>${m.label}:</b> ${m.value}</div>`).join("")}</div>
+</header>`;
+  }
   return `<header class="doc-head">
   <div class="doc-id${mark ? "" : " no-mark"}">
     ${mark}
@@ -221,11 +242,16 @@ export function pdfDocument(opts: {
   page?: "A4" | "A4 landscape" | "A5";
   /** مقاس الطباعة المضبوط في الإعدادات. */
   paper?: "a4" | "thermal";
+  /** رأس مركزي: سِجلّي — لوجو المحل في المنتصف — اسم المحل. */
+  centered?: boolean;
+  /** إخفاء تذييل التاريخ/الوقت أسفل المستند. */
+  hideFooter?: boolean;
 }): string {
   const thermal = opts.paper === "thermal";
   const print = getShopSettings();
   const meta = print.printShowTaxNumber ? opts.meta : opts.meta.filter((item) => item.label !== "الرقم الضريبي");
   const footerNote = print.printShowFooterNote ? opts.footerNote : undefined;
+  const shopName = opts.centered ? print.shopName : undefined;
   return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${opts.docTitle}</title>
@@ -234,7 +260,7 @@ ${pdfFontLink}
 </head><body>
 <div class="noprint"><button onclick="window.print()"><span>طباعة / حفظ PDF</span><span class="ico">🖨</span></button></div>
 <main class="sheet">
-${pdfHeader({ brandSub: opts.brandSub, meta, logoUrl: print.printShowLogo ? print.logoUrl : undefined, showMark: print.printShowLogo })}
+${pdfHeader({ brandSub: opts.brandSub, meta, logoUrl: print.printShowLogo ? print.logoUrl : undefined, showMark: print.printShowLogo, centered: opts.centered, shopName })}
 <hr class="rule"/>
 ${opts.badge ? `<div class="eyebrow">${opts.badge}</div>` : ""}
 <h1 class="doc-title">${opts.title}</h1>
@@ -242,7 +268,7 @@ ${opts.lede ? `<p class="doc-lede">${opts.lede}</p>` : ""}
 ${opts.kpis?.length ? pdfKpis(opts.kpis) : ""}
 ${opts.body}
 ${footerNote ? `<div class="note">${footerNote}</div>` : ""}
-<footer class="doc-foot"><span>تم إصدار هذا المستند آلياً من تطبيق سِجلّي</span><span>${new Date().toLocaleString("ar-EG")}</span></footer>
+${opts.hideFooter ? "" : `<footer class="doc-foot"><span>تم إصدار هذا المستند آلياً من تطبيق سِجلّي</span><span>${new Date().toLocaleString("ar-EG")}</span></footer>`}
 </main>
 ${arabicDigitsScript}
 </body></html>`;

@@ -220,21 +220,22 @@ function CustomerDetailPage() {
     }).join("");
 
     const html = pdfDocument({
-      docTitle: `كشف حساب تفصيلي — ${customer.name}`,
+      docTitle: "كشف حساب العميل",
       badge: "كشف حساب تفصيلي",
       title: "كشف حساب العميل",
       lede: `سجل تفصيلي بكل الفواتير والمدفوعات بالترتيب الزمني — تاريخ التقرير: ${today}.`,
       meta: [
-        { label: "اسم المحل", value: shop.shopName || "—" },
         { label: "رقم الهاتف", value: shop.phone || "—" },
         { label: "العنوان", value: shop.address || "—" },
       ],
+      centered: true,
+      hideFooter: true,
       body: `
         <div class="info">
           <div class="box"><b>اسم العميل</b> ${customer.name}</div>
           <div class="box"><b>الهاتف</b> <span dir="ltr">${customer.phone}</span></div>
           <div class="box"><b>العنوان</b> ${customer.address || "—"}</div>
-          <div class="box"><b>حال العميل</b> ${customer.customerType === "installment" ? "قسط" : "فورى"}</div>
+          <div class="box"><b>حالة العميل</b> ${customer.customerType === "installment" ? "قسط" : "فورى"}</div>
         </div>
         <style>
           .nowrap { white-space: nowrap; }
