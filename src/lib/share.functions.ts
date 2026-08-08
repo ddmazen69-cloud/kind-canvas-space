@@ -98,6 +98,22 @@ export const revokeShareLink = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** حذف رابط مشاركة نهائياً (المالك فقط — RLS). */
+export const deleteShareLink = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => revokeShareSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+
+    const { error } = await supabase
+      .from("customer_share_links")
+      .delete()
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+
+    return { ok: true };
+  });
+
 /**
  * قراءة كشف حساب العميل عبر رابط المشاركة (عامة — بدون تسجيل دخول).
  *

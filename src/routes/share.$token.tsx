@@ -154,41 +154,33 @@ function ShareStatementPage() {
                         <div className="mt-1 text-xs text-muted-foreground" dir="ltr">{statement.customer.phone}</div>
                       </div>
                     </div>
-                    <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-                      <div className="rounded-2xl bg-foreground/[0.04] p-3">
-                        <div className="text-muted-foreground">العنوان</div>
-                        <div className="mt-1 font-bold">{statement.customer.address || "—"}</div>
-                      </div>
-                      <div className="rounded-2xl bg-foreground/[0.04] p-3">
-                        <div className="text-muted-foreground">تاريخ الانضمام</div>
-                        <div className="mt-1 font-bold" dir="ltr">{isoToDDMMYYYY(statement.customer.joiningDate)}</div>
-                      </div>
-                      <div className="rounded-2xl bg-foreground/[0.04] p-3">
-                        <div className="text-muted-foreground">نوع الدفع</div>
-                        <div className="mt-1 font-bold">{statement.customer.customerType === "cash" ? "فوري" : "أقساط"}</div>
-                      </div>
-                      <div className="rounded-2xl bg-foreground/[0.04] p-3">
-                        <div className="text-muted-foreground">الرصيد الحالي</div>
-                        <div className={`mt-1 font-bold ${statement.metrics.balance > 0 ? "text-danger" : "text-success"}`}>
-                          {fmt(statement.metrics.balance)} ج.م
-                        </div>
-                      </div>
-                    </div>
+                <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+                  <div className="rounded-2xl bg-foreground/[0.04] p-3">
+                    <div className="text-muted-foreground">العنوان</div>
+                    <div className="mt-1 font-bold">{statement.customer.address || "—"}</div>
+                  </div>
+                  <div className="rounded-2xl bg-foreground/[0.04] p-3">
+                    <div className="text-muted-foreground">تاريخ الانضمام</div>
+                    <div className="mt-1 font-bold" dir="ltr">{isoToDDMMYYYY(statement.customer.joiningDate)}</div>
+                  </div>
+                  <div className="rounded-2xl bg-foreground/[0.04] p-3">
+                    <div className="text-muted-foreground">نوع الدفع</div>
+                    <div className="mt-1 font-bold">{statement.customer.customerType === "cash" ? "فوري" : "أقساط"}</div>
+                  </div>
+                </div>
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+                  <div className="rounded-2xl bg-foreground/[0.04] p-3 text-center">
+                    <div className="text-muted-foreground">مبلغ الديون</div>
+                    <div className={`mt-1 font-bold ${statement.metrics.balance > 0 ? "text-danger" : "text-success"}`}>
+                      {fmt(Math.abs(statement.metrics.balance))} ج.م
+                    </div>
+                  </div>
                   <div className="rounded-2xl bg-foreground/[0.04] p-3 text-center">
                     <div className="text-muted-foreground">إجمالي المعاملات</div>
                     <div className="mt-1 font-bold">{fmt(statement.metrics.totalCharged)} ج.م</div>
-                  </div>
-                  <div className="rounded-2xl bg-foreground/[0.04] p-3 text-center">
-                    <div className="text-muted-foreground">إجمالي المسدد</div>
-                    <div className="mt-1 font-bold text-success">{fmt(statement.metrics.totalPaid)} ج.م</div>
-                  </div>
-                  <div className="rounded-2xl bg-foreground/[0.04] p-3 text-center">
-                    <div className="text-muted-foreground">نسبة المسدد</div>
-                    <div className="mt-1 font-bold">{statement.metrics.paidPct}%</div>
                   </div>
                   <div className="rounded-2xl bg-foreground/[0.04] p-3 text-center">
                     <div className="text-muted-foreground">أقصى تأخير</div>
@@ -239,10 +231,8 @@ function ShareStatementPage() {
                             </span>
                           </td>
                           <td className="p-3 text-muted-foreground">{t.description}</td>
-                          <td className="p-3 font-bold">{fmt(t.amount)} ج.م</td>
-                          <td className={`p-3 font-bold ${t.runningBalance > 0 ? "text-danger" : "text-success"}`}>
-                            {fmt(t.runningBalance)} ج.م
-                          </td>
+                          <td className={`p-3 font-bold ${t.kind === "payment" ? "text-success" : "text-danger"}`}>{fmt(Math.abs(t.amount))} ج.م</td>
+                          <td className="p-3 font-bold text-white">{fmt(Math.abs(t.runningBalance))} ج.م</td>
                         </tr>
                       ))}
                     </tbody>

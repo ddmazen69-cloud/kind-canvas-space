@@ -20,7 +20,7 @@ import { usePrivacy } from "@/lib/privacy";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
-import { createShareLink, listShareLinks, revokeShareLink } from "@/lib/share.functions";
+import { createShareLink, listShareLinks, revokeShareLink, deleteShareLink } from "@/lib/share.functions";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -42,6 +42,7 @@ import {
   Unlock,
   Ban,
   Undo2,
+  Trash2,
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
@@ -209,9 +210,11 @@ function CustomerDetailPage() {
   const [loadingLinks, setLoadingLinks] = useState(false);
   const [copied, setCopied] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const makeCreate = useServerFn(createShareLink);
   const makeList = useServerFn(listShareLinks);
   const makeRevoke = useServerFn(revokeShareLink);
+  const makeDelete = useServerFn(deleteShareLink);
 
   if (!customer || !m) {
     return (
@@ -244,8 +247,8 @@ function CustomerDetailPage() {
           <td dir="ltr" class="nowrap">${isoToDDMMYYYY(t.date.slice(0, 10))}</td>
           <td><span class="tag ${t.kind}">${typeLabel}</span></td>
           <td>${detail}</td>
-          <td class="num ${t.kind === "payment" ? "pay" : "buy"}">${fmt(t.amount)}</td>
-          <td class="num ${t.runningBalance > 0 ? "due" : "ok"}">${fmt(t.runningBalance)}</td>
+          <td class="num ${t.kind === "payment" ? "pay" : "buy"}">${fmt(Math.abs(t.amount))}</td>
+          <td class="num" style="color:#0b1220">${fmt(Math.abs(t.runningBalance))}</td>
         </tr>`;
     }).join("");
 
@@ -356,6 +359,21 @@ function CustomerDetailPage() {
       toast.error(e?.message || "تعذر إلغاء الرابط");
     } finally {
       setRevokingId(null);
+    }
+  };
+
+  const deleteLink = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await makeDelete({ data: { id } });
+      const refreshed = await makeList({ data: { customerId: customer.id } });
+      setLinks(refreshed);
+      if (createdLink) setCreatedLink(null);
+      toast.success("تم حذف الرابط نهائياً");
+    } catch (e: any) {
+      toast.error(e?.message || "تعذر حذف الرابط");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -851,6 +869,16 @@ function CustomerDetailPage() {
                         إلغاء
                       </Button>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5 text-danger hover:bg-danger/10"
+                      onClick={() => deleteLink(l.id)}
+                      disabled={deletingId === l.id}
+                    >
+                      {deletingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                      حذف
+                    </Button>
                   </div>
                 );
               })}
