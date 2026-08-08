@@ -610,7 +610,7 @@ function CustomerDetailPage() {
                           const tone = invoice.paid >= invoice.total ? "bg-success/12 text-success" : invoice.paid > 0 ? "bg-warning/12 text-warning" : "bg-danger/12 text-danger";
                           return (
                             <tr key={invoice.id} className="border-t border-[var(--hairline)]">
-                              <td className="p-3 font-bold">{invoice.id.slice(0, 8).toUpperCase()}</td>
+                              <td className="p-3 font-bold">{invoiceNumber(data.invoices, invoice.id)}</td>
                               <td className="p-3" dir="ltr">{isoToDDMMYYYY(invoice.firstDueDate)}</td>
                               <td className="p-3 font-bold">{fmt(invoice.total)} ج.م</td>
                               <td className="p-3 text-success font-bold">{fmt(invoice.paid)} ج.م</td>

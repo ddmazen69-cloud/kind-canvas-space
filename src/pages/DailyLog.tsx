@@ -28,7 +28,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useDB, fmt, expenseCategoryLabel } from "@/lib/store";
+import { useDB, fmt, expenseCategoryLabel, invoiceNumber } from "@/lib/store";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
 import { toast } from "sonner";
 import { usePrivacy } from "@/lib/privacy";
@@ -207,7 +207,7 @@ export default function DailyLog() {
       const type = inv.monthlyInstallment && inv.monthlyInstallment > 0 ? "قسط" : "فوري";
       const remaining = Math.max(0, inv.total - inv.paid);
       const status = invoiceStatus(inv);
-      return [inv.id.slice(0, 8), time, name, inv.total, inv.paid, remaining, type, status];
+      return [invoiceNumber(invoices, inv.id), time, name, inv.total, inv.paid, remaining, type, status];
     });
 
     const header = ["رقم","الوقت","العميل","الإجمالي","مدفوع","متبقي","نوع","الحالة"];
@@ -438,7 +438,7 @@ export default function DailyLog() {
                   const status = invoiceStatus(inv);
                   return (
                     <tr key={inv.id} className="border-t border-white/[0.05] transition-colors duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-foreground/[0.025]">
-                      <td className="py-4 pr-5 font-mono text-xs sm:pr-6">{inv.id.slice(0, 8)}</td>
+                      <td className="py-4 pr-5 font-mono text-xs sm:pr-6">{invoiceNumber(invoices, inv.id)}</td>
                       <td className="py-3 pr-4">{time}</td>
                       <td className="py-3 pr-4">{name}</td>
                       <td className={`py-3 pr-4 ${privacy ? "privacy-blur" : "privacy-clear"}`}>{fmtMoney(inv.total)}</td>
