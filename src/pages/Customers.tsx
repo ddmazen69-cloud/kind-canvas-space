@@ -480,7 +480,7 @@ function CustomersPage() {
                       <div className="flex flex-wrap items-center justify-start gap-1.5 md:opacity-70 md:transition-opacity md:duration-500 md:ease-[cubic-bezier(0.32,0.72,0,1)] md:group-hover:opacity-100 md:focus-within:opacity-100">
                         <button
                           type="button"
-                          onClick={() => setScriptFor(c)}
+                          onClick={() => { setScriptFor(c); setScriptTone("auto"); }}
                           className="island-btn group/cta bg-primary/12 text-primary ring-1 ring-primary/25 hover:bg-primary/18"
                         >
                           هقوله إيه؟
