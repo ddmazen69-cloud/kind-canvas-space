@@ -150,8 +150,9 @@ export const pdfCss = `
   }
 
   @media print {
+    @page { margin: 0; }
     body { background: #fff; padding: 0; font-size: 11px; }
-    .sheet { box-shadow: none; border-radius: 0; padding: 0; max-width: none; }
+    .sheet { box-shadow: none; border-radius: 0; padding: 20px; max-width: none; }
     .sheet::before { display: none; }
     .noprint { display: none !important; }
     .t-wrap { border-radius: 10px; }
@@ -191,7 +192,7 @@ export const thermalCss = `
   th, td { padding: 5px 6px; font-size: 10.5px; }
   .total-bar { padding: 9px 10px; border-radius: 10px; font-size: 12px; }
   .total-bar .v { font-size: 15px; }
-  @media print { .sheet { max-width: none; } }
+  @media print { @page { margin: 0; } .sheet { max-width: none; padding: 6px; } }
 `;
 
 export function pdfHeader(opts: { brandSub?: string; meta: PdfMeta[]; logoUrl?: string | null; showMark?: boolean; centered?: boolean; shopName?: string }): string {
@@ -268,7 +269,7 @@ export function pdfDocument(opts: {
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>${opts.docTitle}</title>
 ${pdfFontLink}
-<style>@page { size: ${thermal ? "80mm auto" : (opts.page ?? "A4")}; margin: ${thermal ? "3mm" : "12mm"}; }${pdfCss}${thermal ? thermalCss : ""}</style>
+<style>@page { size: ${thermal ? "80mm auto" : (opts.page ?? "A4")}; margin: ${thermal ? "3mm" : "0"}; }${pdfCss}${thermal ? thermalCss : ""}</style>
 </head><body>
 <div class="noprint"><button onclick="window.print()"><span>طباعة / حفظ PDF</span><span class="ico">🖨</span></button></div>
 <main class="sheet">
