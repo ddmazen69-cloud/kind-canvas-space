@@ -231,7 +231,7 @@ function CustomerDetailPage() {
       hideFooter: true,
       body: `
         <div class="info">
-          <div class="box"><b>اسم العميل</b> ${customer.name}</div>
+          <div class="box"><b>اسم العميل</b> ${customer.code ? `${customer.code} — ` : ""}${customer.name}</div>
           <div class="box"><b>الهاتف</b> <span dir="ltr">${customer.phone}</span></div>
           <div class="box"><b>العنوان</b> ${customer.address || "—"}</div>
           <div class="box"><b>حالة العميل</b> ${customer.customerType === "installment" ? "قسط" : "فورى"}</div>
