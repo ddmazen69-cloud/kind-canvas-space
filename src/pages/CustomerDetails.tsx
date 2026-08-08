@@ -775,7 +775,7 @@ function CustomerDetailPage() {
       </PageTransition>
 
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-        <DialogContent className="max-w-lg text-right">
+        <DialogContent className="max-w-2xl text-right">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 justify-end">
               <Share2 className="h-5 w-5 text-primary" /> مشاركة كشف حساب العميل
@@ -791,7 +791,7 @@ function CustomerDetailPage() {
               <RadioGroup
                 value={shareDays}
                 onValueChange={(v) => setShareDays(v)}
-                className="grid grid-cols-2 gap-2"
+                className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2"
               >
                 {[
                   { value: "1", label: "يوم واحد" },
@@ -822,7 +822,7 @@ function CustomerDetailPage() {
             {createdLink && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Input readOnly dir="ltr" value={createdLink} className="text-xs" />
+                  <Input readOnly dir="ltr" value={createdLink} className="min-w-0 flex-1 text-xs" />
                   <Button variant="outline" size="icon" className="shrink-0" onClick={copyShareLink}>
                     {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                   </Button>
@@ -858,7 +858,7 @@ function CustomerDetailPage() {
                         {l.expiresAt && active ? ` — ينتهي ${new Date(l.expiresAt).toLocaleDateString("ar-EG")}` : ""}
                       </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1">
+                    <div className="flex shrink-0 flex-wrap items-center gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
