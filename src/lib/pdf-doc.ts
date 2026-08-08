@@ -64,7 +64,7 @@ export const pdfCss = `
   .center-logo svg { width: 64px; height: 64px; display: block; }
   .center-logo-img { display: block; width: 64px; height: 64px; border-radius: 18px; object-fit: contain; background: #f8fafc; }
   .shop-name { font-family: 'Cairo', sans-serif; font-size: 16px; font-weight: 800; color: var(--ink); white-space: nowrap; text-align: center; }
-  .welcome { font-family: 'Cairo', sans-serif; font-size: 16px; font-weight: 800; color: var(--ink); white-space: nowrap; }
+  .welcome { font-family: 'Cairo', sans-serif; font-size: 16px; font-weight: 800; color: var(--brand); white-space: nowrap; }
   .centered-meta { text-align: center; display: flex; justify-content: center; gap: 26px; margin-top: 4px; flex-wrap: wrap; }
   .centered-meta b { color: var(--ink); font-weight: 600; }
   .eyebrow {
@@ -217,7 +217,7 @@ export function pdfHeader(opts: { brandSub?: string; meta: PdfMeta[]; logoUrl?: 
       <div class="center-logo">${centerLogo}</div>
       <div class="shop-name">${esc(opts.shopName || "")}</div>
     </div>
-    <div class="welcome">وجودك يشرفنا</div>
+    <div class="welcome">شكراً لثقتكم</div>
   </div>
   <div class="doc-meta centered-meta">${opts.meta.map((m) => `<div><b>${m.label}:</b> ${m.value}</div>`).join("")}</div>
 </header>`;
