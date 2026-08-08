@@ -1295,9 +1295,10 @@ function TeamTab() {
   };
 
   const generateLink = async () => {
+    if (!(email ?? "").trim()) { toast.error("اكتب بريد العضو الأول — الرابط هيشتغل معاه بس"); return; }
     setLinking(true);
     try {
-      const url = await createInviteLink(inviteRole);
+      const url = await createInviteLink(inviteRole, email);
       setLink(url);
       await copy(url);
     } catch (e: any) {
@@ -1544,7 +1545,7 @@ function TeamTab() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-right">دعوة عضو جديد</AlertDialogTitle>
             <AlertDialogDescription className="text-right">
-              ابعت دعوة بالبريد، أو ولّد رابط دعوة تبعته بأي طريقة — الاتنين هياخدوا الصلاحية اللي تختارها.
+              ابعت دعوة بالبريد، أو ولّد رابط دعوة للبريد المكتوب — الرابط مش هيشتغل غير مع الشخص اللي عنده البريد ده.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3 text-right">
@@ -1561,7 +1562,7 @@ function TeamTab() {
               <p className="text-[11px] text-muted-foreground">{ROLE_HINT[inviteRole]}</p>
             </div>
             <div className="space-y-1.5">
-              <Label>البريد الإلكتروني (اختياري)</Label>
+              <Label>البريد الإلكتروني للعضو</Label>
               <Input dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" />
             </div>
 

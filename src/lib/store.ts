@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { logActivity } from "@/lib/backup";
 import { archiveBeforeDelete } from "@/lib/archive";
-import { redisGet, redisSet, redisDel } from "@/lib/redis";
 
 export type CustomerStatus = "committed" | "neutral" | "defaulter";
 export type CustomerType = "installment" | "cash";
@@ -155,35 +154,13 @@ let loaded = false;
 
 function notify() { listeners.forEach((l) => l()); }
 
-function userCacheKey(userId: string) {
-  return `kv:${userId}:all`;
-}
-
-// Always fetch fresh from Supabase and re-seed Redis (used after every mutation).
+// Always fetch fresh from Supabase (used after every mutation).
 async function fetchAll() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user) await redisDel(userCacheKey(user.id));
   await fetchAllFromServer();
 }
 
-// Initial hydration: serve from Redis when possible, then revalidate in the background.
+// Initial hydration: always fetch fresh from Supabase.
 async function hydrate() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) { await fetchAllFromServer(); return; }
-  const raw = await redisGet(userCacheKey(user.id));
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        cache = parsed;
-        loaded = true;
-        loading = false;
-        notify();
-        void fetchAllFromServer();
-        return;
-      }
-    } catch { /* corrupted entry — fall back to a full fetch */ }
-  }
   await fetchAllFromServer();
 }
 
@@ -275,7 +252,6 @@ async function fetchAllFromServer() {
   notify();
   if (user) {
     await ensureCustomerCodes();
-    await redisSet(userCacheKey(user.id), JSON.stringify(cache));
   }
 }
 

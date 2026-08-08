@@ -131,6 +131,11 @@ export function isValidBarcode(format: BarcodeFormat, code: string): boolean {
 const QUIET = 12;
 const BAR_HEIGHT = 46;
 
+/** HTML-escape user-supplied text before embedding it into SVG markup. */
+function escXml(s: string): string {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+}
+
 function renderSvg(pattern: string, text: Array<{ x: number; value: string; fontSize: number }>, opts: { quiet?: number; barHeight?: number; pxWidth?: number; mmWidth?: number }): string {
   const q = opts.quiet ?? QUIET;
   const barHeight = opts.barHeight ?? BAR_HEIGHT;
@@ -142,7 +147,7 @@ function renderSvg(pattern: string, text: Array<{ x: number; value: string; font
   const heightAttr = opts.mmWidth ? `${(h * scale).toFixed(2)}mm` : opts.pxWidth ? `${Math.round(h * scale)}` : `${h}`;
   let bars = "";
   for (let i = 0; i < pattern.length; i++) if (pattern[i] === "1") bars += `<rect x="${q + i}" y="${q}" width="1" height="${barHeight}"/>`;
-  const texts = text.map((t) => `<text x="${q + t.x}" y="${textY}" text-anchor="middle" font-size="${t.fontSize}" font-family="Arial, sans-serif">${t.value}</text>`).join("");
+  const texts = text.map((t) => `<text x="${q + t.x}" y="${textY}" text-anchor="middle" font-size="${t.fontSize}" font-family="Arial, sans-serif">${escXml(t.value)}</text>`).join("");
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${widthAttr}" height="${heightAttr}" viewBox="0 0 ${w} ${h}"><rect x="0" y="0" width="${w}" height="${h}" fill="#ffffff"/><g fill="#000000">${bars}</g>${texts}</svg>`;
 }
 

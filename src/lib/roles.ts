@@ -239,7 +239,7 @@ export function useTeam() {
     if (!user) { setMembers([]); setInvites([]); setLoading(false); return; }
     setLoading(true);
     const [{ data: rows }, { data: inviteRows }] = await Promise.all([
-      supabase.rpc("team_directory"),
+      supabase.from("team_directory").select("*"),
       supabase.from("team_invites").select("id, email, role, status, expires_at, created_at, token").order("created_at", { ascending: false }),
     ]);
     setMembers(
@@ -292,13 +292,21 @@ export function useTeam() {
     await load();
   }, [load]);
 
-  /** يولّد رابط دعوة بدور محدد (المالك بس — RLS بتفرض ده). */
-  const createInviteLink = useCallback(async (role: AppRole) => {
+  /**
+   * يولّد رابط دعوة بدور محدد (المالك بس — RLS بتفرض ده).
+   * البريد إجباري: القبول بيتحقق إن الشخص اللي مسجّل دخول بنفس البريد،
+   * فلن تنفع أي حد غير صاحب البريد يستخدم الرابط.
+   */
+  const createInviteLink = useCallback(async (role: AppRole, email: string) => {
     if (!user) throw new Error("لازم تسجّل دخول");
+    const recipient = (email ?? "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+      throw new Error("ادخل بريد إلكتروني صحيح للشخص اللي هياخد الرابط");
+    }
     const token = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`).replace(/-/g, "");
     const { error } = await supabase
       .from("team_invites")
-      .insert({ invited_by: user.id, role, token, email: null });
+      .insert({ invited_by: user.id, role, token, email: recipient });
     if (error) throw error;
     await load();
     return `${window.location.origin}/join/${token}`;

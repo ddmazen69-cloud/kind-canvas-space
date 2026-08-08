@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
+import { pdfDocument, openPdfDocument, esc } from "@/lib/pdf-doc";
 
 const ICONS: Record<ArchiveEntity, typeof Users> = {
   customer: Users,
@@ -184,7 +184,7 @@ export default function Archive() {
       docTitle: "أرشيف السجلات",
       badge: "Archive Export",
       title: "تصدير الأرشيف",
-      lede: `نوع التصدير: ${exportFormat.toUpperCase()} · البحث الحالي: ${q || "الكل"} · الفترة: ${period === "all" ? "الكل" : `${period} يوم`}`,
+      lede: `نوع التصدير: ${exportFormat.toUpperCase()} · البحث الحالي: ${esc(q || "الكل")} · الفترة: ${period === "all" ? "الكل" : `${period} يوم`}`,
       meta: [
         { label: "النوع", value: tab === "all" ? "الكل" : ENTITY_LABELS[tab] },
         { label: "عدد السجلات", value: String(rows.length) },
@@ -194,7 +194,7 @@ export default function Archive() {
         { label: "عدد السجلات", value: String(rows.length), tone: "brand" },
         { label: "إجمالي القيمة", value: money(filtered.reduce((sum, item) => sum + item.amount, 0)) },
       ],
-      body: `<div class="t-wrap"><table><thead><tr><th>النوع</th><th>الاسم</th><th>الملخص</th><th>المبلغ</th><th>تاريخ الحذف</th></tr></thead><tbody>${filtered.map((record) => `<tr><td>${ENTITY_LABELS[record.entityType]}</td><td>${record.label}</td><td>${record.summary}</td><td class="num">${money(record.amount)}</td><td>${new Date(record.deletedAt).toLocaleDateString("ar-EG")}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">لا توجد بيانات</td></tr>`}</tbody></table></div>`,
+      body: `<div class="t-wrap"><table><thead><tr><th>النوع</th><th>الاسم</th><th>الملخص</th><th>المبلغ</th><th>تاريخ الحذف</th></tr></thead><tbody>${filtered.map((record) => `<tr><td>${esc(ENTITY_LABELS[record.entityType])}</td><td>${esc(record.label)}</td><td>${esc(record.summary)}</td><td class="num">${money(record.amount)}</td><td>${new Date(record.deletedAt).toLocaleDateString("ar-EG")}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">لا توجد بيانات</td></tr>`}</tbody></table></div>`,
       page: "A4 landscape",
     });
     if (!openPdfDocument(html, { autoPrint: false, features: "width=980,height=760" })) {

@@ -736,7 +736,23 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      team_directory: {
+        Row: {
+          avatar_url: string
+          display_name: string
+          email: string
+          last_seen_at: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          [_ in never]: never
+        }
+        Update: {
+          [_ in never]: never
+        }
+        Relationships: []
+      }
     }
     Functions: {
       accept_invite_token: {
@@ -753,16 +769,6 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
-      }
-      team_directory: {
-        Args: never
-        Returns: {
-          avatar_url: string
-          display_name: string
-          last_seen_at: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }[]
       }
     }
     Enums: {

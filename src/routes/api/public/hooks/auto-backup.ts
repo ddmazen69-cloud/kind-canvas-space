@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { timingSafeEqual } from "node:crypto";
 
 const BACKUP_TABLES = [
   "customers", "suppliers", "invoices", "invoice_items", "payments",
@@ -9,6 +10,13 @@ const BACKUP_TABLES = [
 const stamp = () => new Date().toISOString().slice(0, 10);
 const safeName = (name: string) =>
   name.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "-").slice(0, 60) || "segilly-backup";
+
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
 
 async function runAutoBackups() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -61,8 +69,12 @@ export const Route = createFileRoute("/api/public/hooks/auto-backup")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const key = request.headers.get("apikey");
-        if (!key || key !== process.env["SUPABASE_ANON_KEY"]) {
+        const secret = process.env["AUTO_BACKUP_WEBHOOK_SECRET"];
+        if (!secret) {
+          return new Response(JSON.stringify({ error: "not_configured" }), { status: 503, headers: { "Content-Type": "application/json" } });
+        }
+        const provided = request.headers.get("x-backup-secret") ?? "";
+        if (!safeEqual(provided, secret)) {
           return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
         }
         try {
