@@ -461,9 +461,8 @@ function CustomersPage() {
               {list.map(({ c, m, risk }, idx) => {
                 const overdue7 = m.worstLate > 7;
                 const lateLabel = m.worstLate > 0 ? `متأخر ${m.worstLate} يوم` : null;
-                const message = aiScript(c, m.balance, m.worstLate);
                 const waPhone = c.phone.replace(/^0/, "20");
-                const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(message)}`;
+                const waUrl = `https://wa.me/${waPhone}`;
                 const overLimit = c.creditLimit > 0 && m.balance >= c.creditLimit;
                 const initial = c.name.trim().slice(0, 1) || "؟";
                 return (
@@ -496,12 +495,12 @@ function CustomersPage() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="action-btn grid h-9 w-9 place-items-center rounded-full text-success hover:bg-success/10"
-                                aria-label="إرسال واتساب"
+                                aria-label="فتح محادثة واتساب"
                               >
                                 <WhatsAppIcon className="h-4 w-4" />
                               </a>
                             </TooltipTrigger>
-                            <TooltipContent side="top">إرسال الرسالة المقترحة على واتساب</TooltipContent>
+                            <TooltipContent side="top">فتح محادثة واتساب</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                         <TooltipProvider>
