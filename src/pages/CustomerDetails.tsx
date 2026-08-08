@@ -21,7 +21,6 @@ import {
   CircleAlert,
   Clock3,
   FileDown,
-  Printer,
   Share2,
   User,
   Wallet,
@@ -263,53 +262,6 @@ function CustomerDetailPage() {
     toast.success("تم تجهيز كشف حساب العميل");
   };
 
-  const exportPrint = () => {
-    const today = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
-    const rows = timeline.map((t, i) => {
-      const typeLabel = t.kind === "purchase" ? "مشترى" : t.kind === "opening" ? "رصيد افتتاحي" : "سداد";
-      return `
-        <tr>
-          <td>${i + 1}</td>
-          <td dir="ltr">${isoToDDMMYYYY(t.date.slice(0, 10))}</td>
-          <td><span class="tag ${t.kind}">${typeLabel}</span></td>
-          <td>${t.description}</td>
-          <td class="num ${t.kind === "payment" ? "pay" : "buy"}">${fmt(t.amount)}</td>
-          <td class="num ${t.runningBalance > 0 ? "due" : "ok"}">${fmt(t.runningBalance)}</td>
-        </tr>`;
-    }).join("");
-    const html = pdfDocument({
-      docTitle: `طباعة كشف حساب — ${customer.name}`,
-      badge: "طباعة كشف الحساب",
-      title: "سجل حركات العميل",
-      lede: `سجل مبسط للطباعة — ${today}.`,
-      meta: [
-        { label: "اسم العميل", value: customer.name },
-        { label: "الهاتف", value: customer.phone },
-      ],
-      kpis: [
-        { label: "الرصيد المتبقي", value: `${fmt(m.balance)} ج.م`, tone: m.balance > 0 ? "danger" : "brand" },
-        { label: "عدد الفواتير", value: String(myInvoices.length) },
-        { label: "عدد الدفعات", value: String(myPayments.length) },
-      ],
-      body: `
-        <div class="info">
-          <div class="box"><b>اسم العميل</b> ${customer.name}</div>
-          <div class="box"><b>الهاتف</b> <span dir="ltr">${customer.phone}</span></div>
-        </div>
-        <h2 class="sec">سجل الحركات</h2>
-        <div class="t-wrap"><table>
-          <thead><tr><th>م</th><th>التاريخ</th><th>النوع</th><th>البيان</th><th class="num">المبلغ</th><th class="num">الرصيد</th></tr></thead>
-          <tbody>${rows || `<tr><td colspan="6" class="empty">لا توجد حركات</td></tr>`}</tbody>
-        </table></div>`,
-      page: "A4",
-    });
-    if (!openPdfDocument(html, { autoPrint: true, features: "width=980,height=760" })) {
-      toast.error("يجب السماح بفتح النوافذ المنبثقة للطباعة");
-      return;
-    }
-    toast.success("جاري تجهيز الطباعة...");
-  };
-
   const shareProfile = () => {
     const text = [
       `📋 ملف العميل — ${customer.name}`,
@@ -381,9 +333,6 @@ function CustomerDetailPage() {
                 </AlertDialog>
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportStatement()}>
                   <FileDown className="w-4 h-4" /> تصدير كشف حساب (PDF)
-                </Button>
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={exportPrint}>
-                  <Printer className="w-4 h-4" /> طباعة
                 </Button>
                 <Button size="sm" className="gap-1.5" onClick={shareProfile}>
                   <Share2 className="w-4 h-4" /> مشاركة
