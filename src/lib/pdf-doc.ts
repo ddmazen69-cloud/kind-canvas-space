@@ -59,10 +59,12 @@ export const pdfCss = `
   .doc-meta b { color: var(--ink); font-weight: 600; }
   .doc-head.centered { flex-direction: column; align-items: stretch; gap: 12px; }
   .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-  .center-logo { flex: 1; display: flex; justify-content: center; }
+  .center-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+  .center-logo { display: flex; justify-content: center; }
   .center-logo svg { width: 64px; height: 64px; display: block; }
   .center-logo-img { display: block; width: 64px; height: 64px; border-radius: 18px; object-fit: contain; background: #f8fafc; }
-  .shop-name { font-family: 'Cairo', sans-serif; font-size: 16px; font-weight: 800; color: var(--ink); white-space: nowrap; }
+  .shop-name { font-family: 'Cairo', sans-serif; font-size: 16px; font-weight: 800; color: var(--ink); white-space: nowrap; text-align: center; }
+  .welcome { font-family: 'Cairo', sans-serif; font-size: 16px; font-weight: 800; color: var(--ink); white-space: nowrap; }
   .centered-meta { text-align: center; display: flex; justify-content: center; gap: 26px; margin-top: 4px; flex-wrap: wrap; }
   .centered-meta b { color: var(--ink); font-weight: 600; }
   .eyebrow {
@@ -197,14 +199,24 @@ export function pdfHeader(opts: { brandSub?: string; meta: PdfMeta[]; logoUrl?: 
     ? `<img class="shop-logo" src="${esc(opts.logoUrl)}" alt=""/>`
     : (opts.showMark === false ? "" : brandMarkSvg);
   if (opts.centered) {
-    const centerMark = opts.logoUrl
+    const sideMark = brandMarkSvg;
+    const centerLogo = opts.logoUrl
       ? `<img class="center-logo-img" src="${esc(opts.logoUrl)}" alt=""/>`
       : brandMarkSvg;
     return `<header class="doc-head centered">
   <div class="brand-row">
-    <div class="brand">سِجلّ<em>ي</em></div>
-    <div class="center-logo">${centerMark}</div>
-    <div class="shop-name">${esc(opts.shopName || "")}</div>
+    <div class="doc-id">
+      ${sideMark}
+      <div>
+        <div class="brand">سِجلّ<em>ي</em></div>
+        <div class="brand-sub">${opts.brandSub ?? "نظام إدارة العملاء والأقساط"}</div>
+      </div>
+    </div>
+    <div class="center-col">
+      <div class="center-logo">${centerLogo}</div>
+      <div class="shop-name">${esc(opts.shopName || "")}</div>
+    </div>
+    <div class="welcome">وجودك يشرفنا</div>
   </div>
   <div class="doc-meta centered-meta">${opts.meta.map((m) => `<div><b>${m.label}:</b> ${m.value}</div>`).join("")}</div>
 </header>`;
