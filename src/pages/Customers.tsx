@@ -25,7 +25,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Search, MessageCircle, Pencil, Trash2, Sparkles, Star, Info, User, Eye, EyeOff, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, History, Share2, Wallet, Printer, ShoppingBag, Receipt, CreditCard, Banknote, ShieldAlert, Lock, Unlock, Ban, ArrowLeft } from "lucide-react";
+import { Plus, Search, MessageCircle, Pencil, Trash2, Sparkles, Star, Info, User, Eye, EyeOff, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, History, Share2, Wallet, Printer, ShoppingBag, Receipt, CreditCard, Banknote, ShieldAlert, Lock, Unlock, Ban, ArrowLeft, FileText } from "lucide-react";
 import type { Payment } from "@/lib/store";
 import { toArabicDigits } from "@/lib/arabic-digits";
 import { cn } from "@/lib/utils";
@@ -508,7 +508,7 @@ function CustomersPage() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button size="icon" variant="ghost" className="action-btn rounded-full text-primary hover:bg-primary/10" onClick={() => setHistoryFor(c)} aria-label="سجل المدفوعات">
-                                <Eye className="h-4 w-4" />
+                                <Receipt className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent side="top">عرض سجل المدفوعات الكامل</TooltipContent>
@@ -518,7 +518,7 @@ function CustomersPage() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button size="icon" variant="ghost" className="action-btn rounded-full text-muted-foreground hover:bg-muted/50" onClick={() => navigate({ to: "/customers/$customerId", params: { customerId: c.id } })} aria-label="تفاصيل العميل">
-                                <Info className="h-4 w-4" />
+                                <FileText className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent side="top">تفاصيل العميل وكشف الحساب</TooltipContent>
