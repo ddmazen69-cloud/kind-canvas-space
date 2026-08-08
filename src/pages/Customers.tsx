@@ -793,18 +793,12 @@ function CustomersPage() {
           {scriptFor && (() => {
             const m = customerMetrics(data.invoices, scriptFor);
             const msg = aiScript(scriptFor, m.balance, m.worstLate, scriptTone);
-            const tone =
-              m.worstLate <= 0 ? { label: "ودود", cls: "bg-success/15 text-success border-success/30" } :
-              m.worstLate < 7 ? { label: "تذكير لطيف", cls: "bg-success/15 text-success border-success/30" } :
-              m.worstLate <= 30 ? { label: "متابعة جادة", cls: "bg-warning/15 text-warning border-warning/30" } :
-              { label: "إنذار حازم", cls: "bg-danger/15 text-danger border-danger/30" };
             return (
               <div className="space-y-4">
                 <div className="flex items-center justify-end gap-2 flex-wrap">
                   {m.worstLate > 0 && (
                     <Badge className="bg-danger text-danger-foreground border-0">متأخر {m.worstLate} يوم</Badge>
                   )}
-                  <Badge variant="outline" className={tone.cls}>نبرة: {tone.label}</Badge>
                 </div>
                 <div className="flex items-center justify-center gap-2 flex-wrap">
                   {([
