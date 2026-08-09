@@ -86,7 +86,7 @@ export default function Page() {
                 `;
                 document.body.appendChild(node);
                 const canvas = await html2canvas(node, { scale: 2 });
-                const imgData = canvas.toDataURL('image PNG');
+                const imgData = canvas.toDataURL('image/png');
                 const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
                 const imgProps = pdf.getImageProperties(imgData);
                 const pdfWidth = pdf.internal.pageSize.getWidth();
