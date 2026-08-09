@@ -76,6 +76,8 @@ export default function Page() {
                   <th className="py-2">العميل</th>
                   <th className="py-2">الرقم/فاتورة</th>
                   <th className="py-2">المبلغ</th>
+                  <th className="py-2">الطريقة</th>
+                  <th className="py-2">الملاحظة</th>
                   <th className="py-2">إجراءات</th>
                 </tr>
               </thead>
@@ -92,6 +94,8 @@ export default function Page() {
                     </td>
                     <td className="py-3"><Link to={`/invoices/${p.invoice?.id ?? ""}`} className="underline text-primary">{p.invoice?.id ?? "—"}</Link></td>
                     <td className="py-3">{fmt(p.amount)} ج.م</td>
+                    <td className="py-3">{p.method ?? "—"}</td>
+                    <td className="py-3">{p.note ?? "—"}</td>
                     <td className="py-3">
                       <button className="btn" onClick={async () => {
                         if (!confirm("حذف الدفعة؟ هذا الإجراء لا يمكن التراجع عنه.")) return;
@@ -130,6 +134,9 @@ function NewPaymentForm({ invoices, customers, onClose }: { invoices: any[]; cus
   const [cust, setCust] = useState<string>("");
   const [invoiceId, setInvoiceId] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
+  const [paidAt, setPaidAt] = useState<string>("");
+  const [method, setMethod] = useState<string>("");
+  const [note, setNote] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   const myInvoices = useMemo(() => invoices.filter((i) => !cust || i.customerId === cust), [invoices, cust]);
@@ -153,6 +160,15 @@ function NewPaymentForm({ invoices, customers, onClose }: { invoices: any[]; cus
 
         <label className="text-sm">المبلغ</label>
         <input className="input" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+
+        <label className="text-sm">التاريخ</label>
+        <input type="date" className="input" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+
+        <label className="text-sm">طريقة الدفع</label>
+        <input className="input" value={method} onChange={(e) => setMethod(e.target.value)} placeholder="نقدي / حوالة / بطاقة" />
+
+        <label className="text-sm">ملاحظة</label>
+        <textarea className="input" value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
 
       <div className="mt-4 flex gap-2 justify-end">
@@ -163,7 +179,7 @@ function NewPaymentForm({ invoices, customers, onClose }: { invoices: any[]; cus
           if (!(n > 0)) return alert("أدخل مبلغًا صحيحًا");
           setLoading(true);
           try {
-            await db.recordPayment(invoiceId, n);
+            await db.recordPayment(invoiceId, n, { paidAt: paidAt || undefined, method: method || null, note: note || null });
             onClose();
           } catch (err) { alert(String(err)); }
           setLoading(false);

@@ -44,6 +44,8 @@ export interface Payment {
   invoiceId: string;
   amount: number;
   paidAt: string;
+  method?: string | null;
+  note?: string | null;
 }
 
 export interface InvoiceItem {
@@ -206,6 +208,7 @@ async function fetchAllFromServer() {
     })),
     payments: (p.data ?? []).map((r: any) => ({
       id: r.id, invoiceId: r.invoice_id, amount: Number(r.amount), paidAt: r.paid_at,
+      method: r.method ?? null, note: r.note ?? null,
     })),
     expenses: (e.data ?? []).map((r: any) => ({
       id: r.id, amount: Number(r.amount), category: r.category as ExpenseCategory,
@@ -511,14 +514,16 @@ export const db = {
     if (pay?.invoice_id) await recomputeInvoicePaid(pay.invoice_id);
     await fetchAll();
   },
-  async recordPayment(invoiceId: string, amount: number) {
+  async recordPayment(invoiceId: string, amount: number, opts?: { paidAt?: string; method?: string | null; note?: string | null }) {
     const user_id = await uid();
     const inv = cache.invoices.find((i) => i.id === invoiceId);
     if (!inv) throw new Error("Invoice not found");
     const newPaid = Math.min(inv.total, inv.paid + amount);
-    const { error: e1 } = await supabase.from("payments").insert({
-      user_id, invoice_id: invoiceId, amount,
-    });
+    const payload: any = { user_id, invoice_id: invoiceId, amount };
+    if (opts?.paidAt) payload.paid_at = opts.paidAt;
+    if (opts?.method !== undefined) payload.method = opts.method;
+    if (opts?.note !== undefined) payload.note = opts.note;
+    const { error: e1 } = await supabase.from("payments").insert(payload);
     if (e1) throw e1;
     const { error: e2 } = await supabase.from("invoices").update({ paid: newPaid }).eq("id", invoiceId);
     if (e2) throw e2;
