@@ -161,14 +161,7 @@ export default function Page() {
             </div>
           </div>
 
-          {showNew && (
-            <div className="fixed inset-0 flex items-center justify-center bg-black/40">
-              <div className="bg-background p-6 rounded shadow-lg w-[560px]">
-                <h3 className="mb-3">تسجيل دفعة جديدة</h3>
-                <NewPaymentForm invoices={invoices} customers={customers} onClose={() => setShowNew(false)} />
-              </div>
-            </div>
-          )}
+          {/* Dialog (Radix) handles the new-payment UI; removed duplicate manual modal fallback. */}
         </div>
       </PageTransition>
     </AppShell>
