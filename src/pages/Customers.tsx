@@ -127,7 +127,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
   );
 }
 
-type SortKey = "name" | "balance";
+type SortKey = "name" | "balance" | "rating" | "joiningDate" | "ledgerNo";
 type SortDir = "asc" | "desc";
 
 function escapeHtml(s: string): string {
@@ -170,7 +170,7 @@ function CustomersPage() {
     let overdue = 0, stressed = 0, settled = 0, installment = 0, cash = 0, nearLimit = 0, inactive = 0, paidThisMonth = 0;
     const nowMs = Date.now();
     for (const { c, m, lastPurchaseAt, paidThisMonth: paid } of enriched) {
-      if (c.frozen || c.status === "defaulter" || m.worstLate > 30) stressed++;
+      if (m.balance > 0 && (c.frozen || c.status === "defaulter" || m.worstLate > 30)) stressed++;
       if (m.worstLate > 1) overdue++;
       if (c.creditLimit > 0 && m.balance >= c.creditLimit * 0.7) nearLimit++;
       const last = lastPurchaseAt ? new Date(lastPurchaseAt).getTime() : new Date(c.joiningDate).getTime();
@@ -202,7 +202,7 @@ function CustomersPage() {
         if (filter === "installment") return c.customerType !== "cash";
         if (filter === "cash") return c.customerType === "cash";
         if (filter === "overdue") return m.worstLate > 1;
-        if (filter === "stressed") return c.frozen || c.status === "defaulter" || m.worstLate > 30;
+        if (filter === "stressed") return m.balance > 0 && (c.frozen || c.status === "defaulter" || m.worstLate > 30);
         if (filter === "nearLimit") return c.creditLimit > 0 && m.balance >= c.creditLimit * 0.7;
         if (filter === "inactive") {
           const last = lastPurchaseAt ? new Date(lastPurchaseAt).getTime() : new Date(c.joiningDate).getTime();
@@ -216,13 +216,22 @@ function CustomersPage() {
     const dir = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       if (sortKey === "balance") return (a.m.balance - b.m.balance) * dir;
+      if (sortKey === "rating") return (a.c.rating - b.c.rating) * dir;
+      if (sortKey === "joiningDate")
+        return ((new Date(a.c.joiningDate).getTime() || 0) - (new Date(b.c.joiningDate).getTime() || 0)) * dir;
+      if (sortKey === "ledgerNo") {
+        const av = parseFloat(String(a.c.ledgerNo ?? ""));
+        const bv = parseFloat(String(b.c.ledgerNo ?? ""));
+        if (!Number.isNaN(av) && !Number.isNaN(bv)) return (av - bv) * dir;
+        return String(a.c.ledgerNo ?? "").localeCompare(String(b.c.ledgerNo ?? ""), "ar") * dir;
+      }
       return a.c.name.localeCompare(b.c.name, "ar") * dir;
     });
   }, [enriched, q, filter, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(key); setSortDir(key === "balance" ? "desc" : "asc"); }
+    else { setSortKey(key); setSortDir(key === "balance" || key === "rating" || key === "joiningDate" ? "desc" : "asc"); }
   };
 
   return (
@@ -441,6 +450,9 @@ function CustomersPage() {
           <div className="flex items-center gap-1.5">
             <SortChip label="الاسم" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
             <SortChip label="الديون" active={sortKey === "balance"} dir={sortDir} onClick={() => toggleSort("balance")} />
+            <SortChip label="التقييم" active={sortKey === "rating"} dir={sortDir} onClick={() => toggleSort("rating")} />
+            <SortChip label="الانضمام" active={sortKey === "joiningDate"} dir={sortDir} onClick={() => toggleSort("joiningDate")} />
+            <SortChip label="الدفتر" active={sortKey === "ledgerNo"} dir={sortDir} onClick={() => toggleSort("ledgerNo")} />
           </div>
           <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{list.length} / {counts.all}</div>
         </div>
