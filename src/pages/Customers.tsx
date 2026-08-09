@@ -480,7 +480,7 @@ function CustomersPage() {
                 const waPhone = c.phone.replace(/^0/, "20");
                 const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(message)}`;
                 const overLimit = c.creditLimit > 0 && m.balance >= c.creditLimit;
-                const initial = c.name.trim().slice(0, 1) || "؟";
+                const initial = c.code || c.name.trim().slice(0, 1) || "؟";
                 return (
                   <div
                     key={c.id}
@@ -609,6 +609,11 @@ function CustomersPage() {
                       <div className="flex min-w-0 items-center justify-end gap-3 text-right">
                         <div className="min-w-0">
                           <div className="truncate font-bold leading-tight">{c.name}</div>
+                          {c.ledgerNo && (
+                            <div className="mt-0.5 truncate text-[11px] text-muted-foreground" dir="ltr">
+                              <span className="text-foreground/70">دفتر:</span> <span data-latin-digits>{c.ledgerNo}</span>
+                            </div>
+                          )}
                           <div className="text-numeric mt-0.5 truncate text-xs text-muted-foreground" dir="ltr">{c.phone}</div>
                           <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
                             {c.status === "defaulter" && c.notes ? (
@@ -646,7 +651,7 @@ function CustomersPage() {
                         </div>
                         <span
                           className={cn(
-                            "text-display grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-lg font-bold",
+                            "text-display grid h-11 min-w-11 shrink-0 place-items-center rounded-2xl px-2 text-sm font-bold",
                             c.status === "defaulter"
                               ? "bg-danger/12 text-danger ring-1 ring-danger/25"
                               : c.status === "committed"
