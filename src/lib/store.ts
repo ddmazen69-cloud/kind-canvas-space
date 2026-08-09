@@ -167,7 +167,8 @@ async function hydrate() {
 async function fetchAllFromServer() {
   loading = true;
   notify();
-  const { data: { user } } = await supabase.auth.getUser();
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     cache = { customers: [], invoices: [], payments: [], expenses: [], invoiceItems: [], suppliers: [], purchases: [], purchaseItems: [], supplierPayments: [], stockItems: [] };
     loading = false;
@@ -252,6 +253,12 @@ async function fetchAllFromServer() {
   notify();
   if (user) {
     await ensureCustomerCodes();
+  }
+  } catch (err) {
+    console.error("fetchAllFromServer", err);
+  } finally {
+    loading = false;
+    notify();
   }
 }
 

@@ -23,28 +23,26 @@ const PERIODS: { value: Period; label: string }[] = [
   { value: "month", label: "هذا الشهر" },
 ];
 
-function isInPeriod(iso: string, period: Period, now = new Date()): boolean {
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return false;
+function isInPeriod(ts: number, period: Period, now = new Date()): boolean {
+  if (Number.isNaN(ts)) return false;
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  if (period === "today") return t >= today;
-  if (period === "week") return t >= today - 6 * 86400000;
+  if (period === "today") return ts >= today;
+  if (period === "week") return ts >= today - 6 * 86400000;
   if (period === "month") {
     const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-    return t >= start;
+    return ts >= start;
   }
   return true;
 }
 
 function PaymentsPage() {
-  const { customers, invoices, payments, loading } = useDB();
+  const { customers, invoices, payments } = useDB();
   const [q, setQ] = useState("");
   const [period, setPeriod] = useState<Period>("all");
   const { privacy } = usePrivacy();
 
   // فهرس واحد فقط لكل صف، تُحسب فيه أرقام الفواتير مرة واحدة (لا كل render).
   const rows = useMemo(() => {
-    if (loading) return [];
     const customerById = new Map(customers.map((c) => [c.id, c]));
     const invoiceById = new Map(invoices.map((i) => [i.id, i]));
     return payments
@@ -54,42 +52,25 @@ function PaymentsPage() {
         const ts = new Date(p.paidAt).getTime();
         return {
           p,
-          inv,
           cust,
           ts: Number.isNaN(ts) ? 0 : ts,
           invNo: inv ? invoiceNumber(invoices, p.invoiceId) : "—",
         };
       })
       .sort((a, b) => b.ts - a.ts);
-  }, [loading, payments, customers, invoices]);
+  }, [payments, customers, invoices]);
 
   const filtered = useMemo(() => {
     return rows.filter(({ cust, ts }) => {
       if (q && !(cust?.name ?? "").includes(q)) return false;
-      if (period !== "all" && !isInPeriod(new Date(ts).toISOString(), period)) return false;
-      return true;
+      return isInPeriod(ts, period);
     });
   }, [rows, q, period]);
 
   const totalAll = rows.reduce((s, r) => s + r.p.amount, 0);
   const totalFiltered = filtered.reduce((s, r) => s + r.p.amount, 0);
-  const todaySum = useMemo(() => rows.filter((r) => isInPeriod(new Date(r.ts).toISOString(), "today")).reduce((s, r) => s + r.p.amount, 0), [rows]);
-  const monthSum = useMemo(() => rows.filter((r) => isInPeriod(new Date(r.ts).toISOString(), "month")).reduce((s, r) => s + r.p.amount, 0), [rows]);
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="المدفوعات" subtitle="سجل كل عمليات السداد المسجلة لكل العملاء." icon={<Banknote className="w-6 h-6 text-success" />} />
-        <div className="bezel-shell">
-          <div className="bezel-core grid gap-3 p-5 text-sm text-muted-foreground md:grid-cols-3">
-            <div className="h-20 animate-pulse rounded-2xl bg-foreground/[0.05]" />
-            <div className="h-20 animate-pulse rounded-2xl bg-foreground/[0.05]" />
-            <div className="h-20 animate-pulse rounded-2xl bg-foreground/[0.05]" />
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const todaySum = useMemo(() => rows.filter((r) => isInPeriod(r.ts, "today")).reduce((s, r) => s + r.p.amount, 0), [rows]);
+  const monthSum = useMemo(() => rows.filter((r) => isInPeriod(r.ts, "month")).reduce((s, r) => s + r.p.amount, 0), [rows]);
 
   return (
     <div className="space-y-6">

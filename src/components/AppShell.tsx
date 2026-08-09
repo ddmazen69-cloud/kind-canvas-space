@@ -1,6 +1,6 @@
 import logoMark from "@/assets/logo-mark.png";
 import { Link, useNavigate, useLocation } from "@/lib/router-compat";
-import type { ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { LayoutGrid, Users, FileText, Bell, Receipt, Truck, Package, BarChart3, Settings, Archive, BookOpen, Warehouse, Wallet } from "lucide-react";
@@ -42,6 +42,36 @@ function routeAllowed(pathname: string, allowed: Set<string>) {
     if (route !== "/" && pathname.startsWith(route)) return true;
   }
   return false;
+}
+
+/** يمسك أي خطأ داخل الصفحة حتى لا يختفي السايد بار — يعرض رسالة داخل المحتوى فقط. */
+class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error("PageErrorBoundary", error, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 rounded-3xl border border-danger/20 bg-danger/[0.04] p-8 text-center">
+          <span className="grid h-12 w-12 place-items-center rounded-2xl bg-danger/10 text-2xl">⚠️</span>
+          <h2 className="text-lg font-bold text-foreground">حصلت مشكلة في الصفحة</h2>
+          <p className="max-w-sm text-sm text-muted-foreground">جرّب إعادة المحاولة، ولو استمرت المشكلة ارجع للوحة التحكم.</p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => this.setState({ error: null })}
+              className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground"
+            >
+              إعادة المحاولة
+            </button>
+            <Link to="/" className="inline-flex h-10 items-center justify-center rounded-xl border border-border px-5 text-sm font-semibold">
+              لوحة التحكم
+            </Link>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -175,7 +205,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       <main className="min-w-0 flex-1 px-4 pb-32 pt-10 text-right md:px-12 md:pb-16 md:pt-16">
-        {children}
+        <PageErrorBoundary key={location.pathname}>{children}</PageErrorBoundary>
       </main>
     </div>
   );
