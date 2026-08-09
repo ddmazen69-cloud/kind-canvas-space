@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from "@/lib/router-compat";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutGrid, Users, FileText, Bell, Receipt, Truck, Package, BarChart3, Settings, Archive, BookOpen, Warehouse, Wallet } from "lucide-react";
+import { LayoutGrid, Users, FileText, Bell, Receipt, Truck, Package, BarChart3, Settings, Archive, BookOpen, Warehouse } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDB, lowStockCount, useShopSettings, isDueSoonOrOverdue } from "@/lib/store";
 import { UserChip } from "@/components/UserChip";
@@ -17,7 +17,6 @@ const nav = [
   { to: "/", label: "لوحة التحكم", icon: LayoutGrid },
   { to: "/daily", label: "اليومية", icon: FileText },
   { to: "/customers", label: "العملاء", icon: Users },
-  { to: "/payments", label: "المدفوعات", icon: Wallet },
   { to: "/invoices", label: "الفواتير", icon: FileText },
   { to: "/suppliers", label: "الموردين", icon: Truck },
   { to: "/inventory", label: "المنتجات", icon: Package },
