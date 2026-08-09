@@ -3,14 +3,14 @@ import { Users } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { Reveal } from "@/components/Reveal";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { StarRating } from "@/components/StarRating";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CustomerTypeBadge } from "@/components/CustomerTypeBadge";
-import { useDB, db, fmt, aiScript, daysLate, analyzeCustomerRisk, nextEntityCode, invoiceNumber, type Customer, type CustomerStatus, type CustomerType, type Invoice, type AITone } from "@/lib/store";
+import { useDB, db, fmt, aiScript, daysLate, type Customer, type CustomerStatus, type CustomerType, type Invoice } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,7 +25,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Search, MessageCircle, Pencil, Trash2, Sparkles, Star, Info, User, Eye, EyeOff, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, History, Share2, Wallet, Printer, ShoppingBag, Receipt, CreditCard, Banknote, ShieldAlert, Lock, Unlock, Ban, ArrowLeft, FileText } from "lucide-react";
+import { Plus, Search, MessageCircle, Pencil, Trash2, Sparkles, Star, Info, User, Eye, EyeOff, FileDown, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, History, Lock, Share2, Wallet, Printer, ShoppingBag, Receipt, CreditCard, Banknote } from "lucide-react";
 import type { Payment } from "@/lib/store";
 import { toArabicDigits } from "@/lib/arabic-digits";
 import { cn } from "@/lib/utils";
@@ -67,20 +67,16 @@ const STATUS_TABS: { value: CustomerStatus; label: string; dot: string; active: 
 
 export default function Page() { return (<AppShell><PageTransition><CustomersPage /></PageTransition></AppShell>); }
 
-type FilterTab = "all" | "installment" | "cash" | "overdue" | "stressed" | "nearLimit" | "inactive" | "settled" | "paidThisMonth";
-
-const INACTIVE_DAYS = 30;
+type FilterTab = "all" | "installment" | "cash" | "overdue" | "bajah" | "settled" | "blocked";
 
 const FILTERS: { value: FilterTab; label: string; activeCls: string }[] = [
   { value: "all", label: "الكل", activeCls: "bg-primary text-primary-foreground shadow-[0_12px_30px_-14px_hsl(var(--primary)/0.9)]" },
   { value: "installment", label: "عملاء قسط", activeCls: "bg-primary text-primary-foreground shadow-[0_12px_30px_-14px_hsl(var(--primary)/0.9)]" },
   { value: "cash", label: "عملاء فوري", activeCls: "bg-success text-success-foreground shadow-[0_12px_30px_-14px_hsl(var(--success)/0.9)]" },
   { value: "overdue", label: "المتأخرون", activeCls: "bg-warning text-warning-foreground shadow-[0_12px_30px_-14px_hsl(var(--warning)/0.9)]" },
-  { value: "stressed", label: "المتعثرون", activeCls: "bg-danger text-danger-foreground shadow-[0_12px_30px_-14px_hsl(var(--danger)/0.9)]" },
-  { value: "nearLimit", label: "قرب الحظر", activeCls: "bg-danger text-danger-foreground shadow-[0_12px_30px_-14px_hsl(var(--danger)/0.9)]" },
-  { value: "inactive", label: `خاملون (${INACTIVE_DAYS}+ يوم)`, activeCls: "bg-muted-foreground/80 text-muted shadow-[0_12px_30px_-14px_hsl(0_0%_0%/0.4)]" },
+  { value: "bajah", label: "عملاء بجحين", activeCls: "bg-danger text-danger-foreground shadow-[0_12px_30px_-14px_hsl(var(--danger)/0.9)]" },
+  { value: "blocked", label: "المحظورين", activeCls: "bg-danger text-danger-foreground shadow-[0_12px_30px_-14px_hsl(var(--danger)/0.9)]" },
   { value: "settled", label: "الخالصون", activeCls: "bg-success text-success-foreground shadow-[0_12px_30px_-14px_hsl(var(--success)/0.9)]" },
-  { value: "paidThisMonth", label: "مدفوع كاملاً هذا الشهر", activeCls: "bg-success text-success-foreground shadow-[0_12px_30px_-14px_hsl(var(--success)/0.9)]" },
 ];
 
 function SortChip({ label, active, dir, onClick }: { label: string; active: boolean; dir: SortDir; onClick: () => void }) {
@@ -113,10 +109,19 @@ function customerMetrics(invoices: Invoice[], c: Customer) {
   return { balance, worstLate, paidPct, totalCharged, totalPaid };
 }
 
-function isThisMonth(iso: string, now = new Date()) {
-  if (!iso) return false;
-  const d = new Date(iso);
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+function customerBlockAdvice(c: Customer, m: ReturnType<typeof customerMetrics>) {
+  const reasons: string[] = [];
+  if (c.status === "defaulter") reasons.push("الحالة: مماطل");
+  if (m.worstLate > 30) reasons.push(`تأخر ${m.worstLate} يوم`);
+  if (c.creditLimit > 0 && m.balance >= c.creditLimit) reasons.push("تجاوز سقف الائتمان");
+  if (m.balance > 0 && m.paidPct < 30) reasons.push("نسبة سداد منخفضة");
+  const shouldBlock = !c.frozen && reasons.length > 0;
+  return {
+    shouldBlock,
+    label: c.frozen ? "محظور" : shouldBlock ? "موصى بحظر" : "طبيعي",
+    tone: c.frozen ? "danger" : shouldBlock ? "warning" : "success",
+    reasons,
+  };
 }
 
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -127,7 +132,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
   );
 }
 
-type SortKey = "name" | "balance" | "rating" | "joiningDate" | "ledgerNo";
+type SortKey = "name" | "balance";
 type SortDir = "asc" | "desc";
 
 function escapeHtml(s: string): string {
@@ -141,45 +146,25 @@ function CustomersPage() {
   const [filter, setFilter] = useState<FilterTab>("all");
   const [scriptFor, setScriptFor] = useState<Customer | null>(null);
   const [historyFor, setHistoryFor] = useState<Customer | null>(null);
-  const [scriptTone, setScriptTone] = useState<AITone>("auto");
   const { privacy, toggle } = usePrivacy();
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const enriched = useMemo(
-    () => data.customers.map((c) => {
-      const m = customerMetrics(data.invoices, c);
-      const mine = data.invoices.filter((i) => i.customerId === c.id);
-      let lastPurchaseAt: string | null = null;
-      for (const inv of mine) {
-        if (!lastPurchaseAt || inv.createdAt > lastPurchaseAt) lastPurchaseAt = inv.createdAt;
-      }
-      const paidThisMonth = m.balance <= 0 && (mine.some((i) => isThisMonth(i.createdAt)) || data.payments.some((p) => mine.some((i) => i.id === p.invoiceId) && isThisMonth(p.paidAt)));
-      return {
-        c,
-        m,
-        risk: analyzeCustomerRisk(c, data.invoices),
-        lastPurchaseAt,
-        paidThisMonth,
-      };
-    }),
-    [data.customers, data.invoices, data.payments],
+    () => data.customers.map((c) => ({ c, m: customerMetrics(data.invoices, c) })),
+    [data.customers, data.invoices],
   );
 
   const counts = useMemo(() => {
-    let overdue = 0, stressed = 0, settled = 0, installment = 0, cash = 0, nearLimit = 0, inactive = 0, paidThisMonth = 0;
-    const nowMs = Date.now();
-    for (const { c, m, lastPurchaseAt, paidThisMonth: paid } of enriched) {
-      if (m.balance > 0 && (c.frozen || c.status === "defaulter" || m.worstLate > 30)) stressed++;
+    let overdue = 0, bajah = 0, settled = 0, installment = 0, cash = 0, blocked = 0;
+    for (const { c, m } of enriched) {
       if (m.worstLate > 1) overdue++;
-      if (c.creditLimit > 0 && m.balance >= c.creditLimit * 0.7) nearLimit++;
-      const last = lastPurchaseAt ? new Date(lastPurchaseAt).getTime() : new Date(c.joiningDate).getTime();
-      if (nowMs - last > INACTIVE_DAYS * 86400000) inactive++;
+      if (c.status === "defaulter" || m.worstLate > 30) bajah++;
       if (m.balance <= 0) settled++;
-      if (paid) paidThisMonth++;
       if (c.customerType === "cash") cash++; else installment++;
+      if (c.frozen) blocked++;
     }
-    return { all: enriched.length, installment, cash, overdue, stressed, settled, nearLimit, inactive, paidThisMonth };
+    return { all: enriched.length, installment, cash, overdue, bajah, settled, blocked };
   }, [enriched]);
 
   const debtStats = useMemo(() => {
@@ -196,43 +181,89 @@ function CustomersPage() {
 
 
   const list = useMemo(() => {
-    const nowMs = Date.now();
     const filtered = enriched
-      .filter(({ c, m, lastPurchaseAt, paidThisMonth }) => {
+      .filter(({ c, m }) => {
         if (filter === "installment") return c.customerType !== "cash";
         if (filter === "cash") return c.customerType === "cash";
         if (filter === "overdue") return m.worstLate > 1;
-        if (filter === "stressed") return m.balance > 0 && (c.frozen || c.status === "defaulter" || m.worstLate > 30);
-        if (filter === "nearLimit") return c.creditLimit > 0 && m.balance >= c.creditLimit * 0.7;
-        if (filter === "inactive") {
-          const last = lastPurchaseAt ? new Date(lastPurchaseAt).getTime() : new Date(c.joiningDate).getTime();
-          return nowMs - last > INACTIVE_DAYS * 86400000;
-        }
+        if (filter === "bajah") return c.status === "defaulter" || m.worstLate > 30;
+        if (filter === "blocked") return c.frozen;
         if (filter === "settled") return m.balance <= 0;
-        if (filter === "paidThisMonth") return paidThisMonth;
         return true;
       })
-      .filter(({ c }) => (q ? c.name.includes(q) || (c.phone || "").includes(q) : true));
+      .filter(({ c }) => (q ? c.name.includes(q) || c.phone.includes(q) : true));
     const dir = sortDir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       if (sortKey === "balance") return (a.m.balance - b.m.balance) * dir;
-      if (sortKey === "rating") return (a.c.rating - b.c.rating) * dir;
-      if (sortKey === "joiningDate")
-        return ((new Date(a.c.joiningDate).getTime() || 0) - (new Date(b.c.joiningDate).getTime() || 0)) * dir;
-      if (sortKey === "ledgerNo") {
-        const av = parseFloat(String(a.c.ledgerNo ?? ""));
-        const bv = parseFloat(String(b.c.ledgerNo ?? ""));
-        if (!Number.isNaN(av) && !Number.isNaN(bv)) return (av - bv) * dir;
-        return String(a.c.ledgerNo ?? "").localeCompare(String(b.c.ledgerNo ?? ""), "ar") * dir;
-      }
       return a.c.name.localeCompare(b.c.name, "ar") * dir;
     });
   }, [enriched, q, filter, sortKey, sortDir]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(key); setSortDir(key === "balance" || key === "rating" || key === "joiningDate" ? "desc" : "asc"); }
+    else { setSortKey(key); setSortDir(key === "balance" ? "desc" : "asc"); }
   };
+
+  const exportPDF = () => {
+    const tabLabel: Record<FilterTab, string> = { all: "كل العملاء", installment: "عملاء الأقساط", cash: "العملاء الفوريون", overdue: "العملاء المتأخرون", bajah: "العملاء البجحون", blocked: "العملاء المحظورين", settled: "العملاء الخالصون" };
+    const today = new Date().toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" });
+    const rows = list.map(({ c, m }, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(c.name)}</td>
+        <td dir="ltr">${escapeHtml(c.phone)}</td>
+        <td>${escapeHtml(c.address || "—")}</td>
+        <td class="num">${fmt(m.totalCharged)}</td>
+        <td class="num ok">${fmt(m.totalPaid)}</td>
+        <td class="num ${m.balance > 0 ? "due" : ""}">${fmt(m.balance)}</td>
+        <td>${m.worstLate > 0 ? `<span class="tag purchase">${m.worstLate} يوم</span>` : "—"}</td>
+      </tr>`).join("");
+    const totalDue = list.reduce((s, x) => s + Math.max(0, x.m.balance), 0);
+    const totalCharged = list.reduce((s, x) => s + x.m.totalCharged, 0);
+    const totalPaid = list.reduce((s, x) => s + x.m.totalPaid, 0);
+    const body = `
+<h2 class="sec">بيانات العملاء</h2>
+<div class="t-wrap"><table>
+  <thead><tr>
+    <th>م</th><th>اسم العميل</th><th>الهاتف</th><th>العنوان</th>
+    <th class="num">إجمالي المعاملات</th><th class="num">إجمالي المسدد</th><th class="num">المتبقي</th><th>أقصى تأخير</th>
+  </tr></thead>
+  <tbody>${rows || `<tr><td colspan="8" class="empty">لا توجد بيانات</td></tr>`}</tbody>
+  <tfoot><tr>
+    <td colspan="4">الإجماليات</td>
+    <td class="num">${fmt(totalCharged)}</td>
+    <td class="num">${fmt(totalPaid)}</td>
+    <td class="num">${fmt(totalDue)}</td>
+    <td>—</td>
+  </tr></tfoot>
+</table></div>
+<div class="sig"><div>توقيع المسؤول</div><div>الختم الرسمي</div></div>`;
+    const html = pdfDocument({
+      docTitle: "كشف حساب العملاء — سِجلّي",
+      badge: "كشف حساب عملاء",
+      title: "كشف حساب العملاء",
+      lede: `تقرير رسمي يوضّح أرصدة العملاء والمتأخرات — ${tabLabel[filter]}.`,
+      meta: [
+        { label: "تاريخ التقرير", value: today },
+        { label: "التصنيف", value: tabLabel[filter] },
+        { label: "عدد العملاء", value: String(list.length) },
+      ],
+      kpis: [
+        { label: "عدد العملاء", value: String(list.length) },
+        { label: "إجمالي المعاملات", value: `${fmt(totalCharged)} ج.م`, tone: "brand" },
+        { label: "إجمالي المسدد", value: `${fmt(totalPaid)} ج.م` },
+        { label: "الديون بالخارج", value: `${fmt(totalDue)} ج.م`, tone: "danger" },
+      ],
+      body,
+      page: "A4 landscape",
+    });
+    if (!openPdfDocument(html, { autoPrint: true, features: "width=980,height=760" })) {
+      toast.error("الرجاء السماح بفتح النوافذ المنبثقة لتصدير PDF");
+      return;
+    }
+    toast.success("جاري تجهيز كشف الحساب...");
+  };
+
 
   return (
     <>
@@ -261,6 +292,10 @@ function CustomersPage() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={exportPDF} disabled={list.length === 0}>
+              <FileDown className="w-4 h-4" />
+              تصدير كشف حساب (PDF)
+            </Button>
             <CustomerDialog trigger={<Button className="gap-2"><Plus className="w-4 h-4" /> إضافة عميل</Button>} />
           </div>
         }
@@ -303,12 +338,12 @@ function CustomersPage() {
                 {counts.cash} عميل فوري
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-danger" />
-                {counts.stressed} متعثرون
-              </span>
-              <span className="inline-flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-warning/70" />
                 {debtStats.debtors} عليهم مديونية
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-danger/70" />
+                {counts.blocked} محظور
               </span>
             </div>
           </div>
@@ -335,7 +370,7 @@ function CustomersPage() {
               </div>
             </div>
           </button>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             <button
               type="button"
               onClick={() => setFilter("overdue")}
@@ -345,23 +380,9 @@ function CustomersPage() {
                 filter === "overdue" && "ring-2 ring-warning/40",
               )}
             >
-              <div className="bezel-core p-4">
-                <div className="text-[11px] font-medium text-muted-foreground">متأخرون</div>
-                <div className="text-numeric mt-1 text-xl font-extrabold leading-none text-warning">{counts.overdue}</div>
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter("stressed")}
-              aria-pressed={filter === "stressed"}
-              className={cn(
-                "bezel-shell bezel-lift text-right transition-transform duration-300 hover:-translate-y-0.5",
-                filter === "stressed" && "ring-2 ring-danger/40",
-              )}
-            >
-              <div className="bezel-core p-4">
-                <div className="text-[11px] font-medium text-muted-foreground">متعثرون</div>
-                <div className="text-numeric mt-1 text-xl font-extrabold leading-none text-danger">{counts.stressed}</div>
+              <div className="bezel-core p-6">
+                <div className="text-xs font-medium text-muted-foreground">متأخرون</div>
+                <div className="text-numeric mt-1 text-2xl font-extrabold leading-none text-warning">{counts.overdue}</div>
               </div>
             </button>
             <button
@@ -373,9 +394,9 @@ function CustomersPage() {
                 filter === "settled" && "ring-2 ring-success/40",
               )}
             >
-              <div className="bezel-core p-4">
-                <div className="text-[11px] font-medium text-muted-foreground">خالصون</div>
-                <div className="text-numeric mt-1 text-xl font-extrabold leading-none text-success">{counts.settled}</div>
+              <div className="bezel-core p-6">
+                <div className="text-xs font-medium text-muted-foreground">خالصون</div>
+                <div className="text-numeric mt-1 text-2xl font-extrabold leading-none text-success">{counts.settled}</div>
               </div>
             </button>
           </div>
@@ -396,23 +417,7 @@ function CustomersPage() {
                 className="h-11 rounded-full border-0 bg-background/40 pr-11 shadow-[inset_0_0_0_1px_hsl(0_0%_100%/0.06)] focus-visible:ring-1 focus-visible:ring-primary/40"
               />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-2 rounded-2xl bg-danger/8 px-3 py-2 ring-1 ring-danger/25">
-                <Wallet className="h-4 w-4 text-danger" />
-                <div>
-                  <div className="text-[10px] font-medium text-muted-foreground">إجمالي المديونية</div>
-                  <div className={cn("text-numeric text-sm font-extrabold leading-none text-danger", privacy && "privacy-blur")}>
-                    {fmt(debtStats.totalDebt)} ج.م
-                  </div>
-                </div>
-              </div>
-              {q.trim() && (
-                <div className="rounded-full bg-primary/10 px-3 py-2 text-[11px] font-bold text-primary ring-1 ring-primary/25">
-                  نتائج مطابقة: {toArabicDigits(String(list.length))} من {toArabicDigits(String(counts.all))}
-                </div>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5 lg:col-span-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               {FILTERS.map((f) => {
                 const active = filter === f.value;
                 return (
@@ -450,9 +455,6 @@ function CustomersPage() {
           <div className="flex items-center gap-1.5">
             <SortChip label="الاسم" active={sortKey === "name"} dir={sortDir} onClick={() => toggleSort("name")} />
             <SortChip label="الديون" active={sortKey === "balance"} dir={sortDir} onClick={() => toggleSort("balance")} />
-            <SortChip label="التقييم" active={sortKey === "rating"} dir={sortDir} onClick={() => toggleSort("rating")} />
-            <SortChip label="الانضمام" active={sortKey === "joiningDate"} dir={sortDir} onClick={() => toggleSort("joiningDate")} />
-            <SortChip label="الدفتر" active={sortKey === "ledgerNo"} dir={sortDir} onClick={() => toggleSort("ledgerNo")} />
           </div>
           <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">{list.length} / {counts.all}</div>
         </div>
@@ -471,20 +473,18 @@ function CustomersPage() {
         ) : (
           <ScrollArea className="max-h-[64vh]">
             <div className="flex flex-col gap-3 pl-1">
-              {list.map(({ c, m, risk }, idx) => {
+              {list.map(({ c, m }, idx) => {
                 const overdue7 = m.worstLate > 7;
                 const lateLabel = m.worstLate > 0 ? `متأخر ${m.worstLate} يوم` : null;
-                const waPhone = (c.phone || "").replace(/^0/, "20");
-                const waUrl = `https://wa.me/${waPhone}`;
+                const message = aiScript(c, m.balance, m.worstLate);
+                const waPhone = c.phone.replace(/^0/, "20");
+                const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(message)}`;
                 const overLimit = c.creditLimit > 0 && m.balance >= c.creditLimit;
-                const initial = c.code || c.name.trim().slice(0, 1) || "؟";
+                const initial = c.name.trim().slice(0, 1) || "؟";
                 return (
                   <div
                     key={c.id}
-                    className={cn(
-                      "group bezel-shell bezel-lift animate-[fade-in_0.5s_cubic-bezier(0.32,0.72,0,1)_both]",
-                      c.frozen && "ring-1 ring-danger/30 bg-danger/[0.02]"
-                    )}
+                    className="group bezel-shell bezel-lift animate-[fade-in_0.5s_cubic-bezier(0.32,0.72,0,1)_both]"
                     style={{ animationDelay: `${Math.min(idx, 12) * 45}ms` }}
                   >
                     <div className="bezel-core grid grid-cols-1 items-center gap-5 p-5 md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.1fr)] md:gap-6">
@@ -492,7 +492,7 @@ function CustomersPage() {
                       <div className="flex flex-wrap items-center justify-start gap-1.5 md:opacity-70 md:transition-opacity md:duration-500 md:ease-[cubic-bezier(0.32,0.72,0,1)] md:group-hover:opacity-100 md:focus-within:opacity-100">
                         <button
                           type="button"
-                          onClick={() => { setScriptFor(c); setScriptTone("auto"); }}
+                          onClick={() => setScriptFor(c)}
                           className="island-btn group/cta bg-primary/12 text-primary ring-1 ring-primary/25 hover:bg-primary/18"
                         >
                           هقوله إيه؟
@@ -508,19 +508,19 @@ function CustomersPage() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="action-btn grid h-9 w-9 place-items-center rounded-full text-success hover:bg-success/10"
-                                aria-label="فتح محادثة واتساب"
+                                aria-label="إرسال واتساب"
                               >
                                 <WhatsAppIcon className="h-4 w-4" />
                               </a>
                             </TooltipTrigger>
-                            <TooltipContent side="top">فتح محادثة واتساب</TooltipContent>
+                            <TooltipContent side="top">إرسال الرسالة المقترحة على واتساب</TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button size="icon" variant="ghost" className="action-btn rounded-full text-primary hover:bg-primary/10" onClick={() => setHistoryFor(c)} aria-label="سجل المدفوعات">
-                                <Receipt className="h-4 w-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent side="top">عرض سجل المدفوعات الكامل</TooltipContent>
@@ -530,7 +530,7 @@ function CustomersPage() {
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button size="icon" variant="ghost" className="action-btn rounded-full text-muted-foreground hover:bg-muted/50" onClick={() => navigate({ to: "/customers/$customerId", params: { customerId: c.id } })} aria-label="تفاصيل العميل">
-                                <FileText className="h-4 w-4" />
+                                <Info className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent side="top">تفاصيل العميل وكشف الحساب</TooltipContent>
@@ -540,61 +540,23 @@ function CustomersPage() {
                           customer={c}
                           trigger={<Button size="icon" variant="ghost" className="action-btn rounded-full" aria-label="تعديل"><Pencil className="h-4 w-4" /></Button>}
                         />
-                        <AlertDialog>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className={cn(
-                                      "action-btn rounded-full transition-colors",
-                                      c.frozen
-                                        ? "text-success hover:bg-success/15 hover:text-success"
-                                        : "text-danger hover:bg-danger/15 hover:text-danger"
-                                    )}
-                                    aria-label={c.frozen ? "فك حظر العميل" : "حظر العميل"}
-                                  >
-                                    {c.frozen ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-                                  </Button>
-                                </AlertDialogTrigger>
-                              </TooltipTrigger>
-                              <TooltipContent side="top">
-                                {c.frozen ? "إلغاء حظر العميل وتمكين التعامل" : "حظر العميل وتجميد حسابه"}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                          <AlertDialogContent className="text-right">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle className="flex items-center gap-2 justify-end">
-                                {c.frozen ? "فك حظر العميل" : "حظر وتجميد التعامل مع العميل"}
-                                {c.frozen ? <Unlock className="h-5 w-5 text-success" /> : <ShieldAlert className="h-5 w-5 text-danger" />}
-                              </AlertDialogTitle>
-                              <AlertDialogDescription className="text-right whitespace-pre-wrap">
-                                {c.frozen
-                                  ? `هل تود إلغاء الحظر عن العميل «${c.name}» والسماح بإصدار فواتير وأقساط جديدة له؟`
-                                  : `هل أنت متأكد من حظر العميل «${c.name}»؟\nسيتم إيقاف الشراء الآجل لهذا العميل وتعيين شارة حظر على حسابه.`}
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter className="flex-row-reverse gap-2">
-                              <AlertDialogAction
-                                className={c.frozen ? "bg-success text-success-foreground hover:bg-success/90" : "bg-danger text-danger-foreground hover:bg-danger/90"}
-                                onClick={async () => {
-                                  try {
-                                    await db.toggleFreezeCustomer(c.id, !c.frozen);
-                                    toast.success(c.frozen ? "تم فك الحظر عن العميل" : "تم حظر العميل بنجاح");
-                                  } catch (err: any) {
-                                    toast.error(err.message || "حدث خطأ أثناء تغيير حالة الحظر");
-                                  }
-                                }}
-                              >
-                                {c.frozen ? "تأكيد فك الحظر" : "حظر العميل فوراً"}
-                              </AlertDialogAction>
-                              <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant={c.frozen ? "destructive" : "outline"}
+                          className="action-btn rounded-full"
+                          onClick={async () => {
+                            try {
+                              await db.updateCustomer(c.id, { frozen: !c.frozen });
+                              toast.success(c.frozen ? "تم رفع الحظر عن العميل" : "تم حظر العميل");
+                            } catch (error: any) {
+                              toast.error(error?.message || "تعذّر تغيير حالة الحظر");
+                            }
+                          }}
+                          aria-label={c.frozen ? "رفع الحظر" : "حظر العميل"}
+                        >
+                          <Lock className="h-4 w-4" />
+                        </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button size="icon" variant="ghost" className="action-btn danger rounded-full text-danger hover:bg-danger/10 hover:text-danger" aria-label="حذف"><Trash2 className="h-4 w-4" /></Button>
@@ -649,35 +611,6 @@ function CustomersPage() {
                           <div className="truncate font-bold leading-tight">{c.name}</div>
                           <div className="text-numeric mt-0.5 truncate text-xs text-muted-foreground" dir="ltr">{c.phone}</div>
                           <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
-                            {c.frozen && (
-                              <Badge variant="destructive" className="gap-1 bg-danger/20 text-danger border-danger/30 font-bold">
-                                <Ban className="h-3 w-3" />
-                                محظور
-                              </Badge>
-                            )}
-                            {!c.frozen && risk.recommendBlock && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Badge variant="outline" className="gap-1 border-danger/40 bg-danger/10 text-danger animate-pulse cursor-help text-[10px] font-bold">
-                                      <ShieldAlert className="h-3 w-3" />
-                                      يُنصح بحظره
-                                    </Badge>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs text-right space-y-1">
-                                    <div className="font-bold text-danger flex items-center gap-1 justify-end">
-                                      تحليل خطورة العميل ⚠️
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">أسباب التوصية بالحظر:</div>
-                                    <ul className="text-xs list-disc list-inside space-y-0.5">
-                                      {risk.reasons.map((r, i) => (
-                                        <li key={i}>{r}</li>
-                                      ))}
-                                    </ul>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
                             {c.status === "defaulter" && c.notes ? (
                               <TooltipProvider>
                                 <Tooltip>
@@ -695,20 +628,31 @@ function CustomersPage() {
                             )}
                             <CustomerTypeBadge type={c.customerType} />
                             <StarRating value={c.rating} />
+                            {(() => {
+                              const bl = customerBlockAdvice(c, m);
+                              return (
+                                <Badge
+                                  variant={c.frozen ? "destructive" : "outline"}
+                                  className={cn(
+                                    "text-xs font-bold uppercase",
+                                    c.frozen ? "border-danger text-danger" : bl.shouldBlock ? "border-warning text-warning" : "border-success text-success",
+                                  )}
+                                >
+                                  {c.frozen ? "محظور" : bl.shouldBlock ? "موصى بحظر" : "طبيعي"}
+                                </Badge>
+                              );
+                            })()}
                           </div>
                         </div>
                         <span
                           className={cn(
-                            "text-display grid h-11 min-w-11 shrink-0 place-items-center rounded-2xl px-2 text-sm font-bold",
-                            c.frozen
-                              ? "bg-danger/20 text-danger ring-1 ring-danger/40"
-                              : c.status === "defaulter"
-                                ? "bg-danger/12 text-danger ring-1 ring-danger/25"
-                                : c.status === "committed"
-                                  ? "bg-success/12 text-success ring-1 ring-success/25"
-                                  : "bg-primary/12 text-primary ring-1 ring-primary/25",
+                            "text-display grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-lg font-bold",
+                            c.status === "defaulter"
+                              ? "bg-danger/12 text-danger ring-1 ring-danger/25"
+                              : c.status === "committed"
+                                ? "bg-success/12 text-success ring-1 ring-success/25"
+                                : "bg-primary/12 text-primary ring-1 ring-primary/25",
                           )}
-                          data-latin-digits
                         >
                           {initial}
                         </span>
@@ -805,40 +749,25 @@ function CustomersPage() {
           </DialogHeader>
           {scriptFor && (() => {
             const m = customerMetrics(data.invoices, scriptFor);
-            const msg = aiScript(scriptFor, m.balance, m.worstLate, scriptTone);
+            const msg = aiScript(scriptFor, m.balance, m.worstLate);
+            const tone =
+              m.worstLate <= 0 ? { label: "ودود", cls: "bg-success/15 text-success border-success/30" } :
+              m.worstLate < 7 ? { label: "تذكير لطيف", cls: "bg-success/15 text-success border-success/30" } :
+              m.worstLate <= 30 ? { label: "متابعة جادة", cls: "bg-warning/15 text-warning border-warning/30" } :
+              { label: "إنذار حازم", cls: "bg-danger/15 text-danger border-danger/30" };
             return (
               <div className="space-y-4">
                 <div className="flex items-center justify-end gap-2 flex-wrap">
                   {m.worstLate > 0 && (
                     <Badge className="bg-danger text-danger-foreground border-0">متأخر {m.worstLate} يوم</Badge>
                   )}
-                </div>
-                <div className="flex items-center justify-center gap-2 flex-wrap">
-                  {([
-                    { v: "friendly", label: "ودود", cls: "bg-success/15 text-success ring-success/30" },
-                    { v: "auto", label: "تلقائي", cls: "bg-primary/12 text-primary ring-primary/30" },
-                    { v: "formal", label: "رسمي", cls: "bg-danger/12 text-danger ring-danger/30" },
-                  ] as const).map((t) => (
-                    <button
-                      key={t.v}
-                      type="button"
-                      onClick={() => setScriptTone(t.v)}
-                      className={cn(
-                        "rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition-colors",
-                        scriptTone === t.v
-                          ? `${t.cls} ring-2`
-                          : "bg-foreground/[0.03] text-muted-foreground ring-border hover:bg-foreground/[0.06]",
-                      )}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
+                  <Badge variant="outline" className={tone.cls}>نبرة: {tone.label}</Badge>
                 </div>
                 <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-4 text-right leading-loose">{msg}</div>
                 <div className="flex gap-2">
                   <Button className="flex-1 gap-2" onClick={() => { navigator.clipboard.writeText(toArabicDigits(msg)); toast.success("تم النسخ"); }}>نسخ النص</Button>
                   <Button variant="outline" className="flex-1 gap-2" onClick={() => {
-                    const phone = (scriptFor.phone || "").replace(/^0/, "20");
+                    const phone = scriptFor.phone.replace(/^0/, "20");
                     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(toArabicDigits(msg))}`, "_blank");
                   }}>إرسال واتساب</Button>
                 </div>
@@ -898,7 +827,7 @@ function buildTimeline(c: Customer, invoices: Invoice[], payments: Payment[]): T
       id: `pay-${p.id}`,
       date: p.paidAt,
       kind: "payment",
-      description: `سداد على فاتورة ${inv?.notes ? `«${inv.notes}»` : `${invoiceNumber(invoices, p.invoiceId)}`}`,
+      description: `سداد على فاتورة ${inv?.notes ? `«${inv.notes}»` : `#${p.invoiceId.slice(0, 6)}`}`,
       amount: p.amount,
     });
   }
@@ -946,7 +875,7 @@ function exportStatementPDF(
   const body = `
 <div class="info">
   <div class="box"><b>اسم العميل</b> ${escapeHtml2(c.name)}</div>
-  <div class="box"><b>رقم الهاتف</b> <span dir="ltr">${escapeHtml2(c.phone || "—")}</span></div>
+  <div class="box"><b>رقم الهاتف</b> <span dir="ltr">${escapeHtml2(c.phone)}</span></div>
   <div class="box"><b>العنوان</b> ${escapeHtml2(c.address || "—")}</div>
   <div class="box"><b>تاريخ الانضمام</b> <span dir="ltr">${escapeHtml2(joining)}</span></div>
 </div>
@@ -1000,7 +929,7 @@ function shareStatement(
 ) {
   const lines: string[] = [];
   lines.push(`📋 كشف حساب — ${c.name}`);
-  lines.push(`📞 ${c.phone || "—"}`);
+  lines.push(`📞 ${c.phone}`);
   lines.push(`📅 ${new Date().toLocaleDateString("ar-EG")}`);
   lines.push("―――――――――――――");
   lines.push(`💰 إجمالي المعاملات: ${fmt(m.totalCharged)} ج.م`);
@@ -1025,7 +954,7 @@ function shareStatement(
   lines.push("");
   lines.push("— سِجلّي");
   const text = lines.join("\n");
-  const phone = (c.phone || "").replace(/^0/, "20");
+  const phone = c.phone.replace(/^0/, "20");
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(toArabicDigits(text))}`, "_blank");
   toast.success("جاري فتح واتساب لمشاركة الكشف");
 }
@@ -1098,7 +1027,7 @@ function QuickAddInvoice({ customerId, blocked }: { customerId: string; blocked:
             <span className="text-primary font-bold">{fmt(remaining)} ج.م</span>
             <span className="text-sm text-muted-foreground">المبلغ المتبقي للتقسيط:</span>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <Label>القسط الشهري (ج.م)</Label>
               <Input type="number" value={monthly} onChange={(e) => setMonthly(e.target.value)} />
@@ -1203,28 +1132,19 @@ function QuickAddPayment({ invoices }: { invoices: Invoice[] }) {
 
 function EditInvoiceDialog({ invoice }: { invoice: Invoice }) {
   const [open, setOpen] = useState(false);
-  const [total, setTotal] = useState(String(invoice.total + invoice.discountAmount));
+  const [total, setTotal] = useState(String(invoice.total));
   const [down, setDown] = useState(String(invoice.downPayment));
   const [monthly, setMonthly] = useState(String(invoice.monthlyInstallment));
   const [dateInput, setDateInput] = useState(isoToDDMMYYYY(invoice.firstDueDate));
   const [notes, setNotes] = useState(invoice.notes ?? "");
-  const [discountAmount, setDiscountAmount] = useState(invoice.discountAmount > 0 ? String(invoice.discountAmount) : "");
-  const [discountPercent, setDiscountPercent] = useState(invoice.discountPercent > 0 ? String(invoice.discountPercent) : "");
 
   const submit = async () => {
-    const gross = Number(total), d = Number(down), mo = Number(monthly);
-    if (!gross || !mo || !dateInput) return toast.error("املأ كل البيانات");
+    const t = Number(total), d = Number(down), mo = Number(monthly);
+    if (!t || !mo || !dateInput) return toast.error("املأ كل البيانات");
     const iso = ddmmyyyyToIso(dateInput);
     if (!iso) return toast.error("صيغة التاريخ يجب أن تكون DD/MM/YYYY");
-    const discountValue = Math.min(Math.max(0, Number(discountAmount || 0)), Math.max(0, gross));
-    const netTotal = Math.max(0, gross - discountValue);
     try {
-      await db.updateInvoice(invoice.id, {
-        total: netTotal,
-        discountAmount: discountValue,
-        discountPercent: gross > 0 ? +((discountValue / gross) * 100).toFixed(2) : 0,
-        downPayment: d, monthlyInstallment: mo, firstDueDate: iso, notes,
-      });
+      await db.updateInvoice(invoice.id, { total: t, downPayment: d, monthlyInstallment: mo, firstDueDate: iso, notes });
       toast.success("تم تحديث الفاتورة");
       setOpen(false);
     } catch (e: any) {
@@ -1248,19 +1168,6 @@ function EditInvoiceDialog({ invoice }: { invoice: Invoice }) {
           <div className="grid grid-cols-2 gap-3">
             <div><Label>سعر المنتج (ج.م)</Label><Input type="number" value={total} onChange={(e) => setTotal(e.target.value)} /></div>
             <div><Label>المقدم (ج.م)</Label><Input type="number" value={down} onChange={(e) => setDown(e.target.value)} /></div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label>الخصم بالنسبة %</Label><Input type="number" min="0" max="100" value={discountPercent} onChange={(e) => {
-              const pct = Math.min(100, Math.max(0, Number(e.target.value || 0)));
-              setDiscountPercent(pct > 0 ? String(pct) : "");
-              setDiscountAmount(Number(total) > 0 && pct > 0 ? String(Math.round((Number(total) * pct) / 100)) : "");
-            }} placeholder="0" /></div>
-            <div><Label>الخصم بالمبلغ (ج.م)</Label><Input type="number" min="0" value={discountAmount} onChange={(e) => {
-              const val = e.target.value;
-              setDiscountAmount(val);
-              const amt = Math.min(Math.max(0, Number(val || 0)), Math.max(0, Number(total)));
-              setDiscountPercent(Number(total) > 0 && amt > 0 ? String(+(amt / Number(total) * 100).toFixed(2)) : "");
-            }} placeholder="0" /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>القسط الشهري (ج.م)</Label><Input type="number" value={monthly} onChange={(e) => setMonthly(e.target.value)} /></div>
@@ -1349,9 +1256,7 @@ function DeleteTimelineEntry({ kind, id }: { kind: "invoice" | "payment"; id: st
 
 function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: React.ReactNode }) {
   const today = new Date().toISOString().slice(0, 10);
-  const data = useDB();
   const [open, setOpen] = useState(false);
-  const [code, setCode] = useState(customer?.code ?? "");
   const [name, setName] = useState(customer?.name ?? "");
   const [phone, setPhone] = useState(customer?.phone ?? "");
   const [rating, setRating] = useState<number>(customer?.rating ?? 3);
@@ -1364,15 +1269,7 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
   const [creditLimit, setCreditLimit] = useState<string>(customer?.creditLimit ? String(customer.creditLimit) : "");
   const [openingBalance, setOpeningBalance] = useState<string>(customer?.openingBalance ? String(customer.openingBalance) : "");
   const [dueDay, setDueDay] = useState<number>(customer?.dueDay ?? 1);
-  const [ledgerNo, setLedgerNo] = useState(customer?.ledgerNo ?? "");
   const [pressed, setPressed] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    if (customer) setCode(customer.code ?? "");
-    else setCode(nextEntityCode(data.customers, "C"));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, customer]);
 
   const phoneValid = EG_PHONE_RE.test(phone);
   const initials = name.trim() ? name.trim().split(/\s+/).slice(0, 2).map((s) => s[0]).join("") : "";
@@ -1383,13 +1280,11 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
     const iso = joiningDate;
     if (!iso) return toast.error("اختر تاريخ الانضمام");
     const payload = {
-      code: code.trim() || null,
       name, phone, rating: rating as any, status, customerType,
       notes, frozen,
       address: address || null, joiningDate: iso,
       creditLimit: Number(creditLimit) || 0, dueDay,
       openingBalance: Number(openingBalance) || 0,
-      ledgerNo: ledgerNo.trim() || null,
     };
     if (customer) {
       db.updateCustomer(customer.id, payload);
@@ -1412,11 +1307,7 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
           <DialogDescription className="text-right">أدخل تفاصيل العميل والتقييم الائتماني.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          {/* Code + Name + avatar */}
-          <div>
-            <Label>كود العميل</Label>
-            <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="يُحدد تلقائياً" maxLength={30} dir="ltr" readOnly />
-          </div>
+          {/* Name + avatar */}
           <div>
             <Label>الاسم</Label>
             <div className="flex items-center gap-3">
@@ -1536,15 +1427,6 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
                     dir="ltr"
                   />
                 </div>
-                <div>
-                  <Label>رقم العميل في الدفتر الورقي (اختياري)</Label>
-                  <Input
-                    value={ledgerNo}
-                    onChange={(e) => setLedgerNo(e.target.value)}
-                    placeholder="رقم العميل في الدفتر القديم..."
-                    maxLength={50}
-                  />
-                </div>
               </motion.div>
             ) : (
               <motion.div
@@ -1562,51 +1444,47 @@ function CustomerDialog({ customer, trigger }: { customer?: Customer; trigger: R
           </AnimatePresence>
 
 
-          {customerType === "installment" && (
-            <>
-              {/* Opening balance */}
-              <div>
-                <Label className="flex items-center gap-1.5 justify-end">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button type="button" aria-label="معلومات">
-                          <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        لتسجيل مديونية قديمة من الدفاتر الورقية بدون إنشاء فاتورة وهمية. يضاف فوراً إلى إجمالي ديون العميل.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <span>رصيد افتتاحي / مديونية سابقة (ج.م)</span>
-                </Label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={openingBalance}
-                  onChange={(e) => setOpeningBalance(e.target.value)}
-                  placeholder="0"
-                  dir="ltr"
-                />
-              </div>
+          {/* Opening balance */}
+          <div>
+            <Label className="flex items-center gap-1.5 justify-end">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" aria-label="معلومات">
+                      <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    لتسجيل مديونية قديمة من الدفاتر الورقية بدون إنشاء فاتورة وهمية. يضاف فوراً إلى إجمالي ديون العميل.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <span>رصيد افتتاحي / مديونية سابقة (ج.م)</span>
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              value={openingBalance}
+              onChange={(e) => setOpeningBalance(e.target.value)}
+              placeholder="0"
+              dir="ltr"
+            />
+          </div>
 
-              {/* Status tabs */}
-              <div>
-                <Label>حالة الالتزام</Label>
-                <Tabs value={status} onValueChange={(v) => setStatus(v as CustomerStatus)}>
-                  <TabsList className="grid grid-cols-3 w-full">
-                    {STATUS_TABS.map((t) => (
-                      <TabsTrigger key={t.value} value={t.value} className={cn("gap-1.5", t.active)}>
-                        <span className={cn("w-2 h-2 rounded-full", t.dot)} />
-                        {t.label}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
-              </div>
-            </>
-          )}
+          {/* Status tabs */}
+          <div>
+            <Label>حالة الالتزام</Label>
+            <Tabs value={status} onValueChange={(v) => setStatus(v as CustomerStatus)}>
+              <TabsList className="grid grid-cols-3 w-full">
+                {STATUS_TABS.map((t) => (
+                  <TabsTrigger key={t.value} value={t.value} className={cn("gap-1.5", t.active)}>
+                    <span className={cn("w-2 h-2 rounded-full", t.dot)} />
+                    {t.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
 
           {/* Star rating */}
           <div>

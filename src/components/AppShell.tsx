@@ -16,7 +16,15 @@ import { useRoleAbilities } from "@/lib/roles";
 const nav = [
   { to: "/", label: "لوحة التحكم", icon: LayoutGrid },
   { to: "/daily", label: "اليومية", icon: FileText },
-  { to: "/customers", label: "العملاء", icon: Users },
+  {
+    to: "/customers",
+    label: "العملاء",
+    icon: Users,
+    // children will render as subsection items under Customers
+    children: [
+      { to: "/customers/payments", label: "المدفوعات", icon: Receipt },
+    ],
+  },
   { to: "/invoices", label: "الفواتير", icon: FileText },
   { to: "/suppliers", label: "الموردين", icon: Truck },
   { to: "/inventory", label: "المنتجات", icon: Package },
@@ -138,26 +146,50 @@ export function AppShell({ children }: { children: ReactNode }) {
             const Icon = n.icon;
             const showBadge = n.alertKey && overdueCount > 0;
             return (
-              <Link
-                key={n.to}
-                to={n.to}
-                className={cn(
-                  "group relative flex items-center justify-between gap-2 rounded-full px-4 py-3 text-sm transition-[transform,box-shadow,background-color,color] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                  active
-                    ? "bg-primary font-semibold text-primary-foreground shadow-[0_18px_40px_-18px_hsl(var(--primary)/0.95)]"
-                    : "text-white/70 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground hover:translate-x-[-3px] hover:shadow-[inset_0_0_0_1px_var(--hairline)]"
-                )}
-              >
-                <span className="flex items-center gap-2">
-                  {showBadge && (
-                    <span className="inline-flex items-center justify-center h-3 w-3 rounded-full bg-danger ring-1 ring-danger/20 mr-1" aria-hidden />
+              <div key={n.to}>
+                <Link
+                  to={n.to}
+                  className={cn(
+                    "group relative flex items-center justify-between gap-2 rounded-full px-4 py-3 text-sm transition-[transform,box-shadow,background-color,color] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                    active
+                      ? "bg-primary font-semibold text-primary-foreground shadow-[0_18px_40px_-18px_hsl(var(--primary)/0.95)]"
+                      : "text-white/70 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground hover:translate-x-[-3px] hover:shadow-[inset_0_0_0_1px_var(--hairline)]"
                   )}
-                  {n.label}
-                </span>
-                <span className="relative">
-                  <Icon className="w-4 h-4" />
-                </span>
-              </Link>
+                >
+                  <span className="flex items-center gap-2">
+                    {showBadge && (
+                      <span className="inline-flex items-center justify-center h-3 w-3 rounded-full bg-danger ring-1 ring-danger/20 mr-1" aria-hidden />
+                    )}
+                    {n.label}
+                  </span>
+                  <span className="relative">
+                    <Icon className="w-4 h-4" />
+                  </span>
+                </Link>
+                {n.children?.map((c) => {
+                  const childActive = location.pathname.startsWith(c.to);
+                  const ChildIcon = c.icon;
+                  return (
+                    <Link
+                      key={c.to}
+                      to={c.to}
+                      className={cn(
+                        "group flex items-center justify-between gap-2 rounded-full px-6 py-2 text-xs transition-[transform,box-shadow,background-color,color] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                        childActive
+                          ? "bg-primary/8 font-medium text-primary"
+                          : "text-white/60 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground hover:translate-x-[-3px]"
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className="inline-flex items-center justify-center h-6 w-6 rounded-md text-muted-foreground">
+                          <ChildIcon className="w-4 h-4" />
+                        </span>
+                        {c.label}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>
