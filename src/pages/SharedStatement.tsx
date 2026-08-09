@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
-import { getSharedStatement } from "@/lib/share.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { Loader2, ShieldCheck, FileText, Clock3, XCircle, Ban, CheckCircle2 } from "lucide-react";
 
@@ -40,28 +39,33 @@ type Statement =
     };
 
 function SharedStatement({ token }: { token: string }) {
-  const fetchStatement = useServerFn(getSharedStatement);
   const [state, setState] = useState<"loading" | "done" | "error">("loading");
   const [statement, setStatement] = useState<Statement | null>(null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     let active = true;
-    fetchStatement({ data: { token } })
-      .then((res) => {
+    (async () => {
+      try {
+        const res = await fetch(`${supabase.supabaseUrl}/functions/v1/shared-statement`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        const data = await res.json();
         if (!active) return;
-        setStatement(res as Statement);
+        setStatement(data as Statement);
         setState("done");
-      })
-      .catch((e: unknown) => {
+      } catch (e: unknown) {
         if (!active) return;
         setMessage(e instanceof Error ? e.message : "تعذر تحميل الكشف");
         setState("error");
-      });
+      }
+    })();
     return () => {
       active = false;
     };
-  }, [token, fetchStatement]);
+  }, [token]);
 
   const typeLabel = (kind: string) =>
     kind === "purchase" ? "فاتورة" : kind === "opening" ? "رصيد افتتاحي" : "سداد";

@@ -74,9 +74,12 @@
        `customers` (`maybeSingle`) فلا يُنشأ رابط لعميل لا يملكه المستخدم.
      - جدول `customer_share_links` RLS على `auth.uid() = user_id` فقط، ولا
        GRANT لأي دور خارج `authenticated`.
-     - القراءة العامة من Server Function `getSharedStatement` عبر `supabaseAdmin`
+     - القراءة العامة من Edge Function `shared-statement`
+       (`supabase/functions/shared-statement/index.ts`) بـ Service Role
        (بعد الفحص الفوري لـ `revoked_at` و`expires_at`)، وترجع بيانات العميل
        الواحد المرتبط بالتوكن فقط — **بدون** `user_id` أو بيانات مستخدمين آخرين
        أو إعدادات المحل. لا تُحوَّل إلى RLS أنون ولا تُكشف لغير مالكي التوكن.
+       لا تُستخدم Server Functions (TanStack Start) لأي شيء في هذه الميزة —
+       فهي تسبّب فشل build في بيئة Lovable.
 
 <!-- SECURITY:MEMORY:END -->

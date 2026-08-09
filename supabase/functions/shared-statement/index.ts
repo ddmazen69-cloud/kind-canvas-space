@@ -1,44 +1,55 @@
-import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
-const statementSchema = z.object({
-  token: z.string().min(1).max(200),
-});
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
-// إدارة الروابط (إنشاء/قائمة/إلغاء/حذف) تعمل client-side عبر RLS
-// في src/lib/share.client.ts — التوكن يُولَّد هناك عبر WebCrypto.
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders },
+  });
+}
 
-/**
- * قراءة كشف حساب العميل عبر رابط المشاركة (عامة — بدون تسجيل دخول).
- *
- * الأمان: الـ token هو المفتاح. يُفحص أنه موجود وغير ملغي وغير منتهي،
- * ثم تُقرأ بيانات العميل الواحد المرتبط به فقط عبر supabaseAdmin
- * (service role) مثل team.functions.ts. لا تُرجع أي بيانات مستخدمين
- * آخرين ولا user_id ولا إعدادات المحل.
- */
-export const getSharedStatement = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => statementSchema.parse(input))
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const { token } = await req.json();
+    if (typeof token !== "string" || !token.trim()) {
+      return json({ status: "not_found" });
+    }
+
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+      return json({ status: "error", message: "Edge function is not configured" }, 500);
+    }
+
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
     const { data: link, error: linkErr } = await supabaseAdmin
       .from("customer_share_links")
       .select("id, user_id, customer_id, expires_at, revoked_at")
-      .eq("token", data.token.trim())
+      .eq("token", token.trim())
       .maybeSingle();
 
     if (linkErr || !link) {
-      return { status: "not_found" as const };
+      return json({ status: "not_found" });
     }
     if (link.revoked_at) {
-      return { status: "revoked" as const };
+      return json({ status: "revoked" });
     }
     if (link.expires_at && new Date(link.expires_at).getTime() < Date.now()) {
-      return { status: "expired" as const };
+      return json({ status: "expired" });
     }
 
-    // بادئة أرقام الفواتير وترتيبها ضمن فواتير المتجر كاملة،
-    // ليطابق كود الفاتورة المعروض في لوحة المحل (نفس منطق invoiceNumber في store.ts).
     const { data: settingsRow } = await supabaseAdmin
       .from("shop_settings")
       .select("invoice_prefix")
@@ -59,14 +70,13 @@ export const getSharedStatement = createServerFn({ method: "POST" })
       return p ? `${p}-${serial}` : `#${serial}`;
     };
 
-    // قراءة العميل المرتبط بالتوكن فقط.
     const { data: customer, error: customerErr } = await supabaseAdmin
       .from("customers")
       .select("id, code, name, phone, address, customer_type, joining_date, opening_balance, rating, frozen, status")
       .eq("id", link.customer_id)
       .maybeSingle();
     if (customerErr || !customer) {
-      return { status: "not_found" as const };
+      return json({ status: "not_found" });
     }
 
     const { data: invoices, error: invErr } = await supabaseAdmin
@@ -74,7 +84,9 @@ export const getSharedStatement = createServerFn({ method: "POST" })
       .select("id, created_at, first_due_date, total, down_payment, paid, notes")
       .eq("customer_id", link.customer_id)
       .order("created_at", { ascending: true });
-    if (invErr) return { status: "not_found" as const };
+    if (invErr) {
+      return json({ status: "not_found" });
+    }
 
     const invoiceIds = (invoices ?? []).map((i) => i.id);
     const { data: payments, error: payErr } = invoiceIds.length
@@ -83,9 +95,10 @@ export const getSharedStatement = createServerFn({ method: "POST" })
           .select("id, invoice_id, amount, paid_at")
           .in("invoice_id", invoiceIds)
       : { data: [] as Array<{ id: string; invoice_id: string; amount: number; paid_at: string }>, error: null };
-    if (payErr) return { status: "not_found" as const };
+    if (payErr) {
+      return json({ status: "not_found" });
+    }
 
-    // ── حساب المقاييس بنفس منطق صفحة العميل ──
     const totalCharged = (invoices ?? []).reduce((s, i) => s + i.total, 0) + (customer.opening_balance || 0);
     const totalPaid = (invoices ?? []).reduce((s, i) => s + i.paid, 0);
     const balance = totalCharged - totalPaid;
@@ -97,7 +110,6 @@ export const getSharedStatement = createServerFn({ method: "POST" })
     );
     const paidPct = totalCharged > 0 ? Math.min(100, Math.round((totalPaid / totalCharged) * 100)) : 0;
 
-    // ── بناء الجدول الزمني (نفس ترتيب buildTimeline في صفحة العميل) ──
     type Raw = { id: string; date: string; kind: "opening" | "purchase" | "payment"; description: string; amount: number; invoiceNo?: string };
     const raw: Raw[] = [];
 
@@ -146,8 +158,8 @@ export const getSharedStatement = createServerFn({ method: "POST" })
       return { ...r, runningBalance: bal };
     });
 
-    return {
-      status: "ok" as const,
+    return json({
+      status: "ok",
       customer: {
         code: customer.code,
         name: customer.name,
@@ -161,5 +173,8 @@ export const getSharedStatement = createServerFn({ method: "POST" })
       },
       metrics: { balance, totalCharged, totalPaid, paidPct, worstLate },
       timeline,
-    };
-  });
+    });
+  } catch {
+    return json({ status: "not_found" });
+  }
+});
