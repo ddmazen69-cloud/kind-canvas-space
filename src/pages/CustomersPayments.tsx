@@ -32,7 +32,8 @@ export default function Page() {
       .map((p) => {
         const inv = invoices.find((i) => i.id === p.invoiceId) ?? null;
         const customer = inv ? customers.find((c) => c.id === inv.customerId) ?? null : null;
-        return { ...p, invoice: inv, customer };
+        const paidAtMs = p.paidAt ? Date.parse(p.paidAt) : null;
+        return { ...p, invoice: inv, customer, paidAtMs };
       }),
     [payments, invoices, customers],
   );
@@ -40,8 +41,8 @@ export default function Page() {
   const filtered = paymentsWithDetails.filter((p) => {
     if (q && !(p.customer?.name || "").toLowerCase().includes(q.toLowerCase()) && !(p.invoice?.id || "").toLowerCase().includes(q.toLowerCase())) return false;
     if (selectedCustomer && p.customer?.id !== selectedCustomer) return false;
-    if (from && (!p.paidAt || new Date(p.paidAt) < new Date(from))) return false;
-    if (to && (!p.paidAt || new Date(p.paidAt) > new Date(to))) return false;
+    if (from && (!p.paidAtMs || p.paidAtMs < Date.parse(from))) return false;
+    if (to && (!p.paidAtMs || p.paidAtMs > Date.parse(to))) return false;
     return true;
   });
 
@@ -68,37 +69,7 @@ export default function Page() {
               </DialogContent>
             </Dialog>
 
-            <button className="btn" onClick={async () => {
-              try {
-                const { jsPDF } = await import('jspdf');
-                const html2canvas = (await import('html2canvas')).default;
-                // build a printable node
-                const node = document.createElement('div');
-                node.style.padding = '24px';
-                node.innerHTML = `
-                  <h3>تصدير المدفوعات</h3>
-                  <table style="width:100%;border-collapse:collapse" border="1">
-                    <thead><tr><th>التاريخ</th><th>العميل</th><th>المبلغ</th><th>فاتورة</th></tr></thead>
-                    <tbody>
-                      ${filtered.map((r) => `<tr><td>${r.paidAt ?? ''}</td><td>${r.customer?.name ?? '-'}</td><td>${fmt(r.amount)} ج.م</td><td>${r.invoice?.id ?? ''}</td></tr>`).join('')}
-                    </tbody>
-                  </table>
-                `;
-                document.body.appendChild(node);
-                const canvas = await html2canvas(node, { scale: 2 });
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
-                const imgProps = pdf.getImageProperties(imgData);
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                pdf.save('payments.pdf');
-                document.body.removeChild(node);
-              } catch (err) {
-                console.error(err);
-                alert('فشل التصدير: ' + String(err));
-              }
-            }}>تصدير PDF</button>
+            <ExportPaymentsButton filtered={filtered} page={page} pageSize={pageSize} fmt={fmt} />
 
             <div className="ml-auto flex items-center gap-2">
               <input placeholder="بحث" value={q} onChange={(e) => setQ(e.target.value)} className="input" />
@@ -224,5 +195,50 @@ function NewPaymentForm({ invoices, customers, onClose }: { invoices: any[]; cus
         }} disabled={loading}>حفظ</button>
       </div>
     </div>
+  );
+}
+
+function ExportPaymentsButton({ filtered, page, pageSize, fmt }: { filtered: any[]; page: number; pageSize: number; fmt: (v: any) => string }) {
+  const [loading, setLoading] = useState(false);
+
+  return (
+    <button className="btn" disabled={loading} onClick={async () => {
+      if (loading) return;
+      setLoading(true);
+      const exportRows = filtered.slice(page * pageSize, (page + 1) * pageSize);
+      try {
+        const { jsPDF } = await import('jspdf');
+        const html2canvas = (await import('html2canvas')).default;
+        // build a printable node for the current page only
+        const node = document.createElement('div');
+        node.style.padding = '24px';
+        node.innerHTML = `
+          <h3>تصدير المدفوعات (صفحة ${page + 1})</h3>
+          <table style="width:100%;border-collapse:collapse" border="1">
+            <thead><tr><th>التاريخ</th><th>العميل</th><th>المبلغ</th><th>فاتورة</th></thead>
+            <tbody>
+              ${exportRows.map((r) => `<tr><td>${r.paidAt ?? ''}</td><td>${r.customer?.name ?? '-'}</td><td>${fmt(r.amount)} ج.م</td><td>${r.invoice?.id ?? ''}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        `;
+        document.body.appendChild(node);
+        // allow browser to render the node
+        await new Promise((res) => setTimeout(res, 50));
+        const canvas = await html2canvas(node, { scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+        const imgProps = pdf.getImageProperties(imgData);
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save('payments-page.pdf');
+        document.body.removeChild(node);
+      } catch (err) {
+        console.error(err);
+        alert('فشل التصدير: ' + String(err));
+      } finally {
+        setLoading(false);
+      }
+    }}>{loading ? 'جارٍ التصدير...' : 'تصدير PDF'}</button>
   );
 }
