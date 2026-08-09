@@ -64,7 +64,27 @@
    (مفتاح anon علني). `auto-backup` يستخدم header `x-backup-secret` مع
    `AUTO_BACKUP_WEBHOOK_SECRET` في بيئة السيرفر.
 
- 10. **روابط مشاركة كشف حساب العميل (customer_share_links) قراءة عامة مقصودة
+ 10. **المشروع SPA بالكامل — بدون TanStack Start / Server Functions / SSR.**
+     التحويل الجذري (أغسطس 2026): البناء `vite build` خالص (client only) —
+     `vite.config.ts` يستخدم `@tanstack/router-plugin` + `@vitejs/plugin-react`
+     بدون أي `tanstackStart` plugin. سبق ذلك فشل متكرر في مرحلة "building ssr
+     environment" داخل بيئة Lovable (miniflare/workerd "queues") لا يمكن إصلاحه
+     من الكود، لذا أُزيلت طبقة SSR نهائياً:
+     - `@tanstack/react-start` و `nitro` و `@lovable.dev/vite-tanstack-config`
+       أُزيلت من dependencies، ومستورداتها (start.ts / auth-middleware /
+       auth-attacher / team.functions / client.server.ts) حُذفت.
+     - أي منطق كان server-side انتقل إلى Supabase Edge Functions:
+       `invite-team` (دعوات الفريق) و `auto-backup` (Cron webhook بـ
+       `AUTO_BACKUP_WEBHOOK_SECRET`). **لا تُعِد أي Server Function (TanStack
+       Start) لأي ميزة** — ستعيد كسر البناء.
+     - الـ entry الآن `src/main.tsx` + `index.html` (SPA)، والـ meta/links
+       في `index.html` وليس في `__root.tsx` head (بدون shell).
+     - إعدادات Supabase تُحقن وقت البناء من `SUPABASE_URL`/
+       `SUPABASE_PUBLISHABLE_KEY` (process.env أو `.env`) عبر `define` في
+       `vite.config.ts` إلى `import.meta.env.VITE_SUPABASE_URL` —
+       `src/integrations/supabase/client.ts` لا يقرأ `process.env` إطلاقاً.
+
+     **روابط مشاركة كشف حساب العميل (customer_share_links) قراءة عامة مقصودة
      وموثقة.** هذه هي الطريقة الوحيدة المسموح بها لعرض بيانات عميل لغير المسجلين:
      - إدارة الروابط (إنشاء/قائمة/إلغاء/حذف) تعمل client-side مباشرة عبر supabase
        في `src/lib/share.client.ts` (بديل Server Functions التي لا تعمل في بيئة

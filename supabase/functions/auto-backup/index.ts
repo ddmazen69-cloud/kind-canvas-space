@@ -1,5 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { timingSafeEqual } from "node:crypto";
+import { createClient } from "npm:@supabase/supabase-js";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const AUTO_BACKUP_WEBHOOK_SECRET = Deno.env.get("AUTO_BACKUP_WEBHOOK_SECRET");
 
 const BACKUP_TABLES = [
   "customers", "suppliers", "invoices", "invoice_items", "payments",
@@ -11,15 +14,33 @@ const stamp = () => new Date().toISOString().slice(0, 10);
 const safeName = (name: string) =>
   name.trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, "-").slice(0, 60) || "segilly-backup";
 
-function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+async function safeEqual(a: string, b: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const ab = encoder.encode(a);
+  const bb = encoder.encode(b);
   if (ab.length !== bb.length) return false;
-  return timingSafeEqual(ab, bb);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    ab,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, bb));
+  return sig.every((byte, i) => byte === ab[i]);
 }
 
 async function runAutoBackups() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   const { data: settings, error } = await supabaseAdmin
     .from("backup_settings")
@@ -65,26 +86,20 @@ async function runAutoBackups() {
   return processed;
 }
 
-export const Route = createFileRoute("/api/public/hooks/auto-backup")({
-  server: {
-    handlers: {
-      POST: async ({ request }) => {
-        const secret = process.env["AUTO_BACKUP_WEBHOOK_SECRET"];
-        if (!secret) {
-          return new Response(JSON.stringify({ error: "not_configured" }), { status: 503, headers: { "Content-Type": "application/json" } });
-        }
-        const provided = request.headers.get("x-backup-secret") ?? "";
-        if (!safeEqual(provided, secret)) {
-          return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
-        }
-        try {
-          const processed = await runAutoBackups();
-          return new Response(JSON.stringify({ success: true, processed }), { headers: { "Content-Type": "application/json" } });
-        } catch (e) {
-          const message = e instanceof Error ? e.message : "failed";
-          return new Response(JSON.stringify({ success: false, error: message }), { status: 500, headers: { "Content-Type": "application/json" } });
-        }
-      },
-    },
-  },
+Deno.serve(async (req: Request) => {
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  const secret = AUTO_BACKUP_WEBHOOK_SECRET;
+  if (!secret) return json({ error: "not_configured" }, 503);
+
+  const provided = req.headers.get("x-backup-secret") ?? "";
+  if (!(await safeEqual(provided, secret))) return json({ error: "unauthorized" }, 401);
+
+  try {
+    const processed = await runAutoBackups();
+    return json({ success: true, processed });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "failed";
+    return json({ success: false, error: message }, 500);
+  }
 });

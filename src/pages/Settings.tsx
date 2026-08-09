@@ -36,8 +36,7 @@ import {
   useMyRole, useTeam, useRoleAbilities, ROLE_LABEL, ROLE_HINT, ALL_ROLES, EDITABLE_ROLES,
   relativeTime, type AppRole, type AbilityKey,
 } from "@/lib/roles";
-import { inviteTeamMember } from "@/lib/team.functions";
-import { useServerFn } from "@tanstack/react-start";
+
 import { toast } from "sonner";
 import { useNavigate } from "@/lib/router-compat";
 import { z } from "zod";
@@ -1271,7 +1270,6 @@ function TeamTab() {
   const [link, setLink] = useState("");
   const [linking, setLinking] = useState(false);
   const [copied, setCopied] = useState(false);
-  const sendInvite = useServerFn(inviteTeamMember);
   const pending = invites.filter((i) => i.status === "pending");
 
   const toggleAbility = async (ability: AbilityKey, role: AppRole, allowed: boolean) => {
@@ -1312,15 +1310,19 @@ function TeamTab() {
     if (!parsed.success) { toast.error("اكتب بريد إلكتروني صحيح"); return; }
     setSending(true);
     try {
-      const res = await sendInvite({
-        data: {
+      const { data: res, error: fnError } = await supabase.functions.invoke("invite-team", {
+        body: {
           email: parsed.data,
           role: inviteRole,
           redirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined,
         },
       });
-      if (res.status === "added") toast.success("الحساب موجود بالفعل — تمت إضافته للفريق");
-      else if (res.status === "pending_no_email") toast.success("تم تسجيل الدعوة — لكن رسالة البريد مبعتتش");
+      if (fnError) throw new Error(fnError.message || "تعذّر إرسال الدعوة");
+      if (!res || typeof res !== "object") throw new Error("استجابة غير متوقعة من خادم الدعوات");
+      const result = res as { success?: boolean; status?: string; error?: string; message?: string };
+      if (!result.success && result.error) throw new Error(result.error);
+      if (result.status === "added") toast.success("الحساب موجود بالفعل — تمت إضافته للفريق");
+      else if (result.status === "pending_no_email") toast.success("تم تسجيل الدعوة — لكن رسالة البريد مبعتتش");
       else toast.success("تم إرسال الدعوة على البريد");
       setInviteOpen(false); setEmail(""); setInviteRole("seller");
       await Promise.all([reload(), reloadRole()]);
