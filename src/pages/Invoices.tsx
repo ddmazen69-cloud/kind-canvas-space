@@ -23,6 +23,7 @@ import { BarcodeScanner } from "@/components/BarcodeScanner";
 import { EmptyState } from "@/components/EmptyState";
 import { TableSkeleton } from "@/components/LoadingSkeletons";
 import { CustomerTypeBadge } from "@/components/CustomerTypeBadge";
+import { ReturnsPanel } from "@/components/ReturnsPanel";
 
 import { findStockByBarcode } from "@/lib/store";
 import { motion, AnimatePresence } from "framer-motion";
@@ -34,7 +35,7 @@ import { toArabicDigits } from "@/lib/arabic-digits";
 import { cn } from "@/lib/utils";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
 
-type Tab = "active" | "overdue" | "settled" | "all";
+type Tab = "active" | "overdue" | "settled" | "all" | "returns";
 
 function isoToDDMMYYYY(iso: string): string {
   if (!iso) return "";
@@ -226,7 +227,7 @@ function InvoicesPage() {
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="mb-4">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full h-auto">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full h-auto">
           <TabsTrigger value="active" className="gap-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary">
             فواتير نشطة <Badge variant="secondary" className="rounded-full">{counts.active}</Badge>
           </TabsTrigger>
@@ -239,9 +240,16 @@ function InvoicesPage() {
           <TabsTrigger value="all" className="gap-1.5">
             الكل <Badge variant="secondary" className="rounded-full">{counts.all}</Badge>
           </TabsTrigger>
+          <TabsTrigger value="returns" className="gap-1.5 data-[state=active]:bg-danger/15 data-[state=active]:text-danger">
+            المرتجعات
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
+      {tab === "returns" ? (
+        <ReturnsPanel />
+      ) : (
+        <>
       <div className="mb-5 flex flex-col md:flex-row md:items-center gap-2">
         <div className="relative md:w-72">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -409,9 +417,11 @@ function InvoicesPage() {
                 </tr>
               )}
             </tbody>
-          </table>
+           </table>
         </div>
       </div>
+        </>
+      )}
 
       <HistoryDialog customer={historyFor} onClose={() => setHistoryFor(null)} invoices={data.invoices} payments={data.payments} items={data.invoiceItems} blurCls={blurCls} invoicePrefix={shopSettings.invoicePrefix} onEditInvoice={(i) => { setHistoryFor(null); setEditInv(i); }} onViewInvoice={(i) => { setHistoryFor(null); setViewInv(i); }} />
       <ViewInvoiceDialog inv={viewInv} customer={viewInv ? findCustomer(viewInv.customerId) ?? null : null} invoiceNo={viewInv ? invoiceNumber(data.invoices, viewInv.id, shopSettings.invoicePrefix) : ""} items={data.invoiceItems} onClose={() => setViewInv(null)} />
