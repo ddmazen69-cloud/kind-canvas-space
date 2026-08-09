@@ -326,7 +326,7 @@ export default function DailyLog() {
             <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-success" /> آخر تحديث الآن</span>
           </div>
           <div className="flex flex-wrap items-baseline justify-start gap-x-4 gap-y-1">
-            <h1 className="text-display text-4xl font-extrabold text-foreground sm:text-5xl">اليومية</h1>
+            <h1 className="text-title flex w-full items-center justify-start gap-3 text-right text-primary">اليومية</h1>
             <p className="text-sm font-medium text-muted-foreground">{selectedDateLabel}</p>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">ملخص الحركة المالية والملاحظات في مكان واحد.</p>
