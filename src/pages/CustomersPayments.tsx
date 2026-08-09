@@ -5,6 +5,15 @@ import { useDB, db } from "@/lib/store";
 import { fmt } from "@/lib/store";
 import { Link } from "@/lib/router-compat";
 import { useState, useMemo } from "react";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export default function Page() {
   const { payments, customers, invoices } = useDB();
@@ -45,15 +54,51 @@ export default function Page() {
 
         <div className="mt-6">
           <div className="flex items-center gap-3 mb-4">
-            <button className="btn btn-primary" onClick={() => setShowNew(true)}>سجل دفعة جديدة</button>
-            <button className="btn" onClick={() => {
-              const w = window.open("", "_blank");
-              if (!w) return;
-              const rows = filtered.map((r) => `\n<tr><td>${r.paidAt ?? ""}</td><td>${r.customer?.name ?? "-"}</td><td>${fmt(r.amount)} ج.م</td><td>${r.invoice?.id ?? ""}</td></tr>`).join("\n");
-              w.document.write(`<html><head><title>تصدير المدفوعات</title></head><body><h3>تصدير المدفوعات</h3><table border=1><thead><tr><th>التاريخ</th><th>العميل</th><th>المبلغ</th><th>فاتورة</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
-              w.document.close();
-              w.print();
-            }}>تصدير / طباعة</button>
+            <Dialog open={showNew} onOpenChange={setShowNew}>
+              <DialogTrigger asChild>
+                <button className="btn btn-primary">سجل دفعة جديدة</button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>تسجيل دفعة جديدة</DialogTitle>
+                  <DialogDescription>أدخل بيانات الدفعة لحفظها.</DialogDescription>
+                </DialogHeader>
+                <NewPaymentForm invoices={invoices} customers={customers} onClose={() => setShowNew(false)} />
+                <DialogFooter />
+              </DialogContent>
+            </Dialog>
+
+            <button className="btn" onClick={async () => {
+              try {
+                const { jsPDF } = await import('jspdf');
+                const html2canvas = (await import('html2canvas')).default;
+                // build a printable node
+                const node = document.createElement('div');
+                node.style.padding = '24px';
+                node.innerHTML = `
+                  <h3>تصدير المدفوعات</h3>
+                  <table style="width:100%;border-collapse:collapse" border="1">
+                    <thead><tr><th>التاريخ</th><th>العميل</th><th>المبلغ</th><th>فاتورة</th></tr></thead>
+                    <tbody>
+                      ${filtered.map((r) => `<tr><td>${r.paidAt ?? ''}</td><td>${r.customer?.name ?? '-'}</td><td>${fmt(r.amount)} ج.م</td><td>${r.invoice?.id ?? ''}</td></tr>`).join('')}
+                    </tbody>
+                  </table>
+                `;
+                document.body.appendChild(node);
+                const canvas = await html2canvas(node, { scale: 2 });
+                const imgData = canvas.toDataURL('image PNG');
+                const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+                const imgProps = pdf.getImageProperties(imgData);
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                pdf.save('payments.pdf');
+                document.body.removeChild(node);
+              } catch (err) {
+                console.error(err);
+                alert('فشل التصدير: ' + String(err));
+              }
+            }}>تصدير PDF</button>
 
             <div className="ml-auto flex items-center gap-2">
               <input placeholder="بحث" value={q} onChange={(e) => setQ(e.target.value)} className="input" />
