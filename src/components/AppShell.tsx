@@ -47,7 +47,7 @@ function routeAllowed(pathname: string, allowed: Set<string>) {
 /** يمسك أي خطأ داخل الصفحة حتى لا يختفي السايد بار — يعرض رسالة داخل المحتوى فقط. */
 class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
-  static getDerivedStateFromError(error: Error) { return { error }; }
+  static getDerivedStateFromError(error: unknown) { return { error: error instanceof Error ? error : new Error(String(error)) }; }
   componentDidCatch(error: Error, info: ErrorInfo) { console.error("PageErrorBoundary", error, info); }
   render() {
     if (this.state.error) {
