@@ -50,7 +50,7 @@ export interface AbilityDef {
 export const ABILITY_DEFS: AbilityDef[] = [
   { key: "sales", label: "تسجيل مبيعات ودفعات", routes: ["/", "/alerts"] },
   { key: "sales", label: "تسجيل مبيعات ودفعات", routes: ["/", "/alerts", "/daily"] },
-  { key: "customers", label: "إدارة العملاء والفواتير", routes: ["/customers", "/invoices", "/blocked"] },
+  { key: "customers", label: "إدارة العملاء والفواتير", routes: ["/customers", "/payments", "/invoices", "/blocked"] },
   { key: "operations", label: "المخزون والموردين والمصروفات", routes: ["/suppliers", "/inventory", "/expenses", "/warehouse"] },
   { key: "reports", label: "التقارير والنسخ الاحتياطي", routes: ["/reports", "/archive"], settingsTabs: ["data"] },
   { key: "shop_settings", label: "إعدادات المحل", routes: ["/settings"], settingsTabs: ["shop", "billing", "alerts", "appearance"] },

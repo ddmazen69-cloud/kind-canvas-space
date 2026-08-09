@@ -25,7 +25,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Search, MessageCircle, Pencil, Trash2, Sparkles, Star, Info, User, Eye, EyeOff, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, History, Share2, Wallet, Printer, ShoppingBag, Receipt, CreditCard, Banknote, ShieldAlert, Lock, Unlock, Ban, ArrowLeft, FileText } from "lucide-react";
+import { Plus, Search, MessageCircle, Pencil, Trash2, Sparkles, Star, Info, User, Eye, EyeOff, ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, Share2, Wallet, Printer, ShoppingBag, CreditCard, Banknote, ShieldAlert, Lock, Unlock, Ban, ArrowLeft, FileText } from "lucide-react";
 import type { Payment } from "@/lib/store";
 import { toArabicDigits } from "@/lib/arabic-digits";
 import { cn } from "@/lib/utils";
@@ -141,7 +141,6 @@ function CustomersPage() {
   const [filter, setFilter] = useState<FilterTab>("all");
   const [scriptFor, setScriptFor] = useState<Customer | null>(null);
   const [scriptTone, setScriptTone] = useState<AITone>("auto");
-  const [historyFor, setHistoryFor] = useState<Customer | null>(null);
   const { privacy, toggle } = usePrivacy();
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -519,16 +518,6 @@ function CustomersPage() {
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button size="icon" variant="ghost" className="action-btn rounded-full text-primary hover:bg-primary/10" onClick={() => setHistoryFor(c)} aria-label="سجل المدفوعات">
-                                <Receipt className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">عرض سجل المدفوعات الكامل</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
                               <Button size="icon" variant="ghost" className="action-btn rounded-full text-muted-foreground hover:bg-muted/50" onClick={() => navigate({ to: "/customers/$customerId", params: { customerId: c.id } })} aria-label="تفاصيل العميل">
                                 <FileText className="h-4 w-4" />
                               </Button>
@@ -721,78 +710,6 @@ function CustomersPage() {
           </ScrollArea>
         )}
       </Reveal>
-
-      <Dialog open={!!historyFor} onOpenChange={(o) => !o && setHistoryFor(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 justify-end">
-              سجل المدفوعات
-              <History className="w-5 h-5 text-primary" />
-            </DialogTitle>
-            <DialogDescription className="text-right">
-              {historyFor ? `كل عمليات السداد المسجلة للعميل ${historyFor.name}` : ""}
-            </DialogDescription>
-          </DialogHeader>
-          {historyFor && (() => {
-            const myInvoiceIds = new Set(data.invoices.filter((i) => i.customerId === historyFor.id).map((i) => i.id));
-            const payments = data.payments
-              .filter((p) => myInvoiceIds.has(p.invoiceId))
-              .sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime());
-            const total = payments.reduce((s, p) => s + p.amount, 0);
-            const m = customerMetrics(data.invoices, historyFor);
-            return (
-              <div className="space-y-3 text-right">
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-2xl hairline bg-foreground/[0.035] p-2.5">
-                    <div className="text-[11px] text-muted-foreground">عدد العمليات</div>
-                    <div className="font-bold text-lg">{payments.length}</div>
-                  </div>
-                  <div className="rounded-2xl hairline bg-success/10 p-2.5">
-                    <div className="text-[11px] text-muted-foreground">إجمالي المسدد</div>
-                    <div className={cn("font-bold text-lg text-success", privacy && "privacy-blur")}>{fmt(total)} ج.م</div>
-                  </div>
-                  <div className="rounded-2xl hairline bg-danger/10 p-2.5">
-                    <div className="text-[11px] text-muted-foreground">المتبقي</div>
-                    <div className={cn("font-bold text-lg", m.balance > 0 ? "text-danger" : "text-success", privacy && "privacy-blur")}>{fmt(m.balance)} ج.م</div>
-                  </div>
-                </div>
-                <ScrollArea className="max-h-[50vh] rounded-2xl hairline">
-                  {payments.length === 0 ? (
-                    <div className="text-sm text-muted-foreground text-center py-10">لا توجد مدفوعات مسجلة بعد</div>
-                  ) : (
-                    <table className="w-full text-sm">
-                      <thead className="bg-foreground/[0.04] text-muted-foreground sticky top-0">
-                        <tr>
-                          <th className="text-right p-2.5 font-medium">#</th>
-                          <th className="text-right p-2.5 font-medium">التاريخ</th>
-                          <th className="text-right p-2.5 font-medium">الوقت</th>
-                          <th className="text-right p-2.5 font-medium">المبلغ</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {payments.map((p, i) => {
-                          const d = new Date(p.paidAt);
-                          return (
-                            <tr key={p.id} className="border-t border-[var(--hairline)] hover:bg-foreground/[0.035]">
-                              <td className="p-2.5 text-muted-foreground">{payments.length - i}</td>
-                              <td className="p-2.5" dir="ltr">{d.toLocaleDateString("ar-EG", { year: "numeric", month: "2-digit", day: "2-digit" })}</td>
-                              <td className="p-2.5 text-muted-foreground" dir="ltr">{d.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}</td>
-                              <td className={cn("p-2.5 font-bold text-success", privacy && "privacy-blur")}>+ {fmt(p.amount)} ج.م</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
-                </ScrollArea>
-              </div>
-            );
-          })()}
-          <DialogFooter>
-            <Button variant="outline" className="w-full" onClick={() => setHistoryFor(null)}>إغلاق</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={!!scriptFor} onOpenChange={(o) => !o && setScriptFor(null)}>
         <DialogContent>
