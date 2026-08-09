@@ -52,6 +52,16 @@ function SharedStatement({ token }: { token: string }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token }),
         });
+        if (!res.ok) {
+          if (res.status === 404) {
+            setStatement({ status: "not_found" });
+            setState("done");
+          } else {
+            setMessage(`تعذر تحميل الكشف (خطأ ${res.status}) — حاول لاحقاً`);
+            setState("error");
+          }
+          return;
+        }
         const data = await res.json();
         if (!active) return;
         setStatement(data as Statement);
