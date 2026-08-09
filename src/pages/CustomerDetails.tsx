@@ -11,26 +11,16 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { CustomerTypeBadge } from "@/components/CustomerTypeBadge";
 import { StarRating } from "@/components/StarRating";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useDB, db, type Customer, type Invoice, type Payment, fmt, daysLate, analyzeCustomerRisk, invoiceNumber, getShopSettings } from "@/lib/store";
 import { usePrivacy } from "@/lib/privacy";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { createShareLinkClient, listShareLinksClient, revokeShareLinkClient, deleteShareLinkClient } from "@/lib/share.client";
 import {
   ArrowLeft,
   CheckCircle2,
   CircleAlert,
   Clock3,
   FileDown,
-  Link2,
-  Loader2,
-  Copy,
-  Check,
-  Share2,
   User,
   Wallet,
   TrendingUp,
@@ -40,9 +30,6 @@ import {
   Lock,
   Unlock,
   Ban,
-  Undo2,
-  Trash2,
-  ExternalLink,
 } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { pdfDocument, openPdfDocument } from "@/lib/pdf-doc";
@@ -194,24 +181,6 @@ function CustomerDetailPage() {
   const latestInvoice = myInvoices[0];
   const latestPayment = myPayments[0];
 
-  // ── رابط مشاركة كشف الحساب ──
-  type ShareLinkRow = {
-    id: string;
-    token: string;
-    createdAt: string;
-    expiresAt: string | null;
-    revokedAt: string | null;
-  };
-  const [shareOpen, setShareOpen] = useState(false);
-  const [shareDays, setShareDays] = useState<string>("7");
-  const [creating, setCreating] = useState(false);
-  const [createdLink, setCreatedLink] = useState<string | null>(null);
-  const [links, setLinks] = useState<ShareLinkRow[]>([]);
-  const [loadingLinks, setLoadingLinks] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [revokingId, setRevokingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
   if (!customer || !m) {
     return (
       <AppShell>
@@ -293,92 +262,6 @@ function CustomerDetailPage() {
     toast.success("تم تجهيز كشف حساب العميل");
   };
 
-  // ── رابط مشاركة كشف الحساب ──
-  const openShareDialog = async () => {
-    setShareOpen(true);
-    setCreatedLink(null);
-    setCopied(false);
-    setLoadingLinks(true);
-    try {
-      const res = await listShareLinksClient(customer.id);
-      setLinks(res);
-    } catch (e: any) {
-      toast.error(e?.message || "تعذر تحميل الروابط");
-    } finally {
-      setLoadingLinks(false);
-    }
-  };
-
-  const generateShareLink = async () => {
-    setCreating(true);
-    try {
-      const res = await createShareLinkClient(customer.id, Number(shareDays));
-      const url = `${window.location.origin}/share/${res.token}`;
-      setCreatedLink(url);
-      const refreshed = await listShareLinksClient(customer.id);
-      setLinks(refreshed);
-      toast.success("تم توليد رابط المشاركة");
-    } catch (e: any) {
-      toast.error(e?.message || "تعذر توليد الرابط");
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const copyShareLink = async () => {
-    if (!createdLink) return;
-    try {
-      await navigator.clipboard.writeText(createdLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-      toast.success("تم نسخ الرابط");
-    } catch {
-      toast.error("انسخ الرابط يدوياً");
-    }
-  };
-
-  const sendShareLinkWhatsApp = () => {
-    if (!createdLink) return;
-    const phone = (customer.phone || "").replace(/^0/, "20");
-    const text = `مرحباً ${customer.name}، دي روابط كشف حسابك على سِجلّي:\n${createdLink}`;
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
-  };
-
-  const revokeLink = async (id: string) => {
-    setRevokingId(id);
-    try {
-      await revokeShareLinkClient(id);
-      const refreshed = await listShareLinksClient(customer.id);
-      setLinks(refreshed);
-      toast.success("تم إلغاء الرابط");
-    } catch (e: any) {
-      toast.error(e?.message || "تعذر إلغاء الرابط");
-    } finally {
-      setRevokingId(null);
-    }
-  };
-
-  const deleteLink = async (id: string) => {
-    setDeletingId(id);
-    try {
-      await deleteShareLinkClient(id);
-      const refreshed = await listShareLinksClient(customer.id);
-      setLinks(refreshed);
-      if (createdLink) setCreatedLink(null);
-      toast.success("تم حذف الرابط نهائياً");
-    } catch (e: any) {
-      toast.error(e?.message || "تعذر حذف الرابط");
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const shareLinkStatus = (l: ShareLinkRow): { label: string; tone: string } => {
-    if (l.revokedAt) return { label: "ملغي", tone: "bg-danger/12 text-danger" };
-    if (l.expiresAt && new Date(l.expiresAt).getTime() < Date.now()) return { label: "منتهي", tone: "bg-warning/12 text-warning" };
-    return { label: "نشط", tone: "bg-success/12 text-success" };
-  };
-
   return (
     <AppShell>
       <PageTransition>
@@ -434,9 +317,6 @@ function CustomerDetailPage() {
                 </AlertDialog>
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={() => exportStatement()}>
                   <FileDown className="w-4 h-4" /> تصدير كشف حساب (PDF)
-                </Button>
-                <Button size="sm" className="gap-1.5" onClick={openShareDialog}>
-                  <Share2 className="w-4 h-4" /> مشاركة
                 </Button>
               </div>
             }
@@ -775,135 +655,6 @@ function CustomerDetailPage() {
           </Reveal>
         </div>
       </PageTransition>
-
-      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-        <DialogContent className="max-w-2xl text-right">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 justify-end">
-              <Share2 className="h-5 w-5 text-primary" /> مشاركة كشف حساب العميل
-            </DialogTitle>
-            <DialogDescription>
-              ولّد رابط يفتح كشف الحساب الكامل (الرصيد + جدول الحركات) لأي حد يفتحه — بدون تسجيل دخول. تقدر تلغي الرابط في أي وقت.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div>
-              <Label className="mb-2 block">مدة صلاحية الرابط</Label>
-              <RadioGroup
-                value={shareDays}
-                onValueChange={(v) => setShareDays(v)}
-                className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2"
-              >
-                {[
-                  { value: "1", label: "يوم واحد" },
-                  { value: "7", label: "7 أيام" },
-                  { value: "30", label: "30 يوم" },
-                  { value: "0", label: "بدون انتهاء" },
-                ].map((opt) => (
-                  <Label
-                    key={opt.value}
-                    className="flex cursor-pointer items-center gap-2 rounded-2xl border border-border/60 bg-foreground/[0.03] p-3 text-sm font-semibold has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/8"
-                  >
-                    <RadioGroupItem value={opt.value} id={`share-days-${opt.value}`} />
-                    {opt.label}
-                  </Label>
-                ))}
-              </RadioGroup>
-            </div>
-
-            <Button
-              onClick={generateShareLink}
-              disabled={creating}
-              className="w-full gap-2"
-            >
-              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-              {creating ? "بنولّد الرابط…" : "توليد رابط المشاركة"}
-            </Button>
-
-            {createdLink && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Input readOnly dir="ltr" value={createdLink} className="min-w-0 flex-1 text-xs" />
-                  <Button variant="outline" size="icon" className="shrink-0" onClick={copyShareLink}>
-                    {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <Button variant="outline" className="w-full gap-2" onClick={sendShareLinkWhatsApp}>
-                  إرسال الرابط واتساب
-                </Button>
-              </div>
-            )}
-
-            <div className="rounded-2xl border border-border/60 bg-foreground/[0.02] p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="text-sm font-bold">الروابط النشطة</div>
-                {loadingLinks && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-              </div>
-              {!loadingLinks && links.length === 0 && (
-                <div className="text-sm text-muted-foreground">مفيش روابط مشاركة لسه.</div>
-              )}
-              {links.map((l) => {
-                const st = shareLinkStatus(l);
-                const active = !l.revokedAt && !(l.expiresAt && new Date(l.expiresAt).getTime() < Date.now());
-                return (
-                  <div key={l.id} className="flex flex-col gap-2 border-t border-[var(--hairline)] py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Badge className={st.tone}>{st.label}</Badge>
-                        <span className="truncate text-xs text-muted-foreground" dir="ltr">
-                          {`${window.location.origin}/share/${l.token.slice(0, 8)}…`}
-                        </span>
-                      </div>
-                      <div className="mt-1 text-[11px] text-muted-foreground">
-                        أُنشئ {new Date(l.createdAt).toLocaleDateString("ar-EG")}
-                        {l.expiresAt && active ? ` — ينتهي ${new Date(l.expiresAt).toLocaleDateString("ar-EG")}` : ""}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1.5 text-primary hover:bg-primary/10"
-                        onClick={() => window.open(`${window.location.origin}/share/${l.token}`, "_blank", "noopener,noreferrer")}
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        فتح
-                      </Button>
-                      {active && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1.5 text-danger hover:bg-danger/10"
-                          onClick={() => revokeLink(l.id)}
-                          disabled={revokingId === l.id}
-                        >
-                          {revokingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Undo2 className="h-3.5 w-3.5" />}
-                          إلغاء
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1.5 text-danger hover:bg-danger/10"
-                        onClick={() => deleteLink(l.id)}
-                        disabled={deletingId === l.id}
-                      >
-                        {deletingId === l.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                        حذف
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShareOpen(false)}>إغلاق</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </AppShell>
   );
 }
