@@ -21,9 +21,7 @@ const nav = [
     label: "العملاء",
     icon: Users,
     // children will render as subsection items under Customers
-    children: [
-      { to: "/customers/payments", label: "المدفوعات", icon: Receipt },
-    ],
+    // payments subsection removed
   },
   { to: "/invoices", label: "الفواتير", icon: FileText },
   { to: "/suppliers", label: "الموردين", icon: Truck },
