@@ -76,7 +76,7 @@ export async function createReturn(input: {
       kind: input.kind,
       invoice_id: input.invoiceId,
       supplier_id: input.supplierId,
-      items: input.items,
+      items: input.items as unknown as import("@/integrations/supabase/types").Json,
       total: input.total,
       reason: input.reason,
       returned_at: input.returnedAt,

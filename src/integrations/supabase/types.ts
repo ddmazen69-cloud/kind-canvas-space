@@ -479,6 +479,60 @@ export type Database = {
           },
         ]
       }
+      returns: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_id: string | null
+          items: Json
+          kind: string
+          reason: string | null
+          returned_at: string
+          supplier_id: string | null
+          total: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_id?: string | null
+          items?: Json
+          kind: string
+          reason?: string | null
+          returned_at?: string
+          supplier_id?: string | null
+          total?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_id?: string | null
+          items?: Json
+          kind?: string
+          reason?: string | null
+          returned_at?: string
+          supplier_id?: string | null
+          total?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "returns_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "returns_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_abilities: {
         Row: {
           ability_key: string
